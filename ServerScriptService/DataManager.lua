@@ -35,10 +35,12 @@ end
 
 local DefaultData = { 
 	Prestige = 0, CurrentPart = 1, CurrentMission = 1, CurrentWave = 1, XP = 0, TitanXP = 0, Dews = 0, Elo = 1000, 
-	Titan = "None", FightingStyle = "None", Clan = "None", Regiment = "Cadet Corps", TitanPity = 0, ClanPity = 0, 
+	Titan = "None", FightingStyle = "None", Clan = "None", Regiment = "Cadet Corps", 
+	TitanPity = 0, TitanMythicalPity = 0, ClanPity = 0, ClanMythicalPity = 0, -- [[ UPDATED PITIES ]]
 	EquippedWeapon = "None", EquippedAccessory = "None", PathDust = 0, PathsFloor = 1, 
 	DispatchData = "{}", AllyLevels = "{}", UnlockedAllies = "", MaxDeployments = 2, 
-	Health = 10, Strength = 10, Defense = 10, Speed = 10, Gas = 10, Resolve = 10, LastFreeReroll = 0, RedeemedCodes = "", RewardClaimedWeek = 0 
+	Health = 10, Strength = 10, Defense = 10, Speed = 10, Gas = 10, Resolve = 10, LastFreeReroll = 0, RedeemedCodes = "", RewardClaimedWeek = 0,
+	LoginStreak = 0, LastLoginDate = "", AutoTrainSessionTime = 0 -- [[ NEW LOGIN/AFK TRACKERS ]]
 }
 
 local CurrentVP = { ["Scout Regiment"] = 0, ["Garrison"] = 0, ["Military Police"] = 0, Week = math.floor(os.time() / 604800), Winner = "None" }
@@ -159,6 +161,8 @@ RemotesFolder.AdminCommand.OnServerEvent:Connect(function(player, command, targe
 	end
 end)
 
+
+
 local function RollBounties(player)
 	local now = os.time(); local currentDay = math.floor(now / 86400); local currentWeek = math.floor(now / 604800)
 	if player:GetAttribute("LastDailyReset") ~= currentDay then
@@ -203,6 +207,46 @@ local function LoadPlayer(player)
 	if CurrentVP.Winner ~= "None" and player:GetAttribute("Regiment") == CurrentVP.Winner and player:GetAttribute("RewardClaimedWeek") ~= CurrentVP.Week then
 		player:SetAttribute("RewardClaimedWeek", CurrentVP.Week); player:SetAttribute("TitanHardeningExtractCount", (player:GetAttribute("TitanHardeningExtractCount") or 0) + 2); player:SetAttribute("AncestralAwakeningSerumCount", (player:GetAttribute("AncestralAwakeningSerumCount") or 0) + 1)
 		task.delay(3, function() RemotesFolder.NotificationEvent:FireClient(player, "Your Regiment won the war! Received Forge Chest!", "Success") end)
+	end
+	
+	local LoginData = require(ReplicatedStorage:WaitForChild("LoginData"))
+
+	-- [[ DAILY LOGIN LOGIC ]]
+	local now = os.time()
+	local dateDict = os.date("!*t", now)
+	local todayStr = dateDict.year .. "-" .. dateDict.month .. "-" .. dateDict.day
+	local lastLogin = player:GetAttribute("LastLoginDate") or ""
+
+	if lastLogin ~= todayStr then
+		local streak = player:GetAttribute("LoginStreak") or 0
+		local yesterdayTime = now - 86400
+		local yDict = os.date("!*t", yesterdayTime)
+		local yesterdayStr = yDict.year .. "-" .. yDict.month .. "-" .. yDict.day
+
+		if lastLogin == yesterdayStr then
+			streak += 1
+		else
+			streak = 1 -- Reset if they missed a day
+		end
+		if streak > 7 then streak = 1 end
+
+		player:SetAttribute("LoginStreak", streak)
+		player:SetAttribute("LastLoginDate", todayStr)
+
+		local rewardData = LoginData[streak]
+		if rewardData then
+			if rewardData.Type == "Dews" then
+				dVal.Value += rewardData.Amount
+			elseif rewardData.Type == "Item" then
+				local safeName = rewardData.Name:gsub("[^%w]", "") .. "Count"
+				player:SetAttribute(safeName, (player:GetAttribute(safeName) or 0) + rewardData.Amount)
+			end
+
+			task.delay(5, function()
+				local rewardName = rewardData.Name or "Dews"
+				RemotesFolder.NotificationEvent:FireClient(player, "Day " .. streak .. " Login Reward: " .. rewardData.Amount .. "x " .. rewardName, "Success")
+			end)
+		end
 	end
 
 	RollBounties(player)
