@@ -102,12 +102,17 @@ local function RollFromWeights(weightTable)
 	end
 end
 
-function TitanData.RollTitan(pityCount)
+function TitanData.RollTitan(legendaryPity, mythicalPity)
 	local rarityRoll = RollFromWeights(TitanData.Rarities)
 
-	-- Pity System: Guarantees a Legendary every 100 rolls if you are unlucky
-	if pityCount and pityCount >= 100 then
-		rarityRoll = "Legendary"
+	-- Hard Pity: 250 rolls guarantees a Mythical
+	if mythicalPity and mythicalPity >= 250 then
+		rarityRoll = "Mythical"
+		-- Soft Pity: 100 rolls guarantees a Legendary (unless they naturally rolled a Mythical)
+	elseif legendaryPity and legendaryPity >= 100 then
+		if rarityRoll ~= "Mythical" then
+			rarityRoll = "Legendary"
+		end
 	end
 
 	local possibleTitans = {}
