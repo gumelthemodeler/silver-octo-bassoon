@@ -50,6 +50,7 @@ RemotesFolder:WaitForChild("UpgradeStat").OnServerEvent:Connect(function(player,
 end)
 
 RemotesFolder:WaitForChild("TrainAction").OnServerEvent:Connect(function(player, comboBonus, isTitan)
+	player:SetAttribute("AutoTrainSessionTime", 0) 
 	local prestige = player.leaderstats.Prestige.Value
 	local totalStats = (player:GetAttribute("Strength") or 10) + (player:GetAttribute("Defense") or 10) + (player:GetAttribute("Speed") or 10) + (player:GetAttribute("Resolve") or 10)
 	local baseXP = 1 + (prestige * 50) + math.floor(totalStats / 4)
@@ -65,23 +66,31 @@ RemotesFolder:WaitForChild("TrainAction").OnServerEvent:Connect(function(player,
 	player:SetAttribute(xpPoolName, (player:GetAttribute(xpPoolName) or 0) + xpGain)
 end)
 
+local MAX_AFK_TIME = 43200 -- 12 Hours in seconds
+
 task.spawn(function()
 	while true do
 		task.wait(1.5) 
 		for _, p in ipairs(Players:GetPlayers()) do
 			if p:GetAttribute("HasAutoTrain") then
-				local prestige = p:FindFirstChild("leaderstats") and p.leaderstats.Prestige.Value or 0
-				local baseGain = math.max(1, math.floor((1 + (prestige * 5)) * 0.25))
+				local sessionTime = p:GetAttribute("AutoTrainSessionTime") or 0
 
-				if p:GetAttribute("HasDoubleXP") then baseGain *= 2 end
-				if p:GetAttribute("HasVIP") then baseGain = math.floor(baseGain * 1.25) end
-				if p:GetAttribute("Buff_XP_Expiry") and os.time() < p:GetAttribute("Buff_XP_Expiry") then baseGain *= 2 end
+				if sessionTime < MAX_AFK_TIME then
+					p:SetAttribute("AutoTrainSessionTime", sessionTime + 1.5)
 
-				local winReg = RemotesFolder:FindFirstChild("WinningRegiment")
-				if winReg and winReg.Value ~= "None" and p:GetAttribute("Regiment") == winReg.Value then baseGain = math.floor(baseGain * 1.15) end
+					local prestige = p:FindFirstChild("leaderstats") and p.leaderstats.Prestige.Value or 0
+					local baseGain = math.max(1, math.floor((1 + (prestige * 5)) * 0.25))
 
-				p:SetAttribute("XP", (p:GetAttribute("XP") or 0) + baseGain)
-				if (p:GetAttribute("Titan") or "None") ~= "None" then p:SetAttribute("TitanXP", (p:GetAttribute("TitanXP") or 0) + baseGain) end
+					if p:GetAttribute("HasDoubleXP") then baseGain *= 2 end
+					if p:GetAttribute("HasVIP") then baseGain = math.floor(baseGain * 1.25) end
+					if p:GetAttribute("Buff_XP_Expiry") and os.time() < p:GetAttribute("Buff_XP_Expiry") then baseGain *= 2 end
+
+					local winReg = RemotesFolder:FindFirstChild("WinningRegiment")
+					if winReg and winReg.Value ~= "None" and p:GetAttribute("Regiment") == winReg.Value then baseGain = math.floor(baseGain * 1.15) end
+
+					p:SetAttribute("XP", (p:GetAttribute("XP") or 0) + baseGain)
+					if (p:GetAttribute("Titan") or "None") ~= "None" then p:SetAttribute("TitanXP", (p:GetAttribute("TitanXP") or 0) + baseGain) end
+				end
 			end
 		end
 	end
@@ -252,21 +261,44 @@ RemotesFolder:WaitForChild("ManageStorage").OnServerEvent:Connect(function(playe
 end)
 
 local function PerformRoll(gType, isPremium, pObj)
-	local pityKey = gType .. "Pity"; local pityVal = pObj:GetAttribute(pityKey) or 0
+	local legPityKey = gType .. "Pity"
+	local mythPityKey = gType .. "MythicalPity"
+	local legPityVal = pObj:GetAttribute(legPityKey) or 0
+	local mythPityVal = pObj:GetAttribute(mythPityKey) or 0
+
 	local resultName, resultRarity = "", "Common"
+
 	if gType == "Titan" then
 		if isPremium then
 			if math.random(1, 100) <= 15 then resultRarity = "Mythical" else resultRarity = "Legendary" end
 			local possibleTitans = {}; for tName, data in pairs(TitanData.Titans) do if data.Rarity == resultRarity then table.insert(possibleTitans, tName) end end
-			resultName = possibleTitans[math.random(1, #possibleTitans)]; pObj:SetAttribute(pityKey, 0)
+			resultName = possibleTitans[math.random(1, #possibleTitans)]
+			pObj:SetAttribute(legPityKey, 0); pObj:SetAttribute(mythPityKey, 0)
 		else
-			resultName, resultRarity = TitanData.RollTitan(pityVal)
-			if resultRarity == "Legendary" or resultRarity == "Mythical" then pObj:SetAttribute(pityKey, 0) else pObj:SetAttribute(pityKey, pityVal + 1) end
+			resultName, resultRarity = TitanData.RollTitan(legPityVal, mythPityVal)
+			if resultRarity == "Mythical" or resultRarity == "Transcendent" then
+				pObj:SetAttribute(legPityKey, 0); pObj:SetAttribute(mythPityKey, 0)
+			elseif resultRarity == "Legendary" then
+				pObj:SetAttribute(legPityKey, 0); pObj:SetAttribute(mythPityKey, mythPityVal + 1)
+			else
+				pObj:SetAttribute(legPityKey, legPityVal + 1); pObj:SetAttribute(mythPityKey, mythPityVal + 1)
+			end
 		end
 	elseif gType == "Clan" then
-		resultName = TitanData.RollClan(); local weight = TitanData.ClanWeights[resultName] or 40.0
-		if weight <= 1.5 then resultRarity = "Mythical" elseif weight <= 4.0 then resultRarity = "Legendary" elseif weight <= 8.0 then resultRarity = "Epic" elseif weight <= 15.0 then resultRarity = "Rare" else resultRarity = "Common" end
-		if resultRarity == "Legendary" or resultRarity == "Mythical" then pObj:SetAttribute(pityKey, 0) else pObj:SetAttribute(pityKey, pityVal + 1) end
+		if mythPityVal >= 250 then
+			resultName = "Ackerman"; resultRarity = "Mythical"
+		else
+			resultName = TitanData.RollClan(); local weight = TitanData.ClanWeights[resultName] or 40.0
+			if weight <= 1.5 then resultRarity = "Mythical" elseif weight <= 4.0 then resultRarity = "Legendary" elseif weight <= 8.0 then resultRarity = "Epic" elseif weight <= 15.0 then resultRarity = "Rare" else resultRarity = "Common" end
+		end
+
+		if resultRarity == "Mythical" or resultRarity == "Transcendent" then
+			pObj:SetAttribute(legPityKey, 0); pObj:SetAttribute(mythPityKey, 0)
+		elseif resultRarity == "Legendary" then
+			pObj:SetAttribute(legPityKey, 0); pObj:SetAttribute(mythPityKey, mythPityVal + 1)
+		else
+			pObj:SetAttribute(legPityKey, legPityVal + 1); pObj:SetAttribute(mythPityKey, mythPityVal + 1)
+		end
 	end
 	return resultName, resultRarity
 end
