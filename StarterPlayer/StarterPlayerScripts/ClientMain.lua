@@ -23,6 +23,88 @@ AOT_Interface.Parent = playerGui
 local WorldBlocker = Instance.new("Frame")
 WorldBlocker.Size = UDim2.new(1, 0, 1, 0); WorldBlocker.BackgroundColor3 = Color3.fromRGB(10, 10, 12); WorldBlocker.BorderSizePixel = 0; WorldBlocker.ZIndex = -10; WorldBlocker.Parent = AOT_Interface
 
+-- [[ THE FIX: UIGradient swallows text color. Move text to a child label! ]]
+local function ApplyButtonGradient(btn, topColor, botColor, strokeColor)
+	btn.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+
+	local grad = btn:FindFirstChildOfClass("UIGradient") or Instance.new("UIGradient", btn)
+	grad.Color = ColorSequence.new{ColorSequenceKeypoint.new(0, topColor), ColorSequenceKeypoint.new(1, botColor)}
+	grad.Rotation = 90
+
+	local corner = btn:FindFirstChildOfClass("UICorner") or Instance.new("UICorner", btn)
+	corner.CornerRadius = UDim.new(0, 4)
+
+	if strokeColor then
+		local stroke = btn:FindFirstChildOfClass("UIStroke") or Instance.new("UIStroke", btn)
+		stroke.Color = strokeColor
+		stroke.Thickness = 1
+		stroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+	end
+
+	-- Extract the text into a clean child label so the gradient doesn't ruin it
+	if not btn:GetAttribute("GradientTextFixed") then
+		btn:SetAttribute("GradientTextFixed", true)
+
+		local textLbl = Instance.new("TextLabel", btn)
+		textLbl.Name = "BtnTextLabel"
+		textLbl.Size = UDim2.new(1, 0, 1, 0)
+		textLbl.BackgroundTransparency = 1
+		textLbl.Font = btn.Font
+		textLbl.TextSize = btn.TextSize
+		textLbl.TextScaled = btn.TextScaled
+		textLbl.RichText = btn.RichText
+		textLbl.TextWrapped = btn.TextWrapped
+		textLbl.TextXAlignment = btn.TextXAlignment
+		textLbl.TextYAlignment = btn.TextYAlignment
+		textLbl.ZIndex = btn.ZIndex + 1
+
+		-- Move existing constraint if there is one
+		local tConstraint = btn:FindFirstChildOfClass("UITextSizeConstraint")
+		if tConstraint then tConstraint.Parent = textLbl end
+
+		-- Automatically capture future constraints so TextScaled still works
+		btn.ChildAdded:Connect(function(child)
+			if child:IsA("UITextSizeConstraint") then
+				task.delay(0, function() child.Parent = textLbl end)
+			end
+		end)
+
+		textLbl.Text = btn.Text
+		textLbl.TextColor3 = btn.TextColor3
+		btn.Text = ""
+
+		-- Bind text and color changes so animations and script logic still work flawlessly
+		btn:GetPropertyChangedSignal("Text"):Connect(function()
+			if btn.Text ~= "" then
+				textLbl.Text = btn.Text
+				btn.Text = ""
+			end
+		end)
+		btn:GetPropertyChangedSignal("TextColor3"):Connect(function()
+			textLbl.TextColor3 = btn.TextColor3
+		end)
+	end
+end
+
+-- [[ THE FIX: Custom Gradient Tweener to bypass Roblox's ColorSequence limitation ]]
+local function TweenGradient(grad, targetTop, targetBot, duration)
+	local startTop = grad.Color.Keypoints[1].Value
+	local startBot = grad.Color.Keypoints[#grad.Color.Keypoints].Value
+
+	local val = Instance.new("NumberValue")
+	val.Value = 0
+	local tween = TweenService:Create(val, TweenInfo.new(duration), {Value = 1})
+
+	val.Changed:Connect(function(v)
+		grad.Color = ColorSequence.new{
+			ColorSequenceKeypoint.new(0, startTop:Lerp(targetTop, v)),
+			ColorSequenceKeypoint.new(1, startBot:Lerp(targetBot, v))
+		}
+	end)
+	tween:Play()
+	tween.Completed:Connect(function() val:Destroy() end)
+end
+
 -- [[ TOP BAR ]]
 local TopBar = Instance.new("Frame")
 TopBar.Name = "TopBar"
@@ -113,10 +195,14 @@ local function SwitchTab(tabName)
 	for _, btn in ipairs(SubButtons) do
 		if btn.Name == tabName .. "Btn" then
 			btn:SetAttribute("IsActive", true)
-			TweenService:Create(btn, TweenInfo.new(0.2), {BackgroundColor3 = Color3.fromRGB(120, 100, 60), TextColor3 = Color3.fromRGB(255, 255, 255)}):Play()
+			local grad = btn:FindFirstChildOfClass("UIGradient")
+			if grad then TweenGradient(grad, Color3.fromRGB(220, 160, 40), Color3.fromRGB(140, 90, 15), 0.2) end
+			TweenService:Create(btn, TweenInfo.new(0.2), {TextColor3 = Color3.fromRGB(255, 255, 255)}):Play()
 		else
 			btn:SetAttribute("IsActive", false)
-			TweenService:Create(btn, TweenInfo.new(0.2), {BackgroundColor3 = Color3.fromRGB(30, 30, 35), TextColor3 = Color3.fromRGB(180, 180, 180)}):Play()
+			local grad = btn:FindFirstChildOfClass("UIGradient")
+			if grad then TweenGradient(grad, Color3.fromRGB(50, 50, 55), Color3.fromRGB(25, 25, 30), 0.2) end
+			TweenService:Create(btn, TweenInfo.new(0.2), {TextColor3 = Color3.fromRGB(180, 180, 180)}):Play()
 		end
 	end
 
@@ -135,9 +221,8 @@ local function BuildNavigation()
 	local regBtn = Instance.new("TextButton", NavBar)
 	regBtn.Name = "RegimentsBtn"
 	regBtn.Size = isMobile and UDim2.new(0, 100, 1, -15) or UDim2.new(1, -15, 0, 110)
-	regBtn.BackgroundColor3 = Color3.fromRGB(20, 20, 25); regBtn.Text = ""
-	Instance.new("UICorner", regBtn).CornerRadius = UDim.new(0, 8)
-	local regStroke = Instance.new("UIStroke", regBtn); regStroke.Thickness = 2
+	regBtn.Text = ""
+	ApplyButtonGradient(regBtn, Color3.fromRGB(40, 40, 45), Color3.fromRGB(20, 20, 25), Color3.fromRGB(80, 80, 90))
 
 	local regLogo = Instance.new("ImageLabel", regBtn)
 	regLogo.Size = UDim2.new(0.6, 0, 0.6, 0); regLogo.Position = UDim2.new(0.2, 0, 0.05, 0)
@@ -153,11 +238,12 @@ local function BuildNavigation()
 		local rColor = RegimentColors[rName] or Color3.fromRGB(120, 120, 130)
 		local rIcon = RegimentIcons[rName] or ""
 
-		regStroke.Color = rColor; regLogo.ImageColor3 = rColor; regText.TextColor3 = rColor
+		local stroke = regBtn:FindFirstChildOfClass("UIStroke")
+		if stroke then stroke.Color = rColor end
+
+		regLogo.ImageColor3 = rColor; regText.TextColor3 = rColor
 		regText.Text = string.upper(rName)
 		regLogo.Image = rIcon
-		regLogo.ImageRectOffset = Vector2.new(0, 0)
-		regLogo.ImageRectSize = Vector2.new(0, 0)
 	end
 	player.AttributeChanged:Connect(function(attr) if attr == "Regiment" then UpdateRegimentBtn() end end)
 	UpdateRegimentBtn()
@@ -171,15 +257,12 @@ local function BuildNavigation()
 
 		local catBtn = Instance.new("TextButton", NavBar)
 		catBtn.Size = isMobile and UDim2.new(0, 90, 1, -15) or UDim2.new(1, -15, 0, 90)
-		catBtn.BackgroundColor3 = Color3.fromRGB(15, 15, 20); catBtn.Text = ""
-		Instance.new("UICorner", catBtn).CornerRadius = UDim.new(0, 6); Instance.new("UIStroke", catBtn).Color = Color3.fromRGB(80, 70, 40)
+		catBtn.Text = ""
+		ApplyButtonGradient(catBtn, Color3.fromRGB(40, 40, 45), Color3.fromRGB(20, 20, 25), Color3.fromRGB(80, 70, 40))
 
 		local catIcon = Instance.new("ImageLabel", catBtn)
 		catIcon.Size = UDim2.new(0, 40, 0, 40); catIcon.Position = UDim2.new(0.5, 0, 0.4, 0); catIcon.AnchorPoint = Vector2.new(0.5, 0.5)
-		catIcon.BackgroundTransparency = 1
-		catIcon.ScaleType = Enum.ScaleType.Fit
-		catIcon.Image = CategoryIcons[catName]
-		catIcon.ImageColor3 = Color3.fromRGB(255, 215, 100)
+		catIcon.BackgroundTransparency = 1; catIcon.ScaleType = Enum.ScaleType.Fit; catIcon.Image = CategoryIcons[catName]; catIcon.ImageColor3 = Color3.fromRGB(255, 215, 100)
 
 		local catLbl = Instance.new("TextLabel", catBtn)
 		catLbl.Size = UDim2.new(1, -10, 0, 25); catLbl.Position = UDim2.new(0, 5, 0.65, 0)
@@ -197,17 +280,19 @@ local function BuildNavigation()
 			local sBtn = Instance.new("TextButton", SubContainer)
 			sBtn.Name = tabInfo.Id .. "Btn"
 			sBtn.Size = isMobile and UDim2.new(0, 85, 1, -25) or UDim2.new(1, -25, 0, 45)
-			sBtn.BackgroundColor3 = Color3.fromRGB(30, 30, 35); sBtn.Font = Enum.Font.GothamBold; sBtn.TextColor3 = Color3.fromRGB(180, 180, 180); sBtn.TextScaled = true; sBtn.Text = tabInfo.Name
-			Instance.new("UICorner", sBtn).CornerRadius = UDim.new(0, 6); Instance.new("UIStroke", sBtn).Color = Color3.fromRGB(50, 50, 55); Instance.new("UITextSizeConstraint", sBtn).MaxTextSize = 11
+			sBtn.Font = Enum.Font.GothamBold; sBtn.TextColor3 = Color3.fromRGB(180, 180, 180); sBtn.TextScaled = true; sBtn.Text = tabInfo.Name
+			Instance.new("UITextSizeConstraint", sBtn).MaxTextSize = 11
+			ApplyButtonGradient(sBtn, Color3.fromRGB(50, 50, 55), Color3.fromRGB(25, 25, 30), Color3.fromRGB(50, 50, 55))
 			table.insert(SubButtons, sBtn)
 			sBtn.MouseButton1Click:Connect(function() SwitchTab(tabInfo.Id) end)
 		end
 
 		catBtn.MouseButton1Click:Connect(function()
+			local grad = catBtn:FindFirstChildOfClass("UIGradient")
 			if ActiveCategory == catName then
 				ActiveCategory = nil
 				TweenService:Create(SubContainer, TweenInfo.new(0.3), {Size = isMobile and UDim2.new(0, 0, 1, 0) or UDim2.new(1, 0, 0, 0)}):Play()
-				TweenService:Create(catBtn, TweenInfo.new(0.2), {BackgroundColor3 = Color3.fromRGB(15, 15, 20)}):Play()
+				if grad then TweenGradient(grad, Color3.fromRGB(40, 40, 45), Color3.fromRGB(20, 20, 25), 0.2) end
 				TweenService:Create(catIcon, TweenInfo.new(0.2), {ImageColor3 = Color3.fromRGB(255, 215, 100)}):Play()
 				TweenService:Create(catLbl, TweenInfo.new(0.2), {TextColor3 = Color3.fromRGB(200, 180, 100)}):Play()
 			else
@@ -215,14 +300,15 @@ local function BuildNavigation()
 				for _, child in ipairs(NavBar:GetChildren()) do
 					if child:IsA("Frame") and child ~= SubContainer then TweenService:Create(child, TweenInfo.new(0.3), {Size = isMobile and UDim2.new(0, 0, 1, 0) or UDim2.new(1, 0, 0, 0)}):Play() end
 					if child:IsA("TextButton") and child ~= catBtn and child.Name ~= "RegimentsBtn" and child.Name ~= "AdminBtn" then 
-						TweenService:Create(child, TweenInfo.new(0.2), {BackgroundColor3 = Color3.fromRGB(15, 15, 20)}):Play()
+						local cGrad = child:FindFirstChildOfClass("UIGradient")
+						if cGrad then TweenGradient(cGrad, Color3.fromRGB(40, 40, 45), Color3.fromRGB(20, 20, 25), 0.2) end
 						local ic = child:FindFirstChildOfClass("ImageLabel"); if ic then TweenService:Create(ic, TweenInfo.new(0.2), {ImageColor3 = Color3.fromRGB(255, 215, 100)}):Play() end
 						local tx = child:FindFirstChildOfClass("TextLabel"); if tx then TweenService:Create(tx, TweenInfo.new(0.2), {TextColor3 = Color3.fromRGB(200, 180, 100)}):Play() end
 					end
 				end
 				local targetSize = isMobile and UDim2.new(0, #subTabs * 95, 1, 0) or UDim2.new(1, 0, 0, #subTabs * 55)
 				TweenService:Create(SubContainer, TweenInfo.new(0.3, Enum.EasingStyle.Back), {Size = targetSize}):Play()
-				TweenService:Create(catBtn, TweenInfo.new(0.2), {BackgroundColor3 = Color3.fromRGB(120, 100, 60)}):Play()
+				if grad then TweenGradient(grad, Color3.fromRGB(200, 150, 40), Color3.fromRGB(120, 80, 15), 0.2) end
 				TweenService:Create(catIcon, TweenInfo.new(0.2), {ImageColor3 = Color3.fromRGB(255, 255, 255)}):Play()
 				TweenService:Create(catLbl, TweenInfo.new(0.2), {TextColor3 = Color3.fromRGB(255, 255, 255)}):Play()
 			end
@@ -232,8 +318,9 @@ local function BuildNavigation()
 	if (player.UserId == 4068160397 or player.Name == "girthbender1209") then
 		local adminBtn = Instance.new("TextButton", NavBar)
 		adminBtn.Name = "AdminBtn"; adminBtn.Size = isMobile and UDim2.new(0, 90, 1, -15) or UDim2.new(1, -15, 0, 45)
-		adminBtn.BackgroundColor3 = Color3.fromRGB(40, 20, 20); adminBtn.Font = Enum.Font.GothamBlack; adminBtn.TextColor3 = Color3.fromRGB(255, 100, 100); adminBtn.TextScaled = true; adminBtn.Text = "ADMIN"
-		Instance.new("UICorner", adminBtn).CornerRadius = UDim.new(0, 6); Instance.new("UIStroke", adminBtn).Color = Color3.fromRGB(150, 50, 50); Instance.new("UITextSizeConstraint", adminBtn).MaxTextSize = 12
+		adminBtn.Font = Enum.Font.GothamBlack; adminBtn.TextColor3 = Color3.fromRGB(255, 100, 100); adminBtn.TextScaled = true; adminBtn.Text = "ADMIN"
+		Instance.new("UITextSizeConstraint", adminBtn).MaxTextSize = 12
+		ApplyButtonGradient(adminBtn, Color3.fromRGB(80, 30, 30), Color3.fromRGB(40, 15, 15), Color3.fromRGB(150, 50, 50))
 		table.insert(SubButtons, adminBtn)
 		adminBtn.MouseButton1Click:Connect(function() SwitchTab("Admin") end)
 	end
@@ -249,20 +336,12 @@ task.spawn(function()
 	TweenService:Create(NavWrapper, TweenInfo.new(0.8, Enum.EasingStyle.Exponential, Enum.EasingDirection.Out), {Position = targetPos}):Play()
 end)
 
--- [[ THE FIX: NUMBER ABBREVIATION ALGORITHM ]]
 local Suffixes = {"", "K", "M", "B", "T", "Qa", "Qi", "Sx"}
 local function AbbreviateNumber(n)
-	if not n then return "0" end
-	n = tonumber(n) or 0
+	if not n then return "0" end; n = tonumber(n) or 0
 	if n < 1000 then return tostring(math.floor(n)) end
-
-	local suffixIndex = math.floor(math.log10(n) / 3)
-	local value = n / (10 ^ (suffixIndex * 3))
-
-	-- Format to 1 decimal place, and cleanly remove trailing .0
-	local str = string.format("%.1f", value)
-	str = str:gsub("%.0$", "")
-
+	local suffixIndex = math.floor(math.log10(n) / 3); local value = n / (10 ^ (suffixIndex * 3))
+	local str = string.format("%.1f", value); str = str:gsub("%.0$", "")
 	return str .. (Suffixes[suffixIndex + 1] or "")
 end
 
