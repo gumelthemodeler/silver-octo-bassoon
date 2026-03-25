@@ -128,11 +128,11 @@ EnemyData.Parts = {
 
 	[4] = {
 		RandomFlavor = {"An %s attacks you in the Crystal Caverns!"},
-		Mobs = { { IsHuman = true, Name = "Anti-Personnel MP", Health = 200, Strength = 25, Defense = 15, Speed = 30, Resolve = 18, TitanStats = emptyTitans, Skills = {"Grapple Shot", "Buckshot Spread"}, Drops = { Dews = 40, XP = 150, ItemChance = {["Anti-Personnel Pistols"]=1} } } },
+		Mobs = { { IsHuman = true, Name = "Anti-Personnel MP", Health = 200, Strength = 25, Defense = 15, Speed = 30, Resolve = 18, TitanStats = emptyTitans, Skills = {"Grapple Shot", "Buckshot Spread"}, Drops = { Dews = 300, XP = 150, ItemChance = {["Anti-Personnel Pistols"]=1} } } },
 		Templates = {
-			["Interior MP"] = { IsHuman = true, Name = "Interior MP Grunt", Health = 220, Strength = 28, Defense = 16, Speed = 25, Resolve = 20, TitanStats = emptyTitans, Skills = {"Heavy Slash", "Regroup"}, Drops = { Dews = 60, XP = 180, ItemChance = {["Anti-Personnel Pistols"]=1} } },
-			["Anti-Personnel MP"] = { IsHuman = true, Name = "Anti-Personnel MP", Health = 200, Strength = 25, Defense = 15, Speed = 30, Resolve = 18, TitanStats = emptyTitans, Skills = {"Grapple Shot", "Evasive Maneuver"}, Drops = { Dews = 40, XP = 150, ItemChance = {["Anti-Personnel Pistols"]=2} } },
-			["Part4Boss"] = { IsHuman = true, IsBoss = true, Name = "Kenny's Lieutenant", Health = 1000, Strength = 60, Defense = 35, Speed = 50, Resolve = 45, TitanStats = emptyTitans, Skills = {"Anti-Titan Round", "Knee Capper", "Smoke Screen"}, Drops = { Dews = 1000, XP = 2500, ItemChance = { ["Anti-Personnel Pistols"] = 25, ["Commander's Bolo Tie"] = 5 } } }
+			["Interior MP"] = { IsHuman = true, Name = "Interior MP Grunt", Health = 220, Strength = 28, Defense = 16, Speed = 25, Resolve = 20, TitanStats = emptyTitans, Skills = {"Heavy Slash", "Regroup"}, Drops = { Dews = 250, XP = 180, ItemChance = {["Anti-Personnel Pistols"]=1} } },
+			["Anti-Personnel MP"] = { IsHuman = true, Name = "Anti-Personnel MP", Health = 200, Strength = 25, Defense = 15, Speed = 30, Resolve = 18, TitanStats = emptyTitans, Skills = {"Grapple Shot", "Evasive Maneuver"}, Drops = { Dews = 300, XP = 150, ItemChance = {["Anti-Personnel Pistols"]=2} } },
+			["Part4Boss"] = { IsHuman = true, IsBoss = true, Name = "Kenny's Lieutenant", Health = 1000, Strength = 60, Defense = 35, Speed = 50, Resolve = 45, TitanStats = emptyTitans, Skills = {"Anti-Titan Round", "Knee Capper", "Smoke Screen"}, Drops = { Dews = 4000, XP = 2500, ItemChance = { ["Anti-Personnel Pistols"] = 25, ["Commander's Bolo Tie"] = 5 } } }
 		},
 		Missions = {
 			[1] = { Name = "The Uprising", Waves = { 
@@ -148,11 +148,11 @@ EnemyData.Parts = {
 
 	[5] = {
 		RandomFlavor = {"You run into a %s in Liberio!"},
-		Mobs = { { IsHuman = true, Name = "Marleyan Guard", Health = 350, Strength = 40, Defense = 25, Speed = 35, Resolve = 25, TitanStats = emptyTitans, Skills = {"Heavy Slash", "Evasive Maneuver"}, Drops = { Dews = 60, XP = 200, ItemChance = {["Marleyan Armband"]=1} } } },
+		Mobs = { { IsHuman = true, Name = "Marleyan Guard", Health = 350, Strength = 40, Defense = 25, Speed = 35, Resolve = 25, TitanStats = emptyTitans, Skills = {"Heavy Slash", "Evasive Maneuver"}, Drops = { Dews = 500, XP = 200, ItemChance = {["Marleyan Armband"]=1} } } },
 		Templates = {
-			["Marleyan Guard"] = { IsHuman = true, Name = "Marleyan Guard", Health = 350, Strength = 40, Defense = 25, Speed = 35, Resolve = 25, TitanStats = emptyTitans, Skills = {"Heavy Slash", "Evasive Maneuver"}, Drops = { Dews = 60, XP = 200, ItemChance = {["Marleyan Armband"]=1} } },
-			["Marleyan Sniper"] = { IsHuman = true, Name = "Marleyan Sniper", Health = 400, Strength = 60, Defense = 20, Speed = 45, Resolve = 28, TitanStats = emptyTitans, Skills = {"Anti-Titan Round", "Regroup"}, Drops = { Dews = 70, XP = 250, ItemChance = {["Marleyan Combat Manual"]=1} } },
-			["Part5Boss"] = { IsHuman = true, IsBoss = true, Name = "Marleyan Warrior Candidate", Health = 1500, Strength = 90, Defense = 50, Speed = 75, Resolve = 65, TitanStats = emptyTitans, Skills = {"Grapple Shot", "Buckshot Spread", "Smoke Screen"}, Drops = { Dews = 1500, XP = 3500, ItemChance = { ["Marleyan Combat Manual"] = 15, ["Marleyan Armband"] = 25 } } }
+			["Marleyan Guard"] = { IsHuman = true, Name = "Marleyan Guard", Health = 350, Strength = 40, Defense = 25, Speed = 35, Resolve = 25, TitanStats = emptyTitans, Skills = {"Heavy Slash", "Evasive Maneuver"}, Drops = { Dews = 500, XP = 200, ItemChance = {["Marleyan Armband"]=1} } },
+			["Marleyan Sniper"] = { IsHuman = true, Name = "Marleyan Sniper", Health = 400, Strength = 60, Defense = 20, Speed = 45, Resolve = 28, TitanStats = emptyTitans, Skills = {"Anti-Titan Round", "Regroup"}, Drops = { Dews = 650, XP = 250, ItemChance = {["Marleyan Combat Manual"]=1} } },
+			["Part5Boss"] = { IsHuman = true, IsBoss = true, Name = "Marleyan Warrior Candidate", Health = 1500, Strength = 90, Defense = 50, Speed = 75, Resolve = 65, TitanStats = emptyTitans, Skills = {"Grapple Shot", "Buckshot Spread", "Smoke Screen"}, Drops = { Dews = 8000, XP = 3500, ItemChance = { ["Marleyan Combat Manual"] = 15, ["Marleyan Armband"] = 25 } } }
 		},
 		Missions = {
 			[1] = { Name = "Marleyan Assault", Waves = { 
@@ -168,11 +168,11 @@ EnemyData.Parts = {
 
 	[6] = {
 		RandomFlavor = {"You are ambushed in the ruins of Shiganshina!"},
-		Mobs = { { Name = "Zeke's Controlled Titan", Health = 450, Strength = 50, Defense = 20, Speed = 40, Resolve = 20, TitanStats = emptyTitans, Skills = {"Brutal Swipe", "Stomp"}, Drops = { Dews = 80, XP = 300, ItemChance = {["Standard Titan Serum"]=1} } } },
+		Mobs = { { Name = "Zeke's Controlled Titan", Health = 450, Strength = 50, Defense = 20, Speed = 40, Resolve = 20, TitanStats = emptyTitans, Skills = {"Brutal Swipe", "Stomp"}, Drops = { Dews = 900, XP = 300, ItemChance = {["Standard Titan Serum"]=1} } } },
 		Templates = {
-			["Zeke's Controlled Titan"] = { Name = "Zeke's Controlled Titan", Health = 450, Strength = 50, Defense = 20, Speed = 40, Resolve = 20, TitanStats = emptyTitans, Skills = {"Brutal Swipe", "Stomp"}, Drops = { Dews = 80, XP = 300, ItemChance = {["Standard Titan Serum"]=1} } }, 
-			["Beast Titan Pitcher"] = { Name = "Beast Titan (Rock Throw)", Health = 800, Strength = 150, Defense = 60, Speed = 30, Resolve = 80, TitanStats = emptyTitans, Skills = {"Titan Roar", "Brutal Swipe"}, Drops = { Dews = 200, XP = 600, ItemChance = {["Thunder Spear"]=1} } },
-			["Part6Boss"] = { IsBoss = true, Name = "Armored Titan (Reiner)", Health = 2500, GateType = "Reinforced Skin", GateHP = 2500, Strength = 120, Defense = 150, Speed = 45, Resolve = 90, TitanStats = {Power="B", Speed="C", Hardening="S", Endurance="A", Precision="C", Potential="C"}, Skills = {"Armored Tackle", "Hardened Punch", "Brutal Swipe"}, Drops = { Dews = 2000, XP = 5000, ItemChance = { ["Spinal Fluid Syringe"] = 2, ["Thunder Spear"] = 5 } } }
+			["Zeke's Controlled Titan"] = { Name = "Zeke's Controlled Titan", Health = 450, Strength = 50, Defense = 20, Speed = 40, Resolve = 20, TitanStats = emptyTitans, Skills = {"Brutal Swipe", "Stomp"}, Drops = { Dews = 900, XP = 300, ItemChance = {["Standard Titan Serum"]=1} } }, 
+			["Beast Titan Pitcher"] = { Name = "Beast Titan (Rock Throw)", Health = 800, Strength = 150, Defense = 60, Speed = 30, Resolve = 80, TitanStats = emptyTitans, Skills = {"Titan Roar", "Brutal Swipe"}, Drops = { Dews = 1200, XP = 600, ItemChance = {["Thunder Spear"]=1} } },
+			["Part6Boss"] = { IsBoss = true, Name = "Armored Titan (Reiner)", Health = 2500, GateType = "Reinforced Skin", GateHP = 2500, Strength = 120, Defense = 150, Speed = 45, Resolve = 90, TitanStats = {Power="B", Speed="C", Hardening="S", Endurance="A", Precision="C", Potential="C"}, Skills = {"Armored Tackle", "Hardened Punch", "Brutal Swipe"}, Drops = { Dews = 15000, XP = 5000, ItemChance = { ["Spinal Fluid Syringe"] = 2, ["Thunder Spear"] = 5 } } }
 		},
 		Missions = {
 			[1] = { Name = "Return to Shiganshina", Waves = { 
@@ -188,11 +188,11 @@ EnemyData.Parts = {
 
 	[7] = {
 		RandomFlavor = {"Marleyan forces are dropping from the sky!"},
-		Mobs = { { IsHuman = true, Name = "Marleyan Paratrooper", Health = 600, Strength = 70, Defense = 40, Speed = 60, Resolve = 50, TitanStats = emptyTitans, Skills = {"Heavy Slash", "Evasive Maneuver"}, Drops = { Dews = 120, XP = 500, ItemChance = {["Advanced ODM Gear"]=1} } } },
+		Mobs = { { IsHuman = true, Name = "Marleyan Paratrooper", Health = 600, Strength = 70, Defense = 40, Speed = 60, Resolve = 50, TitanStats = emptyTitans, Skills = {"Heavy Slash", "Evasive Maneuver"}, Drops = { Dews = 1500, XP = 500, ItemChance = {["Advanced ODM Gear"]=1} } } },
 		Templates = {
-			["Marleyan Paratrooper"] = { IsHuman = true, Name = "Marleyan Paratrooper", Health = 600, Strength = 70, Defense = 40, Speed = 60, Resolve = 50, TitanStats = emptyTitans, Skills = {"Heavy Slash", "Evasive Maneuver"}, Drops = { Dews = 120, XP = 500, ItemChance = {["Advanced ODM Gear"]=1} } },
-			["Anti-Titan Artillery"] = { IsHuman = true, Name = "Anti-Titan Artillery", Health = 500, Strength = 200, Defense = 100, Speed = 10, Resolve = 100, TitanStats = emptyTitans, Skills = {"Anti-Titan Round", "Regroup"}, Drops = { Dews = 300, XP = 800, ItemChance = {["Ultrahard Steel Blades"]=1} } },
-			["Part7Boss"] = { IsBoss = true, Name = "Jaw Titan (Porco)", Health = 4000, GateType = "Hardening", GateHP = 1500, Strength = 160, Defense = 80, Speed = 150, Resolve = 100, TitanStats = {Power="A", Speed="S", Hardening="B", Endurance="C", Precision="A", Potential="B"}, Skills = {"Frenzied Thrash", "Titan Bite"}, Drops = { Dews = 3000, XP = 8000, ItemChance = { ["Standard Titan Serum"] = 20, ["Advanced ODM Gear"] = 10 } } }
+			["Marleyan Paratrooper"] = { IsHuman = true, Name = "Marleyan Paratrooper", Health = 600, Strength = 70, Defense = 40, Speed = 60, Resolve = 50, TitanStats = emptyTitans, Skills = {"Heavy Slash", "Evasive Maneuver"}, Drops = { Dews = 1500, XP = 500, ItemChance = {["Advanced ODM Gear"]=1} } },
+			["Anti-Titan Artillery"] = { IsHuman = true, Name = "Anti-Titan Artillery", Health = 500, Strength = 200, Defense = 100, Speed = 10, Resolve = 100, TitanStats = emptyTitans, Skills = {"Anti-Titan Round", "Regroup"}, Drops = { Dews = 2500, XP = 800, ItemChance = {["Ultrahard Steel Blades"]=1} } },
+			["Part7Boss"] = { IsBoss = true, Name = "Jaw Titan (Porco)", Health = 4000, GateType = "Hardening", GateHP = 1500, Strength = 160, Defense = 80, Speed = 150, Resolve = 100, TitanStats = {Power="A", Speed="S", Hardening="B", Endurance="C", Precision="A", Potential="B"}, Skills = {"Frenzied Thrash", "Titan Bite"}, Drops = { Dews = 25000, XP = 8000, ItemChance = { ["Standard Titan Serum"] = 20, ["Advanced ODM Gear"] = 10 } } }
 		},
 		Missions = {
 			[1] = { Name = "War for Paradis", Waves = { 
@@ -208,11 +208,11 @@ EnemyData.Parts = {
 
 	[8] = {
 		RandomFlavor = {"The ground shakes violently. The Rumbling has begun!"},
-		Mobs = { { Name = "Wall Titan", Health = 1500, Strength = 250, Defense = 80, Speed = 20, Resolve = 100, TitanStats = emptyTitans, Skills = {"Colossal Steam", "Stomp", "Brutal Swipe"}, Drops = { Dews = 400, XP = 1200, ItemChance = {["Spinal Fluid Syringe"]=1} } } },
+		Mobs = { { Name = "Wall Titan", Health = 1500, Strength = 250, Defense = 80, Speed = 20, Resolve = 100, TitanStats = emptyTitans, Skills = {"Colossal Steam", "Stomp", "Brutal Swipe"}, Drops = { Dews = 3000, XP = 1200, ItemChance = {["Spinal Fluid Syringe"]=1} } } },
 		Templates = {
-			["Wall Titan"] = { Name = "Wall Titan", Health = 1500, GateType = "Steam", GateHP = 2, Strength = 250, Defense = 80, Speed = 20, Resolve = 100, TitanStats = emptyTitans, Skills = {"Colossal Steam", "Stomp", "Brutal Swipe"}, Drops = { Dews = 400, XP = 1200, ItemChance = {["Spinal Fluid Syringe"]=1} } },
-			["Ancient Shifter"] = { Name = "Ancient Nine Titan Husk", Health = 2000, Strength = 200, Defense = 120, Speed = 100, Resolve = 150, TitanStats = emptyTitans, Skills = {"Armored Tackle", "War Hammer Spike", "Titan Bite"}, Drops = { Dews = 600, XP = 2000, ItemChance = {["Standard Titan Serum"]=2, ["Ymir's Clay Fragment"]=1} } },
-			["Part8Boss"] = { IsBoss = true, Name = "Founding Titan", Health = 8000, GateType = "Steam", GateHP = 3, Strength = 300, Defense = 200, Speed = 15, Resolve = 200, TitanStats = {Power="S", Speed="E", Hardening="S", Endurance="S", Precision="S", Potential="S"}, Skills = {"Coordinate Command", "Colossal Steam", "War Hammer Spike"}, Drops = { Dews = 10000, XP = 35000, ItemChance = { ["Ymir's Clay Fragment"] = 2, ["Spinal Fluid Syringe"] = 5 } } }
+			["Wall Titan"] = { Name = "Wall Titan", Health = 1500, GateType = "Steam", GateHP = 2, Strength = 250, Defense = 80, Speed = 20, Resolve = 100, TitanStats = emptyTitans, Skills = {"Colossal Steam", "Stomp", "Brutal Swipe"}, Drops = { Dews = 3000, XP = 1200, ItemChance = {["Spinal Fluid Syringe"]=1} } },
+			["Ancient Shifter"] = { Name = "Ancient Nine Titan Husk", Health = 2000, Strength = 200, Defense = 120, Speed = 100, Resolve = 150, TitanStats = emptyTitans, Skills = {"Armored Tackle", "War Hammer Spike", "Titan Bite"}, Drops = { Dews = 1500, XP = 2000, ItemChance = {["Standard Titan Serum"]=2, ["Ymir's Clay Fragment"]=1} } },
+			["Part8Boss"] = { IsBoss = true, Name = "Founding Titan", Health = 8000, GateType = "Steam", GateHP = 3, Strength = 300, Defense = 200, Speed = 15, Resolve = 200, TitanStats = {Power="S", Speed="E", Hardening="S", Endurance="S", Precision="S", Potential="S"}, Skills = {"Coordinate Command", "Colossal Steam", "War Hammer Spike"}, Drops = { Dews = 40000, XP = 35000, ItemChance = { ["Ymir's Clay Fragment"] = 2, ["Spinal Fluid Syringe"] = 5 } } }
 		},
 		Missions = {
 			[1] = { Name = "The Rumbling", Waves = { 
