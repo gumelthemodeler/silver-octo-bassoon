@@ -50,7 +50,6 @@ local function ShakeUI(intensity)
 	end)
 end
 
--- [[ The New Gradient Helpers ]]
 local function ApplyGradient(label, color1, color2)
 	local grad = Instance.new("UIGradient", label)
 	grad.Color = ColorSequence.new{ColorSequenceKeypoint.new(0, color1), ColorSequenceKeypoint.new(1, color2)}
@@ -171,7 +170,6 @@ function CombatTab.Init(parentFrame, tooltipMgr, switchTabFunc)
 	AmbientContainer.ZIndex = 50 
 	AmbientContainer.Visible = false
 
-	-- Restoring the base structure
 	MainFrame = Instance.new("Frame", parentFrame.Parent)
 	MainFrame.Name = "CombatFrame"; MainFrame.Size = UDim2.new(0.98, 0, 0.95, 0); MainFrame.Position = UDim2.new(0.5, 0, 0.5, 0); MainFrame.AnchorPoint = Vector2.new(0.5, 0.5)
 	MainFrame.BackgroundColor3 = Color3.fromRGB(15, 15, 20); MainFrame.Visible = false; MainFrame.ZIndex = 200
@@ -190,7 +188,6 @@ function CombatTab.Init(parentFrame, tooltipMgr, switchTabFunc)
 	WaveLabel.LayoutOrder = 1
 	ApplyGradient(WaveLabel, Color3.fromRGB(255, 215, 100), Color3.fromRGB(255, 150, 50))
 
-	-- [[ RESTORED: Side-by-side CombatantsFrame ]]
 	local CombatantsFrame = Instance.new("Frame", MainFrame)
 	CombatantsFrame.Size = UDim2.new(0.96, 0, 0.25, 0); CombatantsFrame.BackgroundTransparency = 1
 	CombatantsFrame.LayoutOrder = 2
@@ -250,7 +247,6 @@ function CombatTab.Init(parentFrame, tooltipMgr, switchTabFunc)
 	EnemyStatusBox.Size = UDim2.new(1, 0, 0.2, 0); EnemyStatusBox.BackgroundTransparency = 1
 	local eStatusLayout = Instance.new("UIListLayout", EnemyStatusBox); eStatusLayout.FillDirection = Enum.FillDirection.Horizontal; eStatusLayout.HorizontalAlignment = Enum.HorizontalAlignment.Right; eStatusLayout.Padding = UDim.new(0, 2)
 
-	-- [[ RESTORED: FeedBox ]]
 	local FeedBox = Instance.new("Frame", MainFrame)
 	FeedBox.Size = UDim2.new(0.96, 0, 0.2, 0); FeedBox.BackgroundColor3 = Color3.fromRGB(20, 20, 25); FeedBox.ClipsDescendants = true; FeedBox.LayoutOrder = 3
 	Instance.new("UICorner", FeedBox).CornerRadius = UDim.new(0, 4); Instance.new("UIStroke", FeedBox).Color = Color3.fromRGB(0, 0, 0); Instance.new("UIStroke", FeedBox).Thickness = 2
@@ -258,7 +254,6 @@ function CombatTab.Init(parentFrame, tooltipMgr, switchTabFunc)
 	LogText = Instance.new("TextLabel", FeedBox)
 	LogText.Size = UDim2.new(1, -10, 1, -10); LogText.Position = UDim2.new(0, 5, 0, 5); LogText.BackgroundTransparency = 1; LogText.Font = Enum.Font.GothamMedium; LogText.TextColor3 = Color3.fromRGB(230, 230, 230); LogText.TextSize = 12; LogText.TextXAlignment = Enum.TextXAlignment.Left; LogText.TextYAlignment = Enum.TextYAlignment.Bottom; LogText.TextWrapped = true; LogText.RichText = true; LogText.Text = ""
 
-	-- [[ RESTORED: BottomArea ]]
 	local BottomArea = Instance.new("Frame", MainFrame)
 	BottomArea.Size = UDim2.new(0.96, 0, 0.45, 0); BottomArea.BackgroundColor3 = Color3.fromRGB(20, 20, 25); BottomArea.LayoutOrder = 4
 	Instance.new("UICorner", BottomArea).CornerRadius = UDim.new(0, 4); Instance.new("UIStroke", BottomArea).Color = Color3.fromRGB(0, 0, 0); Instance.new("UIStroke", BottomArea).Thickness = 2
@@ -333,13 +328,20 @@ function CombatTab.Init(parentFrame, tooltipMgr, switchTabFunc)
 	LeaveBtn = Instance.new("TextButton", BottomArea); LeaveBtn.Size = UDim2.new(0.6, 0, 0, 40); LeaveBtn.BackgroundColor3 = Color3.fromRGB(80, 160, 80); LeaveBtn.Font = Enum.Font.GothamBlack; LeaveBtn.TextColor3 = Color3.fromRGB(25, 25, 30); LeaveBtn.TextSize = 16; LeaveBtn.Text = "RETURN TO BASE"; LeaveBtn.Visible = false; LeaveBtn.AnchorPoint = Vector2.new(0.5, 0.5); LeaveBtn.Position = UDim2.new(0.5, 0, 0.5, 0)
 	Instance.new("UICorner", LeaveBtn).CornerRadius = UDim.new(0, 6)
 
+	-- [[ THE FIX: Makes ContentFrame (parentFrame) and NavWrapper visible again so tabs actually show up! ]]
 	LeaveBtn.MouseButton1Click:Connect(function()
 		EffectsManager.PlaySFX("Click")
 		MainFrame.Visible = false; isBattleActive = false
+		parentFrame.Visible = true 
 		local topGui = parentFrame:FindFirstAncestorOfClass("ScreenGui")
 		if topGui then
 			if topGui:FindFirstChild("TopBar") then topGui.TopBar.Visible = true end
-			if topGui:FindFirstChild("NavBar") then topGui.NavBar.Visible = true end
+			if topGui:FindFirstChild("NavWrapper") then topGui.NavWrapper.Visible = true end
+
+			-- Force the Battle tab to re-open so it doesn't stay completely blank
+			for _, c in ipairs(parentFrame:GetChildren()) do
+				if c.Name == "BattleFrame" then c.Visible = true end
+			end
 		end
 	end)
 
@@ -503,13 +505,13 @@ function CombatTab.Init(parentFrame, tooltipMgr, switchTabFunc)
 		if action == "Start" then
 			MainFrame.Visible = true
 			parentFrame.Visible = false 
-			TargetMenu.Visible = false; ActionGrid.Visible = true; pendingSkillName = nil
+			TargetMenu.Visible = false; ActionGrid.Visible = true; LeaveBtn.Visible = false; pendingSkillName = nil
 			local topGui = parentFrame:FindFirstAncestorOfClass("ScreenGui")
 			if topGui then
 				if topGui:FindFirstChild("TopBar") then topGui.TopBar.Visible = false end
-				if topGui:FindFirstChild("NavBar") then topGui.NavBar.Visible = false end
+				if topGui:FindFirstChild("NavWrapper") then topGui.NavWrapper.Visible = false end
 			end
-			LeaveBtn.Visible = false; BottomArea.Visible = true; isBattleActive = true
+			isBattleActive = true
 
 			if data.Battle and data.Battle.Context.IsPaths then StartPathsAmbient() end
 
