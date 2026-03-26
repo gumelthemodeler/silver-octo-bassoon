@@ -3,17 +3,17 @@
 local MarketplaceService = game:GetService("MarketplaceService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Players = game:GetService("Players")
+local DataStoreService = game:GetService("DataStoreService")
 local ItemData = require(ReplicatedStorage:WaitForChild("ItemData"))
+local GameData = require(ReplicatedStorage:WaitForChild("GameData")) -- Needed for Inventory check
+local GameDataStore = DataStoreService:GetDataStore("AoT_Data_V3") -- Needed for Forced Saves
 
 local Network = ReplicatedStorage:WaitForChild("Network")
 local GetShopData = Network:WaitForChild("GetShopData")
 local BuyAction = Network:FindFirstChild("ShopAction") or Instance.new("RemoteEvent", Network)
 BuyAction.Name = "ShopAction"
-
--- [[ THE FIX: Use WaitForChild to guarantee the remote exists ]]
 local NotificationEvent = Network:WaitForChild("NotificationEvent")
 
--- Combine all equipment and consumables into a single pool for the RNG
 local itemPool = {}
 for name, data in pairs(ItemData.Equipment) do table.insert(itemPool, {Name = name, Data = data}) end
 for name, data in pairs(ItemData.Consumables) do table.insert(itemPool, {Name = name, Data = data}) end
@@ -27,7 +27,6 @@ local function GenerateShopItems(seed)
 		local roll = rng:NextNumber(0, 100)
 		local targetRarity = "Common"
 
-		-- Weighted Rarity System: Allows Mythicals and Legendaries to appear!
 		if roll <= 0.2 then targetRarity = "Mythical"
 		elseif roll <= 2.0 then targetRarity = "Legendary"
 		elseif roll <= 10.0 then targetRarity = "Epic"
@@ -41,7 +40,6 @@ local function GenerateShopItems(seed)
 			end
 		end
 
-		-- Fallback: If no items of that rarity are left, pick literally anything available
 		if #validItems == 0 then
 			for _, item in ipairs(itemPool) do
 				if not selectedNames[item.Name] then table.insert(validItems, item) end
@@ -56,7 +54,6 @@ local function GenerateShopItems(seed)
 			break
 		end
 	end
-
 	return shopItems
 end
 
@@ -65,27 +62,22 @@ GetShopData.OnServerInvoke = function(player)
 	local personalSeed = player:GetAttribute("PersonalShopSeed") or 0
 
 	if player:GetAttribute("ShopSeedTime") ~= globalSeed then
-		player:SetAttribute("PersonalShopSeed", nil)
-		personalSeed = globalSeed
+		player:SetAttribute("PersonalShopSeed", nil); personalSeed = globalSeed
 	end
 
 	local activeSeed = player:GetAttribute("PersonalShopSeed") or globalSeed
 	if player:GetAttribute("ShopPurchases_Seed") ~= activeSeed then
 		player:SetAttribute("ShopPurchases_Seed", activeSeed)
-		player:SetAttribute("ShopPurchases_Data", "") -- Reset bought items on new shop rotation
+		player:SetAttribute("ShopPurchases_Data", "")
 	end
 
 	local timeRemaining = 600 - (os.time() % 600)
 	local items = GenerateShopItems(activeSeed)
 
-	-- Mark items as sold out if the player already bought them in this rotation
 	local boughtStr = player:GetAttribute("ShopPurchases_Data") or ""
 	for _, item in ipairs(items) do
-		if string.find(boughtStr, "%[" .. item.Name .. "%]") then
-			item.SoldOut = true
-		end
+		if string.find(boughtStr, "%[" .. item.Name .. "%]") then item.SoldOut = true end
 	end
-
 	return { Items = items, TimeLeft = timeRemaining }
 end
 
@@ -101,15 +93,19 @@ BuyAction.OnServerEvent:Connect(function(player, itemName)
 
 	if targetItem then
 		local boughtStr = player:GetAttribute("ShopPurchases_Data") or ""
-		if string.find(boughtStr, "%[" .. targetItem.Name .. "%]") then return end -- Block double purchase!
+		if string.find(boughtStr, "%[" .. targetItem.Name .. "%]") then return end 
+
+		-- [[ THE FIX: Inventory Cap Protection ]]
+		if GameData.GetInventoryCount(player) >= GameData.GetMaxInventory(player) then
+			NotificationEvent:FireClient(player, "Your inventory is full! Sell items at the Forge.", "Error")
+			return
+		end
 
 		if player.leaderstats.Dews.Value >= targetItem.Cost then
 			player.leaderstats.Dews.Value -= targetItem.Cost
 			local attrName = itemName:gsub("[^%w]", "") .. "Count"
 			player:SetAttribute(attrName, (player:GetAttribute(attrName) or 0) + 1)
-
 			player:SetAttribute("ShopPurchases_Data", boughtStr .. "[" .. targetItem.Name .. "]")
-
 			NotificationEvent:FireClient(player, "Purchased " .. itemName .. "!", "Success")
 		else
 			NotificationEvent:FireClient(player, "Not enough Dews!", "Error")
@@ -125,10 +121,8 @@ MarketplaceService.ProcessReceipt = function(receiptInfo)
 		if prod.ID == receiptInfo.ProductId then
 			if prod.IsReroll then
 				local newSeed = math.random(1, 9999999)
-				player:SetAttribute("PersonalShopSeed", newSeed)
-				player:SetAttribute("ShopSeedTime", math.floor(os.time() / 600))
-				player:SetAttribute("ShopPurchases_Seed", newSeed)
-				player:SetAttribute("ShopPurchases_Data", "")
+				player:SetAttribute("PersonalShopSeed", newSeed); player:SetAttribute("ShopSeedTime", math.floor(os.time() / 600))
+				player:SetAttribute("ShopPurchases_Seed", newSeed); player:SetAttribute("ShopPurchases_Data", "")
 				NotificationEvent:FireClient(player, "Shop Successfully Rerolled!", "Success")
 			elseif prod.Reward == "Dews" then
 				player.leaderstats.Dews.Value += prod.Amount
@@ -138,9 +132,16 @@ MarketplaceService.ProcessReceipt = function(receiptInfo)
 				player:SetAttribute(attrName, (player:GetAttribute(attrName) or 0) + prod.Amount)
 				NotificationEvent:FireClient(player, "Purchased " .. prod.ItemName .. "!", "Success")
 			end
+
+			-- [[ THE FIX: Immediately force save the data so they don't lose Robux purchases on crash ]]
+			task.spawn(function()
+				local d = { Prestige = player.leaderstats.Prestige.Value, Dews = player.leaderstats.Dews.Value, Elo = player.leaderstats.Elo.Value }
+				for k, v in pairs(player:GetAttributes()) do if k ~= "DataLoaded" then d[k] = v end end
+				pcall(function() GameDataStore:SetAsync(player.UserId, d) end)
+			end)
+
 			break
 		end
 	end
-
 	return Enum.ProductPurchaseDecision.PurchaseGranted
 end
