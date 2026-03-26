@@ -49,12 +49,52 @@ local function ApplyGradient(label, color1, color2)
 	grad.Color = ColorSequence.new{ColorSequenceKeypoint.new(0, color1), ColorSequenceKeypoint.new(1, color2)}
 end
 
+-- [[ Premium Dark Gradient Helper ]]
+local function ApplyButtonGradient(btn, topColor, botColor, strokeColor)
+	btn.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+	local grad = btn:FindFirstChildOfClass("UIGradient") or Instance.new("UIGradient", btn)
+	grad.Color = ColorSequence.new{ColorSequenceKeypoint.new(0, topColor), ColorSequenceKeypoint.new(1, botColor)}; grad.Rotation = 90
+	local corner = btn:FindFirstChildOfClass("UICorner") or Instance.new("UICorner", btn); corner.CornerRadius = UDim.new(0, 4)
+	if strokeColor then
+		local stroke = btn:FindFirstChildOfClass("UIStroke") or Instance.new("UIStroke", btn)
+		stroke.Color = strokeColor; stroke.Thickness = 1; stroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border; stroke.LineJoinMode = Enum.LineJoinMode.Miter
+	end
+	if not btn:GetAttribute("GradientTextFixed") then
+		btn:SetAttribute("GradientTextFixed", true)
+		local textLbl = Instance.new("TextLabel", btn); textLbl.Name = "BtnTextLabel"; textLbl.Size = UDim2.new(1, 0, 1, 0); textLbl.BackgroundTransparency = 1
+		textLbl.Font = btn.Font; textLbl.TextSize = btn.TextSize; textLbl.TextScaled = btn.TextScaled; textLbl.RichText = btn.RichText; textLbl.TextWrapped = btn.TextWrapped
+		textLbl.TextXAlignment = btn.TextXAlignment; textLbl.TextYAlignment = btn.TextYAlignment; textLbl.ZIndex = btn.ZIndex + 1
+		local tConstraint = btn:FindFirstChildOfClass("UITextSizeConstraint"); if tConstraint then tConstraint.Parent = textLbl end
+		btn.ChildAdded:Connect(function(child) if child:IsA("UITextSizeConstraint") then task.delay(0, function() child.Parent = textLbl end) end end)
+		textLbl.Text = btn.Text; textLbl.TextColor3 = btn.TextColor3; btn.Text = ""
+		btn:GetPropertyChangedSignal("Text"):Connect(function() if btn.Text ~= "" then textLbl.Text = btn.Text; btn.Text = "" end end)
+		btn:GetPropertyChangedSignal("TextColor3"):Connect(function() textLbl.TextColor3 = btn.TextColor3 end)
+		btn:GetPropertyChangedSignal("RichText"):Connect(function() textLbl.RichText = btn.RichText end)
+		btn:GetPropertyChangedSignal("TextSize"):Connect(function() textLbl.TextSize = btn.TextSize end)
+	end
+end
+
+local function TweenGradient(grad, targetTop, targetBot, duration)
+	local startTop = grad.Color.Keypoints[1].Value
+	local startBot = grad.Color.Keypoints[#grad.Color.Keypoints].Value
+	local val = Instance.new("NumberValue")
+	val.Value = 0
+	local tween = TweenService:Create(val, TweenInfo.new(duration), {Value = 1})
+	val.Changed:Connect(function(v)
+		grad.Color = ColorSequence.new{
+			ColorSequenceKeypoint.new(0, startTop:Lerp(targetTop, v)),
+			ColorSequenceKeypoint.new(1, startBot:Lerp(targetBot, v))
+		}
+	end)
+	tween:Play()
+	tween.Completed:Connect(function() val:Destroy() end)
+end
+
 function ForgeTab.Init(parentFrame, tooltipMgr)
 	local cachedTooltipMgr = tooltipMgr
 	MainFrame = Instance.new("Frame", parentFrame)
 	MainFrame.Name = "ForgeFrame"; MainFrame.Size = UDim2.new(1, 0, 1, 0); MainFrame.BackgroundTransparency = 1; MainFrame.Visible = false
 
-	-- [[ MOBILE: Horizontally scrolling Nav Bar so buttons don't squish ]]
 	local TopNav = Instance.new("ScrollingFrame", MainFrame)
 	TopNav.Size = UDim2.new(1, 0, 0, 45); TopNav.BackgroundColor3 = Color3.fromRGB(15, 15, 18); TopNav.ScrollBarThickness = 0; TopNav.ScrollingDirection = Enum.ScrollingDirection.X
 	Instance.new("UICorner", TopNav).CornerRadius = UDim.new(0, 8); Instance.new("UIStroke", TopNav).Color = Color3.fromRGB(120, 100, 60)
@@ -68,13 +108,19 @@ function ForgeTab.Init(parentFrame, tooltipMgr)
 
 	local function CreateSubNavBtn(name, text)
 		local btn = Instance.new("TextButton", TopNav)
-		btn.Size = UDim2.new(0, 130, 0, 30); btn.BackgroundColor3 = Color3.fromRGB(30, 30, 35)
-		btn.Font = Enum.Font.GothamBold; btn.TextColor3 = Color3.fromRGB(200, 200, 200); btn.TextSize = 11; btn.Text = text
-		Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 6); Instance.new("UIStroke", btn).Color = Color3.fromRGB(60, 60, 65)
+		btn.Size = UDim2.new(0, 130, 0, 30); btn.Font = Enum.Font.GothamBold; btn.TextColor3 = Color3.fromRGB(180, 180, 180); btn.TextSize = 11; btn.Text = text
+		ApplyButtonGradient(btn, Color3.fromRGB(50, 50, 55), Color3.fromRGB(25, 25, 30), Color3.fromRGB(60, 60, 65))
 
 		btn.MouseButton1Click:Connect(function()
-			for k, v in pairs(SubBtns) do TweenService:Create(v, TweenInfo.new(0.2), {BackgroundColor3 = Color3.fromRGB(30, 30, 35), TextColor3 = Color3.fromRGB(200, 200, 200)}):Play() end
-			TweenService:Create(btn, TweenInfo.new(0.2), {BackgroundColor3 = Color3.fromRGB(120, 100, 60), TextColor3 = Color3.fromRGB(255, 255, 255)}):Play()
+			for k, v in pairs(SubBtns) do 
+				local cGrad = v:FindFirstChildOfClass("UIGradient")
+				if cGrad then TweenGradient(cGrad, Color3.fromRGB(50, 50, 55), Color3.fromRGB(25, 25, 30), 0.2) end
+				TweenService:Create(v, TweenInfo.new(0.2), {TextColor3 = Color3.fromRGB(180, 180, 180)}):Play() 
+			end
+			local grad = btn:FindFirstChildOfClass("UIGradient")
+			if grad then TweenGradient(grad, Color3.fromRGB(200, 150, 40), Color3.fromRGB(120, 80, 15), 0.2) end
+			TweenService:Create(btn, TweenInfo.new(0.2), {TextColor3 = Color3.fromRGB(255, 255, 255)}):Play()
+
 			for k, frame in pairs(SubTabs) do frame.Visible = (k == name) end
 		end)
 		SubBtns[name] = btn
@@ -86,7 +132,7 @@ function ForgeTab.Init(parentFrame, tooltipMgr)
 	CreateSubNavBtn("Fusion", "TITAN FUSION")
 
 	-- ==========================================
-	-- [[ 1. CRAFTING TAB (Vertically Stacked) ]]
+	-- [[ 1. CRAFTING TAB ]]
 	-- ==========================================
 	SubTabs["Crafting"] = Instance.new("ScrollingFrame", ContentArea)
 	SubTabs["Crafting"].Size = UDim2.new(1, 0, 1, 0); SubTabs["Crafting"].BackgroundTransparency = 1; SubTabs["Crafting"].Visible = true; SubTabs["Crafting"].ScrollBarThickness = 0
@@ -113,6 +159,7 @@ function ForgeTab.Init(parentFrame, tooltipMgr)
 		local tBox, tTxt
 		if not isDews then
 			tBox = Instance.new("Frame", sq); tBox.Size = UDim2.new(0, 14, 0, 14); tBox.Position = UDim2.new(0, 4, 0, 4); tBox.BackgroundColor3 = stroke.Color
+			Instance.new("UICorner", tBox).CornerRadius = UDim.new(0, 4)
 			tTxt = Instance.new("TextLabel", tBox); tTxt.Size = UDim2.new(1, 0, 1, 0); tTxt.BackgroundTransparency = 1; tTxt.Font = Enum.Font.GothamBlack; tTxt.TextColor3 = Color3.new(0,0,0); tTxt.TextSize = 9; tTxt.Text = "?"
 		end
 
@@ -138,8 +185,8 @@ function ForgeTab.Init(parentFrame, tooltipMgr)
 	ResBox.BackgroundColor3 = Color3.fromRGB(35, 30, 30)
 
 	craftBtn = Instance.new("TextButton", WorkbenchPanel)
-	craftBtn.Size = UDim2.new(0.8, 0, 0, 35); craftBtn.Position = UDim2.new(0.1, 0, 1, -45); craftBtn.BackgroundColor3 = Color3.fromRGB(60, 60, 65); craftBtn.Font = Enum.Font.GothamBlack; craftBtn.TextColor3 = Color3.fromRGB(255, 255, 255); craftBtn.TextSize = 14; craftBtn.Text = "SELECT BLUEPRINT"
-	Instance.new("UICorner", craftBtn).CornerRadius = UDim.new(0, 6)
+	craftBtn.Size = UDim2.new(0.8, 0, 0, 35); craftBtn.Position = UDim2.new(0.1, 0, 1, -45); craftBtn.Font = Enum.Font.GothamBlack; craftBtn.TextColor3 = Color3.fromRGB(255, 255, 255); craftBtn.TextSize = 14; craftBtn.Text = "SELECT BLUEPRINT"
+	ApplyButtonGradient(craftBtn, Color3.fromRGB(50, 50, 55), Color3.fromRGB(25, 25, 30), Color3.fromRGB(80, 80, 90))
 
 	craftBtn.MouseButton1Click:Connect(function()
 		if selectedCraftingRecipe then Network:WaitForChild("ForgeItem"):FireServer(selectedCraftingRecipe) end
@@ -152,7 +199,6 @@ function ForgeTab.Init(parentFrame, tooltipMgr)
 	RecipeList = Instance.new("Frame", SubTabs["Crafting"])
 	RecipeList.Size = UDim2.new(0.95, 0, 0, 0); RecipeList.BackgroundTransparency = 1; RecipeList.LayoutOrder = 3
 	local recLayout = Instance.new("UIListLayout", RecipeList); recLayout.Padding = UDim.new(0, 8); recLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
-
 	recLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function() RecipeList.Size = UDim2.new(0.95, 0, 0, recLayout.AbsoluteContentSize.Y) end)
 
 	local InvTitleLbl = Instance.new("TextLabel", SubTabs["Crafting"])
@@ -160,7 +206,7 @@ function ForgeTab.Init(parentFrame, tooltipMgr)
 
 	CraftInvGrid = Instance.new("Frame", SubTabs["Crafting"])
 	CraftInvGrid.Size = UDim2.new(0.95, 0, 0, 0); CraftInvGrid.BackgroundColor3 = Color3.fromRGB(20, 20, 25); CraftInvGrid.LayoutOrder = 5
-	local cigLayout = Instance.new("UIGridLayout", CraftInvGrid); cigLayout.CellSize = UDim2.new(0, 75, 0, 75); cigLayout.CellPadding = UDim2.new(0, 10, 0, 10); cigLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center; cigLayout.SortOrder = Enum.SortOrder.LayoutOrder
+	local cigLayout = Instance.new("UIGridLayout", CraftInvGrid); cigLayout.CellSize = UDim2.new(0.22, 0, 0, 75); cigLayout.CellPadding = UDim2.new(0.04, 0, 0, 10); cigLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center; cigLayout.SortOrder = Enum.SortOrder.LayoutOrder
 	local cigPad = Instance.new("UIPadding", CraftInvGrid); cigPad.PaddingTop = UDim.new(0, 15); cigPad.PaddingBottom = UDim.new(0, 15)
 	Instance.new("UICorner", CraftInvGrid).CornerRadius = UDim.new(0, 8); Instance.new("UIStroke", CraftInvGrid).Color = Color3.fromRGB(80, 80, 90)
 
@@ -177,8 +223,8 @@ function ForgeTab.Init(parentFrame, tooltipMgr)
 			local pHas = player:GetAttribute(safeReq) or 0
 
 			local btn = Instance.new("TextButton", RecipeList)
-			btn.Size = UDim2.new(1, 0, 0, 45); btn.BackgroundColor3 = Color3.fromRGB(30, 30, 35); btn.Text = ""
-			Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 6); Instance.new("UIStroke", btn).Color = Color3.fromRGB(60, 60, 70)
+			btn.Size = UDim2.new(1, 0, 0, 45); btn.Text = ""
+			ApplyButtonGradient(btn, Color3.fromRGB(35, 35, 40), Color3.fromRGB(20, 20, 25), Color3.fromRGB(60, 60, 70))
 
 			local tagBox = Instance.new("Frame", btn); tagBox.Size = UDim2.new(0, 14, 0, 14); tagBox.Position = UDim2.new(0, 6, 0, 6); tagBox.BackgroundColor3 = Color3.fromHex(rColor:gsub("#","")); Instance.new("UICorner", tagBox).CornerRadius = UDim.new(0, 4)
 			local tagTxt = Instance.new("TextLabel", tagBox); tagTxt.Size = UDim2.new(1, 0, 1, 0); tagTxt.BackgroundTransparency = 1; tagTxt.Font = Enum.Font.GothamBlack; tagTxt.TextColor3 = Color3.new(0,0,0); tagTxt.TextSize = 9; tagTxt.Text = string.sub(resData.Rarity or "C", 1, 1)
@@ -208,11 +254,9 @@ function ForgeTab.Init(parentFrame, tooltipMgr)
 				resBoxName.Text = recipe.Result
 
 				if pHas >= recipe.ReqAmt and pDews >= recipe.DewCost then
-					craftBtn.BackgroundColor3 = Color3.fromRGB(40, 120, 40)
-					craftBtn.Text = "CRAFT ITEM"
+					ApplyButtonGradient(craftBtn, Color3.fromRGB(80, 180, 80), Color3.fromRGB(40, 100, 40), Color3.fromRGB(20, 80, 20)); craftBtn.Text = "CRAFT ITEM"
 				else
-					craftBtn.BackgroundColor3 = Color3.fromRGB(120, 40, 40)
-					craftBtn.Text = "MISSING MATERIALS"
+					ApplyButtonGradient(craftBtn, Color3.fromRGB(180, 60, 60), Color3.fromRGB(100, 30, 30), Color3.fromRGB(60, 20, 20)); craftBtn.Text = "MISSING MATERIALS"
 				end
 			end)
 		end
@@ -229,9 +273,9 @@ function ForgeTab.Init(parentFrame, tooltipMgr)
 			dewsBoxCount.Text = "Cost:<br/><font color='"..hasDewColor.."'>" .. recipe.DewCost .. "</font>"
 
 			if pHas >= recipe.ReqAmt and pDews >= recipe.DewCost then
-				craftBtn.BackgroundColor3 = Color3.fromRGB(40, 120, 40); craftBtn.Text = "CRAFT ITEM"
+				ApplyButtonGradient(craftBtn, Color3.fromRGB(80, 180, 80), Color3.fromRGB(40, 100, 40), Color3.fromRGB(20, 80, 20)); craftBtn.Text = "CRAFT ITEM"
 			else
-				craftBtn.BackgroundColor3 = Color3.fromRGB(120, 40, 40); craftBtn.Text = "MISSING MATERIALS"
+				ApplyButtonGradient(craftBtn, Color3.fromRGB(180, 60, 60), Color3.fromRGB(100, 30, 30), Color3.fromRGB(60, 20, 20)); craftBtn.Text = "MISSING MATERIALS"
 			end
 		end
 
@@ -254,36 +298,25 @@ function ForgeTab.Init(parentFrame, tooltipMgr)
 
 				local card = Instance.new("Frame", CraftInvGrid)
 				card.Size = UDim2.new(1, 0, 1, 0); card.BackgroundColor3 = Color3.fromRGB(22, 22, 28); card.LayoutOrder = lOrder; card.ClipsDescendants = true; lOrder += 1
+				Instance.new("UICorner", card).CornerRadius = UDim.new(0, 6)
+				local stroke = Instance.new("UIStroke", card); stroke.Color = rarityRGB; stroke.Thickness = 1; stroke.Transparency = 0.55; stroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
 
-				local stroke = Instance.new("UIStroke", card)
-				stroke.Color = rarityRGB; stroke.Thickness = 2; stroke.Transparency = 0.55; stroke.LineJoinMode = Enum.LineJoinMode.Miter; stroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+				local accentBar = Instance.new("Frame", card); accentBar.Size = UDim2.new(0, 4, 1, 0); accentBar.BackgroundColor3 = rarityRGB; accentBar.BorderSizePixel = 0; Instance.new("UICorner", accentBar).CornerRadius = UDim.new(0, 4)
+				local bgGlow = Instance.new("Frame", card); bgGlow.Size = UDim2.new(1, 0, 0.5, 0); bgGlow.Position = UDim2.new(0, 0, 0.5, 0); bgGlow.BackgroundColor3 = rarityRGB; bgGlow.BackgroundTransparency = 0.92; bgGlow.BorderSizePixel = 0; bgGlow.ZIndex = 1
 
-				local accentBar = Instance.new("Frame", card)
-				accentBar.Size = UDim2.new(1, 0, 0, 3); accentBar.BackgroundColor3 = rarityRGB; accentBar.BorderSizePixel = 0; accentBar.ZIndex = 2
+				local countBadge = Instance.new("Frame", card); countBadge.Size = UDim2.new(0, 20, 0, 12); countBadge.AnchorPoint = Vector2.new(1, 0); countBadge.Position = UDim2.new(1, -3, 0, 6); countBadge.BackgroundColor3 = Color3.fromRGB(12, 12, 16); countBadge.BorderSizePixel = 0; countBadge.ZIndex = 3; Instance.new("UICorner", countBadge).CornerRadius = UDim.new(0, 3)
+				local countTag = Instance.new("TextLabel", countBadge); countTag.Size = UDim2.new(1, 0, 1, 0); countTag.BackgroundTransparency = 1; countTag.Font = Enum.Font.GothamBlack; countTag.TextColor3 = Color3.fromRGB(210, 210, 210); countTag.TextSize = 8; countTag.Text = "x" .. count; countTag.ZIndex = 4
 
-				local bgGlow = Instance.new("Frame", card)
-				bgGlow.Size = UDim2.new(1, 0, 0.5, 0); bgGlow.Position = UDim2.new(0, 0, 0.5, 0); bgGlow.BackgroundColor3 = rarityRGB; bgGlow.BackgroundTransparency = 0.92; bgGlow.BorderSizePixel = 0; bgGlow.ZIndex = 1
+				local nameLbl = Instance.new("TextLabel", card); nameLbl.Size = UDim2.new(0.88, 0, 0.5, 0); nameLbl.Position = UDim2.new(0.5, 0, 0.5, 2); nameLbl.AnchorPoint = Vector2.new(0.5, 0.5); nameLbl.BackgroundTransparency = 1; nameLbl.Font = Enum.Font.GothamBold; nameLbl.TextColor3 = Color3.fromRGB(235, 235, 235); nameLbl.TextScaled = true; nameLbl.TextWrapped = true; nameLbl.Text = item.Name; nameLbl.ZIndex = 3
+				local tConstraint = Instance.new("UITextSizeConstraint", nameLbl); tConstraint.MaxTextSize = 10; tConstraint.MinTextSize = 6
 
-				local countBadge = Instance.new("Frame", card)
-				countBadge.Size = UDim2.new(0, 24, 0, 14); countBadge.AnchorPoint = Vector2.new(1, 0); countBadge.Position = UDim2.new(1, -4, 0, 7); countBadge.BackgroundColor3 = Color3.fromRGB(12, 12, 16); countBadge.BorderSizePixel = 0; countBadge.ZIndex = 3
-				Instance.new("UICorner", countBadge).CornerRadius = UDim.new(0, 3)
-
-				local countTag = Instance.new("TextLabel", countBadge)
-				countTag.Size = UDim2.new(1, 0, 1, 0); countTag.BackgroundTransparency = 1; countTag.Font = Enum.Font.GothamBlack; countTag.TextColor3 = Color3.fromRGB(210, 210, 210); countTag.TextSize = 9; countTag.Text = "x" .. count; countTag.ZIndex = 4
-
-				local nameLbl = Instance.new("TextLabel", card)
-				nameLbl.Size = UDim2.new(0.88, 0, 0.5, 0); nameLbl.Position = UDim2.new(0.5, 0, 0.5, 2); nameLbl.AnchorPoint = Vector2.new(0.5, 0.5); nameLbl.BackgroundTransparency = 1; nameLbl.Font = Enum.Font.GothamBold; nameLbl.TextColor3 = Color3.fromRGB(235, 235, 235); nameLbl.TextScaled = true; nameLbl.TextWrapped = true; nameLbl.Text = item.Name; nameLbl.ZIndex = 3
-				local tConstraint = Instance.new("UITextSizeConstraint", nameLbl); tConstraint.MaxTextSize = 11; tConstraint.MinTextSize = 7
-
-				local rarityTag = Instance.new("TextLabel", card)
-				rarityTag.Size = UDim2.new(0, 16, 0, 16); rarityTag.Position = UDim2.new(0, 4, 1, -20); rarityTag.BackgroundTransparency = 1; rarityTag.Font = Enum.Font.GothamBlack; rarityTag.TextColor3 = rarityRGB; rarityTag.TextTransparency = 0.3; rarityTag.TextSize = 10; rarityTag.Text = string.sub(rKey, 1, 1); rarityTag.ZIndex = 3
+				local rarityTag = Instance.new("TextLabel", card); rarityTag.Size = UDim2.new(0, 14, 0, 14); rarityTag.Position = UDim2.new(0, 4, 1, -18); rarityTag.BackgroundTransparency = 1; rarityTag.Font = Enum.Font.GothamBlack; rarityTag.TextColor3 = rarityRGB; rarityTag.TextTransparency = 0.3; rarityTag.TextSize = 9; rarityTag.Text = string.sub(rKey, 1, 1); rarityTag.ZIndex = 3
 
 				local tTipStr = "<b><font color='" .. cColor .. "'>[" .. rKey .. "] " .. item.Name .. "</font></b>"
 				if item.Data.Bonus then for k, v in pairs(item.Data.Bonus) do tTipStr ..= "\n<font color='#55FF55'>+" .. v .. " " .. k:sub(1,3):upper() .. "</font>" end end
 				if awakened then tTipStr ..= "\n<font color='#AA55FF'>[AWAKENED]:\n" .. awakened .. "</font>" end
 
-				local btnCover = Instance.new("TextButton", card)
-				btnCover.Size = UDim2.new(1,0,1,0); btnCover.BackgroundTransparency = 1; btnCover.Text = ""; btnCover.ZIndex = 5
+				local btnCover = Instance.new("TextButton", card); btnCover.Size = UDim2.new(1,0,1,0); btnCover.BackgroundTransparency = 1; btnCover.Text = ""; btnCover.ZIndex = 5
 				btnCover.MouseEnter:Connect(function() if cachedTooltipMgr then cachedTooltipMgr.Show(tTipStr) end end)
 				btnCover.MouseLeave:Connect(function() if cachedTooltipMgr then cachedTooltipMgr.Hide() end end)
 			end
@@ -314,8 +347,8 @@ function ForgeTab.Init(parentFrame, tooltipMgr)
 	extractCountLbl.Size = UDim2.new(1, 0, 0, 20); extractCountLbl.Position = UDim2.new(0, 0, 0, 110); extractCountLbl.BackgroundTransparency = 1; extractCountLbl.Font = Enum.Font.GothamMedium; extractCountLbl.TextColor3 = Color3.fromRGB(200, 200, 200); extractCountLbl.TextSize = 12; extractCountLbl.Text = "Titan Hardening Extracts Owned: 0"
 
 	awakenBtn = Instance.new("TextButton", AWTopPanel)
-	awakenBtn.Size = UDim2.new(0.8, 0, 0, 40); awakenBtn.Position = UDim2.new(0.1, 0, 0, 140); awakenBtn.BackgroundColor3 = Color3.fromRGB(120, 60, 150); awakenBtn.Font = Enum.Font.GothamBlack; awakenBtn.TextColor3 = Color3.fromRGB(255, 255, 255); awakenBtn.TextSize = 14; awakenBtn.Text = "AWAKEN (Cost: 1x Extract)"
-	Instance.new("UICorner", awakenBtn).CornerRadius = UDim.new(0, 6); awakenBtn.Visible = false
+	awakenBtn.Size = UDim2.new(0.8, 0, 0, 40); awakenBtn.Position = UDim2.new(0.1, 0, 0, 140); awakenBtn.Font = Enum.Font.GothamBlack; awakenBtn.TextColor3 = Color3.fromRGB(255, 255, 255); awakenBtn.TextSize = 14; awakenBtn.Text = "AWAKEN (Cost: 1x Extract)"
+	ApplyButtonGradient(awakenBtn, Color3.fromRGB(160, 80, 200), Color3.fromRGB(100, 40, 140), Color3.fromRGB(80, 20, 100)); awakenBtn.Visible = false
 
 	awakenBtn.MouseButton1Click:Connect(function()
 		if selectedWeapon then Network:WaitForChild("AwakenWeapon"):FireServer(selectedWeapon) end
@@ -342,8 +375,8 @@ function ForgeTab.Init(parentFrame, tooltipMgr)
 		for _, wpn in ipairs(ownedWpns) do
 			local cColor = RarityColors[wpn.Rarity or "Common"] or "#FFFFFF"
 			local btn = Instance.new("TextButton", WpnList)
-			btn.Size = UDim2.new(1, 0, 0, 45); btn.BackgroundColor3 = Color3.fromRGB(30, 30, 35); btn.Font = Enum.Font.GothamBold; btn.Text = ""
-			Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 6); Instance.new("UIStroke", btn).Color = Color3.fromRGB(60, 60, 70)
+			btn.Size = UDim2.new(1, 0, 0, 45); btn.Font = Enum.Font.GothamBold; btn.Text = ""
+			ApplyButtonGradient(btn, Color3.fromRGB(40, 40, 45), Color3.fromRGB(20, 20, 25), Color3.fromRGB(60, 60, 70))
 
 			local glow = Instance.new("Frame", btn); glow.Size = UDim2.new(0, 4, 1, -4); glow.Position = UDim2.new(0, 2, 0, 2); glow.BackgroundColor3 = Color3.fromHex(cColor:gsub("#","")); Instance.new("UICorner", glow).CornerRadius = UDim.new(0, 2)
 
@@ -399,8 +432,8 @@ function ForgeTab.Init(parentFrame, tooltipMgr)
 	fusionResultLbl = CreateFusLbl(FusTopPanel, "Result: Unknown", 35, nil, 5); fusionResultLbl.Font = Enum.Font.GothamBlack; fusionResultLbl.TextColor3 = Color3.fromRGB(255, 215, 100); fusionResultLbl.TextSize = 14
 
 	fuseBtn = Instance.new("TextButton", FusTopPanel)
-	fuseBtn.Size = UDim2.new(0.9, 0, 0, 45); fuseBtn.BackgroundColor3 = Color3.fromRGB(150, 40, 40); fuseBtn.Font = Enum.Font.GothamBlack; fuseBtn.TextColor3 = Color3.fromRGB(255, 255, 255); fuseBtn.TextSize = 14; fuseBtn.Text = "FUSE (50,000 Dews)"; fuseBtn.LayoutOrder = 6
-	Instance.new("UICorner", fuseBtn).CornerRadius = UDim.new(0, 8); fuseBtn.Visible = false
+	fuseBtn.Size = UDim2.new(0.9, 0, 0, 45); fuseBtn.Font = Enum.Font.GothamBlack; fuseBtn.TextColor3 = Color3.fromRGB(255, 255, 255); fuseBtn.TextSize = 14; fuseBtn.Text = "FUSE (50,000 Dews)"; fuseBtn.LayoutOrder = 6
+	ApplyButtonGradient(fuseBtn, Color3.fromRGB(180, 60, 60), Color3.fromRGB(100, 30, 30), Color3.fromRGB(80, 20, 20)); fuseBtn.Visible = false
 
 	fuseBtn.MouseButton1Click:Connect(function()
 		if selectedFusionSlot then 
@@ -430,8 +463,8 @@ function ForgeTab.Init(parentFrame, tooltipMgr)
 			local storedTitan = player:GetAttribute("Titan_Slot" .. i) or "None"
 			if storedTitan ~= "None" then
 				local btn = Instance.new("TextButton", VaultList)
-				btn.Size = UDim2.new(1, 0, 0, 45); btn.BackgroundColor3 = Color3.fromRGB(30, 30, 35); btn.Font = Enum.Font.GothamBold; btn.Text = ""
-				Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 6); Instance.new("UIStroke", btn).Color = Color3.fromRGB(60, 60, 70)
+				btn.Size = UDim2.new(1, 0, 0, 45); btn.Font = Enum.Font.GothamBold; btn.Text = ""
+				ApplyButtonGradient(btn, Color3.fromRGB(40, 40, 45), Color3.fromRGB(20, 20, 25), Color3.fromRGB(60, 60, 70))
 
 				local lbl = Instance.new("TextLabel", btn); lbl.Size = UDim2.new(1, -20, 1, 0); lbl.Position = UDim2.new(0, 10, 0, 0); lbl.BackgroundTransparency = 1; lbl.Font = Enum.Font.GothamBold; lbl.TextColor3 = Color3.fromRGB(200,200,200); lbl.TextXAlignment = Enum.TextXAlignment.Left; lbl.TextSize = 13
 				lbl.Text = "[Slot " .. i .. "] " .. storedTitan
@@ -446,7 +479,11 @@ function ForgeTab.Init(parentFrame, tooltipMgr)
 						fusionResultLbl.Text = "Result: <font color='#FFD700'>" .. result .. "</font>"
 						fusionResultLbl.RichText = true
 						fuseBtn.Visible = true
-						fuseBtn.BackgroundColor3 = (player.leaderstats and player.leaderstats:FindFirstChild("Dews") and player.leaderstats.Dews.Value >= 50000) and Color3.fromRGB(150, 40, 40) or Color3.fromRGB(80, 40, 40)
+						if player.leaderstats and player.leaderstats:FindFirstChild("Dews") and player.leaderstats.Dews.Value >= 50000 then
+							ApplyButtonGradient(fuseBtn, Color3.fromRGB(180, 60, 60), Color3.fromRGB(100, 30, 30), Color3.fromRGB(80, 20, 20))
+						else
+							ApplyButtonGradient(fuseBtn, Color3.fromRGB(100, 40, 40), Color3.fromRGB(60, 20, 20), Color3.fromRGB(50, 15, 15))
+						end
 					else
 						fusionResultLbl.Text = "<font color='#FF5555'>INCOMPATIBLE</font>"
 						fusionResultLbl.RichText = true
@@ -466,7 +503,11 @@ function ForgeTab.Init(parentFrame, tooltipMgr)
 			else
 				local result = FusionRecipes[currentTitan] and FusionRecipes[currentTitan][storedTitan]
 				if result then
-					fuseBtn.BackgroundColor3 = (player.leaderstats and player.leaderstats:FindFirstChild("Dews") and player.leaderstats.Dews.Value >= 50000) and Color3.fromRGB(150, 40, 40) or Color3.fromRGB(80, 40, 40)
+					if player.leaderstats and player.leaderstats:FindFirstChild("Dews") and player.leaderstats.Dews.Value >= 50000 then
+						ApplyButtonGradient(fuseBtn, Color3.fromRGB(180, 60, 60), Color3.fromRGB(100, 30, 30), Color3.fromRGB(80, 20, 20))
+					else
+						ApplyButtonGradient(fuseBtn, Color3.fromRGB(100, 40, 40), Color3.fromRGB(60, 20, 20), Color3.fromRGB(50, 15, 15))
+					end
 				end
 			end
 		end
@@ -509,7 +550,9 @@ function ForgeTab.Init(parentFrame, tooltipMgr)
 		RenderCrafting()
 		RenderAwakening()
 		RenderFusion()
-		TweenService:Create(SubBtns["Crafting"], TweenInfo.new(0), {BackgroundColor3 = Color3.fromRGB(120, 100, 60), TextColor3 = Color3.fromRGB(255, 255, 255)}):Play()
+		local cGrad = SubBtns["Crafting"]:FindFirstChildOfClass("UIGradient")
+		if cGrad then TweenGradient(cGrad, Color3.fromRGB(200, 150, 40), Color3.fromRGB(120, 80, 15), 0) end
+		TweenService:Create(SubBtns["Crafting"], TweenInfo.new(0), {TextColor3 = Color3.fromRGB(255, 255, 255)}):Play()
 	end)
 end
 
