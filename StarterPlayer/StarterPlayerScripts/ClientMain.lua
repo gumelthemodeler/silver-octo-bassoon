@@ -324,6 +324,35 @@ local function BuildNavigation()
 		table.insert(SubButtons, adminBtn)
 		adminBtn.MouseButton1Click:Connect(function() SwitchTab("Admin") end)
 	end
+	
+	local hubBtn = Instance.new("TextButton", NavBar)
+	hubBtn.Name = "HubBtn"
+	hubBtn.Size = isMobile and UDim2.new(0, 90, 1, -15) or UDim2.new(1, -15, 0, 90)
+	hubBtn.Text = ""
+	ApplyButtonGradient(hubBtn, Color3.fromRGB(40, 40, 45), Color3.fromRGB(20, 20, 25), Color3.fromRGB(200, 160, 50))
+
+	local hubLogo = Instance.new("ImageLabel", hubBtn)
+	hubLogo.Size = UDim2.new(0.5, 0, 0.5, 0); hubLogo.Position = UDim2.new(0.25, 0, 0.1, 0)
+	hubLogo.BackgroundTransparency = 1; hubLogo.ScaleType = Enum.ScaleType.Fit
+	hubLogo.Image = "rbxassetid://129528574378357" -- [[ PUT YOUR ASSET ID HERE! ]]
+	hubLogo.ImageColor3 = Color3.fromRGB(255, 215, 100)
+
+	local hubText = Instance.new("TextLabel", hubBtn)
+	hubText.Size = UDim2.new(1, -10, 0.3, 0); hubText.Position = UDim2.new(0, 5, 0.65, 0)
+	hubText.BackgroundTransparency = 1; hubText.Font = Enum.Font.GothamBlack
+	hubText.TextColor3 = Color3.fromRGB(255, 215, 100)
+	hubText.TextScaled = true; Instance.new("UITextSizeConstraint", hubText).MaxTextSize = 11
+	hubText.Text = "GUIDE"
+
+	hubBtn.MouseButton1Click:Connect(function()
+		-- Dynamically load the correct module for Mobile or PC
+		local folderName = isMobile and "MobileModules" or "UIModules"
+		local uiFolder = script.Parent:WaitForChild(folderName, 3) or script.Parent:WaitForChild("UIModules")
+		local hubModule = require(uiFolder:WaitForChild("WelcomeHub"))
+
+		-- Passing 'true' forces the Hub to show, even if they've already seen it
+		hubModule.Show(true)
+	end)
 end
 
 BuildNavigation()
@@ -380,7 +409,7 @@ task.spawn(function()
 		TabModules["Inherit"] = require(uiModulesFolder:WaitForChild("InheritTab")); TabModules["Inherit"].Init(ContentFrame, TooltipManager)
 		TabModules["Stats"] = require(uiModulesFolder:WaitForChild("StatsTab")); TabModules["Stats"].Init(ContentFrame, TooltipManager)
 		TabModules["Battle"] = require(uiModulesFolder:WaitForChild("BattleTab")); TabModules["Battle"].Init(ContentFrame, TooltipManager)
-		TabModules["Combat"] = require(rootModules:WaitForChild("CombatTab")); TabModules["Combat"].Init(ContentFrame)
+		TabModules["Combat"] = require(uiModulesFolder:WaitForChild("CombatTab")); TabModules["Combat"].Init(ContentFrame)
 		TabModules["Shop"] = require(uiModulesFolder:WaitForChild("ShopTab")); TabModules["Shop"].Init(ContentFrame, TooltipManager)
 		TabModules["Bounties"] = require(uiModulesFolder:WaitForChild("BountiesTab")); TabModules["Bounties"].Init(ContentFrame, TooltipManager)
 		TabModules["Forge"] = require(uiModulesFolder:WaitForChild("ForgeTab")); TabModules["Forge"].Init(ContentFrame, TooltipManager)
@@ -392,6 +421,14 @@ task.spawn(function()
 			if (player.UserId == 4068160397 or player.Name == "girthbender1209") then
 				TabModules["Admin"] = require(rootModules:WaitForChild("AdminTab")); TabModules["Admin"].Init(ContentFrame)
 			end
+		end)
+		
+		local WelcomeHub = require(uiModulesFolder:WaitForChild("WelcomeHub"))
+		WelcomeHub.Init(ContentFrame)
+
+		-- Display it (it will automatically check if they've seen it yet)
+		task.spawn(function()
+			WelcomeHub.Show()
 		end)
 
 		SwitchTab("Profile")
