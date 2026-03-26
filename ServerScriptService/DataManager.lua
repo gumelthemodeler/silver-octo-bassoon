@@ -8,9 +8,11 @@ local MarketplaceService = game:GetService("MarketplaceService")
 local MessagingService = game:GetService("MessagingService") -- [[ NEW: For cross-server comms ]]
 local BountyData = require(ReplicatedStorage:WaitForChild("BountyData"))
 local ItemData = require(ReplicatedStorage:WaitForChild("ItemData"))
+local GameData = require(ReplicatedStorage:WaitForChild("GameData"))
 
-local GameDataStore = DataStoreService:GetDataStore("AoT_Data_V3") 
-local BackupDataStore = DataStoreService:GetDataStore("AoT_Backups_V1") 
+-- Change these two lines in DataManager.lua:
+local GameDataStore = DataStoreService:GetDataStore("AoT_Data_V4") -- Was V3
+local BackupDataStore = DataStoreService:GetDataStore("AoT_Backups_V2") -- Was V1
 local RegimentStore = DataStoreService:GetDataStore("RegimentWars_V1")
 
 local RemotesFolder = ReplicatedStorage:FindFirstChild("Network") or Instance.new("Folder", ReplicatedStorage)
@@ -107,6 +109,8 @@ pcall(function()
 		end
 	end)
 end)
+
+
 
 RemotesFolder.AdminCommand.OnServerEvent:Connect(function(player, command, targetName, args)
 	if player.UserId ~= 4068160397 and player.Name ~= "girthbender1209" then player:Kick("Unauthorized Admin Access"); return end
