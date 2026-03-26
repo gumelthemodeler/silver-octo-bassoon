@@ -112,6 +112,8 @@ local function RenderStatuses(container, combatant)
 	if combatant.Statuses then
 		if combatant.Statuses.Dodge and combatant.Statuses.Dodge > 0 then addIcon("DGE", Color3.fromRGB(30, 60, 120), Color3.fromRGB(60, 100, 200), "Dodge Active: Evades Next Attack") end
 		if combatant.Statuses.Transformed and combatant.Statuses.Transformed > 0 then addIcon("TTN", Color3.fromRGB(150, 40, 40), Color3.fromRGB(200, 60, 60), "Titan Form Active") end
+
+		-- FIX: Dynamic debuff rendering including DOTs, immunities, and guards for MOBILE
 		for sName, duration in pairs(combatant.Statuses) do
 			if duration > 0 then
 				if sName == "Crippled" then addIcon("CRP", Color3.fromRGB(80, 80, 80), Color3.fromRGB(120, 120, 120), "Crippled: Speed & Dodge Halved (" .. duration .. " turns)")
@@ -120,6 +122,12 @@ local function RenderStatuses(container, combatant)
 				elseif sName == "Blinded" then addIcon("BLD", Color3.fromRGB(40, 40, 40), Color3.fromRGB(80, 80, 80), "Blinded: Target loses their turn! (" .. duration .. " turns)")
 				elseif sName == "TrueBlind" then addIcon("TBL", Color3.fromRGB(20, 20, 20), Color3.fromRGB(50, 50, 50), "True Blindness: Target loses their turn! (" .. duration .. " turns)")
 				elseif sName == "Buff_Strength" or sName == "Buff_Defense" then addIcon("BUF", Color3.fromRGB(20, 120, 20), Color3.fromRGB(40, 200, 40), "Stat Buff Active (" .. duration .. " turns)")
+				elseif sName == "Bleed" then addIcon("BLD", Color3.fromRGB(200, 40, 40), Color3.fromRGB(255, 60, 60), "Bleeding: Takes damage over time (" .. duration .. " turns)")
+				elseif sName == "Burn" then addIcon("BRN", Color3.fromRGB(200, 100, 40), Color3.fromRGB(255, 140, 60), "Burning: Takes severe damage over time (" .. duration .. " turns)")
+				elseif sName == "Stun" then addIcon("STN", Color3.fromRGB(200, 200, 40), Color3.fromRGB(255, 255, 60), "Stunned: Target loses their turn! (" .. duration .. " turns)")
+				elseif sName == "NapeGuard" then addIcon("GRD", Color3.fromRGB(150, 150, 150), Color3.fromRGB(200, 200, 200), "Nape Guard: Nape damage heavily reduced (" .. duration .. " turns)")
+				elseif sName == "Debuff_Defense" then addIcon("DEF", Color3.fromRGB(120, 40, 120), Color3.fromRGB(180, 60, 180), "Defense Dropped (" .. duration .. " turns)")
+				elseif string.find(sName, "Immunity") then addIcon("IMM", Color3.fromRGB(60, 60, 60), Color3.fromRGB(100, 100, 100), sName:gsub("Immunity", "") .. " Immunity Active (" .. duration .. " turns)")
 				end
 			end
 		end
