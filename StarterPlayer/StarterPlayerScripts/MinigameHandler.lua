@@ -12,7 +12,6 @@ local CombatAction = Network:WaitForChild("CombatAction")
 local player = Players.LocalPlayer
 local PlayerGui = player:WaitForChild("PlayerGui")
 
--- Create the robust UI Frame
 local ScreenGui = Instance.new("ScreenGui", PlayerGui)
 ScreenGui.Name = "MinigameGUI"
 ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
@@ -21,9 +20,8 @@ ScreenGui.Enabled = false
 local Overlay = Instance.new("Frame", ScreenGui)
 Overlay.Size = UDim2.new(1, 0, 1, 0)
 Overlay.BackgroundColor3 = Color3.fromRGB(15, 15, 20)
-Overlay.BackgroundTransparency = 0.05 -- Nearly opaque to hide combat UI behind it
+Overlay.BackgroundTransparency = 0.05
 Overlay.ZIndex = 100 
--- [[ THE FIX: Active = true prevents all clicks from passing through to buttons behind it ]]
 Overlay.Active = true 
 
 local Title = Instance.new("TextLabel", Overlay)
@@ -46,9 +44,8 @@ Subtitle.TextSize = 16
 Subtitle.Text = "Hold the screen/spacebar to boost right. Chase the white zone!"
 Subtitle.ZIndex = 101
 
--- [[ THE FIX: Horizontal Track ]]
 local Track = Instance.new("Frame", Overlay)
-Track.Size = UDim2.new(0, 400, 0, 60) -- Wide and short
+Track.Size = UDim2.new(0, 400, 0, 60)
 Track.Position = UDim2.new(0.5, 0, 0.5, 0)
 Track.AnchorPoint = Vector2.new(0.5, 0.5)
 Track.BackgroundColor3 = Color3.fromRGB(10, 10, 10)
@@ -56,9 +53,8 @@ Instance.new("UICorner", Track).CornerRadius = UDim.new(0, 8)
 Instance.new("UIStroke", Track).Color = Color3.fromRGB(60, 60, 70)
 Track.ZIndex = 101
 
--- [[ THE FIX: Horizontal Moving Safe Zone ]]
 local SafeZone = Instance.new("Frame", Track)
-SafeZone.Size = UDim2.new(0.25, 0, 1, 0) -- Takes up 25% of the width
+SafeZone.Size = UDim2.new(0.25, 0, 1, 0)
 SafeZone.Position = UDim2.new(0.375, 0, 0, 0)
 SafeZone.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
 SafeZone.BackgroundTransparency = 0.8
@@ -68,16 +64,14 @@ SZStroke.Color = Color3.fromRGB(255, 255, 255)
 SZStroke.Thickness = 2
 SafeZone.ZIndex = 102
 
--- Horizontal Player Indicator
 local Indicator = Instance.new("Frame", Track)
-Indicator.Size = UDim2.new(0.05, 0, 1.4, 0) -- Taller than the track, thin width
+Indicator.Size = UDim2.new(0.05, 0, 1.4, 0)
 Indicator.AnchorPoint = Vector2.new(0.5, 0.5)
 Indicator.Position = UDim2.new(0.5, 0, 0.5, 0)
 Indicator.BackgroundColor3 = Color3.fromRGB(255, 100, 100)
 Instance.new("UICorner", Indicator).CornerRadius = UDim.new(0, 4)
 Indicator.ZIndex = 103
 
--- Progress Bar
 local ProgressContainer = Instance.new("Frame", Overlay)
 ProgressContainer.Size = UDim2.new(0, 300, 0, 20)
 ProgressContainer.Position = UDim2.new(0.5, 0, 0.8, 0)
@@ -93,7 +87,6 @@ ProgressFill.BackgroundColor3 = Color3.fromRGB(100, 255, 100)
 Instance.new("UICorner", ProgressFill).CornerRadius = UDim.new(0, 4)
 ProgressFill.ZIndex = 102
 
--- Variables
 local isActive = false
 local loopConnection = nil
 local isPressing = false
@@ -103,26 +96,31 @@ local velocity = 0
 local progress = 0
 local timeElapsed = 0
 
--- Horizontal Physics Tuning
-local PULL_LEFT = -2.0 -- Naturally slides left
-local PUSH_RIGHT = 4.0 -- Pressing moves right
+local PULL_LEFT = -2.0 
+local PUSH_RIGHT = 4.0 
 local DAMPING = 0.90
 
--- Invisible Button covering entire screen to reliably catch clicks/taps
 local ClickCatcher = Instance.new("TextButton", Overlay)
 ClickCatcher.Size = UDim2.new(1, 0, 1, 0)
 ClickCatcher.BackgroundTransparency = 1
 ClickCatcher.Text = ""
 ClickCatcher.ZIndex = 150
-ClickCatcher.Active = true -- Blocks clicks
+ClickCatcher.Active = true 
 
-ClickCatcher.MouseButton1Down:Connect(function() if isActive then isPressing = true end end)
-ClickCatcher.MouseButton1Up:Connect(function() isPressing = false end)
+-- [[ THE FIX: Replaced MouseButton with InputBegan for 100% reliable mobile tapping ]]
+ClickCatcher.InputBegan:Connect(function(input)
+	if isActive and (input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch) then
+		isPressing = true
+	end
+end)
+ClickCatcher.InputEnded:Connect(function(input)
+	if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+		isPressing = false
+	end
+end)
 
 UserInputService.InputBegan:Connect(function(input, gpe)
-	if isActive and not gpe then
-		if input.KeyCode == Enum.KeyCode.Space then isPressing = true end
-	end
+	if isActive and not gpe then if input.KeyCode == Enum.KeyCode.Space then isPressing = true end end
 end)
 UserInputService.InputEnded:Connect(function(input, gpe)
 	if input.KeyCode == Enum.KeyCode.Space then isPressing = false end
@@ -136,65 +134,53 @@ local function StopMinigame(success)
 end
 
 CombatUpdate.OnClientEvent:Connect(function(action, data)
-	if action == "StartMinigame" and data.MinigameType == "Balance" then
-		-- Reset values
-		position = 0.1
-		velocity = 0
-		progress = 0
-		timeElapsed = 0
-		isPressing = false
-
-		ProgressFill.Size = UDim2.new(0, 0, 1, 0)
-		Indicator.Position = UDim2.new(position, 0, 0.5, 0)
-		Indicator.BackgroundColor3 = Color3.fromRGB(255, 100, 100)
-
-		ScreenGui.Enabled = true
-		isActive = true
-
-		loopConnection = RunService.RenderStepped:Connect(function(dt)
-			if not isActive then return end
-			timeElapsed += dt
-
-			-- [[ THE FIX: Moving Safe Zone Logic ]]
-			-- Uses two sine waves combined to make the movement organic and unpredictable
-			local szCenterOffset = math.sin(timeElapsed * 1.3) * 0.2 + math.sin(timeElapsed * 0.8) * 0.175
-			local szPos = 0.375 + szCenterOffset
-			-- szPos will naturally drift between ~0.0 and 0.75.
-			SafeZone.Position = UDim2.new(szPos, 0, 0, 0)
-
-			-- Apply Horizontal Physics
-			if isPressing then
-				velocity += PUSH_RIGHT * dt
-			else
-				velocity += PULL_LEFT * dt
-			end
-			velocity *= DAMPING
-
-			position = math.clamp(position + velocity * dt, 0, 1)
-
-			-- Clamp Velocity if hitting edges
-			if position <= 0 or position >= 1 then velocity = 0 end
+	if action == "StartMinigame" then
+		if data.MinigameType == "Balance" then
+			position = 0.1; velocity = 0; progress = 0; timeElapsed = 0; isPressing = false
+			ProgressFill.Size = UDim2.new(0, 0, 1, 0)
 			Indicator.Position = UDim2.new(position, 0, 0.5, 0)
+			Indicator.BackgroundColor3 = Color3.fromRGB(255, 100, 100)
 
-			-- Logic Check: Indicator safe zone bounds
-			local safeLeft = szPos
-			local safeRight = szPos + 0.25
+			ScreenGui.Enabled = true
+			isActive = true
 
-			if position >= safeLeft and position <= safeRight then
-				Indicator.BackgroundColor3 = Color3.fromRGB(100, 255, 100)
-				SZStroke.Color = Color3.fromRGB(100, 255, 100)
-				progress = math.clamp(progress + (dt / 4), 0, 1) -- Requires 4 seconds inside
-			else
-				Indicator.BackgroundColor3 = Color3.fromRGB(255, 100, 100)
-				SZStroke.Color = Color3.fromRGB(255, 255, 255)
-				progress = math.clamp(progress - (dt / 3), 0, 1) -- Lose progress faster than gained
-			end
+			loopConnection = RunService.RenderStepped:Connect(function(dt)
+				if not isActive then return end
+				timeElapsed += dt
 
-			ProgressFill.Size = UDim2.new(progress, 0, 1, 0)
+				-- [[ THE FIX: 30-second Auto-Win Failsafe so nobody gets permanently stuck ]]
+				if timeElapsed >= 30 then StopMinigame(true); return end
 
-			if progress >= 1 then
-				StopMinigame(true)
-			end
-		end)
+				local szCenterOffset = math.sin(timeElapsed * 1.3) * 0.2 + math.sin(timeElapsed * 0.8) * 0.175
+				local szPos = 0.375 + szCenterOffset
+				SafeZone.Position = UDim2.new(szPos, 0, 0, 0)
+
+				if isPressing then velocity += PUSH_RIGHT * dt else velocity += PULL_LEFT * dt end
+				velocity *= DAMPING
+				position = math.clamp(position + velocity * dt, 0, 1)
+				if position <= 0 or position >= 1 then velocity = 0 end
+				Indicator.Position = UDim2.new(position, 0, 0.5, 0)
+
+				local safeLeft = szPos
+				local safeRight = szPos + 0.25
+
+				if position >= safeLeft and position <= safeRight then
+					Indicator.BackgroundColor3 = Color3.fromRGB(100, 255, 100)
+					SZStroke.Color = Color3.fromRGB(100, 255, 100)
+					progress = math.clamp(progress + (dt / 4), 0, 1) 
+				else
+					Indicator.BackgroundColor3 = Color3.fromRGB(255, 100, 100)
+					SZStroke.Color = Color3.fromRGB(255, 255, 255)
+					progress = math.clamp(progress - (dt / 3), 0, 1) 
+				end
+				ProgressFill.Size = UDim2.new(progress, 0, 1, 0)
+
+				if progress >= 1 then StopMinigame(true) end
+			end)
+
+			-- [[ THE FIX: Handles the missing RegimentChoice signal! ]]
+		elseif data.MinigameType == "RegimentChoice" then
+			StopMinigame(true)
+		end
 	end
 end)
