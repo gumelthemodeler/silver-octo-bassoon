@@ -4,17 +4,23 @@ local SkillData = {}
 
 SkillData.Skills = {
 	-- [[ BASIC & UNIVERSAL MOVES ]]
-	["Basic Slash"] = { Requirement = "None", Type = "Basic", Mult = 1.0, EnergyCost = 0, GasCost = 0, Order = 1, SFX = "LightSlash", VFX = "SlashMark", Description = "A standard strike to the target." },
-	["Maneuver"] = { Requirement = "None", Type = "Basic", Mult = 0, EnergyCost = 0, GasCost = 15, Effect = "Block", Cooldown = 2, Order = 2, SFX = "Dash", VFX = "BlockMark", Description = "Burn gas to rapidly dodge. Grants a 100% chance to evade the next attack." },
-	["Recover"] = { Requirement = "None", Type = "Basic", Mult = 0, EnergyCost = 0, GasCost = 0, Effect = "Rest", Cooldown = 3, Order = 3, SFX = "Heal", VFX = "HealMark", Description = "Skip your turn to recover HP and replenish Gas." },
-	["Retreat"] = { Requirement = "None", Type = "Basic", Mult = 0, EnergyCost = 0, GasCost = 50, Effect = "Flee", Order = 4, SFX = "Flee", VFX = "BlockMark", Description = "Fire a smoke signal and escape." },
-
+	["Basic Slash"] = { Requirement = "None", Range = "Close", Type = "Basic", Mult = 1.0, EnergyCost = 0, GasCost = 0, Order = 1, SFX = "LightSlash", VFX = "SlashMark", Description = "A standard strike to the target." },
+	["Maneuver"] = { Requirement = "None", Range = "Any", Type = "Basic", Mult = 0, EnergyCost = 0, GasCost = 15, Effect = "Block", Cooldown = 2, Order = 2, SFX = "Dash", VFX = "BlockMark", Description = "Burn gas to rapidly dodge. Grants a 100% chance to evade the next attack." },
+	["Recover"] = { Requirement = "None", Range = "Any", Type = "Basic", Mult = 0, EnergyCost = 0, GasCost = 0, Effect = "Rest", Cooldown = 3, Order = 3, SFX = "Heal", VFX = "HealMark", Description = "Skip your turn to recover HP and replenish Gas." },
+	["Retreat"] = { Requirement = "None", Range = "Any", Type = "Basic", Mult = 0, EnergyCost = 0, GasCost = 50, Effect = "Flee", Order = 4, SFX = "Flee", VFX = "BlockMark", Description = "Fire a smoke signal and escape." },
+	
+	-- [[ LONG RANGE STAGE SKILLS ]]
+	["Advance Maneuver"] = { Requirement = "None", Range = "Long", Type = "Basic", Mult = 0, EnergyCost = 0, GasCost = 20, Effect = "CloseGap", Cooldown = 0, Order = 1, SFX = "Dash", VFX = "BlockMark", Description = "Burn heavy gas to close the distance. (Requires 3 uses to reach melee range)." },
+	["Flare Gun"] = { Requirement = "None", Range = "Long", Type = "Basic", Mult = 0.5, Effect = "Blinded", Duration = 1, EnergyCost = 0, GasCost = 0, Cooldown = 3, Order = 2, SFX = "Gun", VFX = "ExplosionMark", Description = "Fire a flare to temporarily blind the enemy from afar." },
+	["Anti-Titan Rifle"] = { Requirement = "None", Range = "Long", Type = "Basic", Mult = 1.5, Effect = "Bleed", Duration = 2, EnergyCost = 0, GasCost = 0, Cooldown = 2, Order = 3, SFX = "Sniper", VFX = "ExplosionMark", Description = "Take a steady shot with an anti-titan rifle." },
+	
 	-- [[ TITAN SHIFTER UNIVERSAL MOVES ]]
-	["Transform"] = { Requirement = "AnyTitan", Type = "Transform", Mult = 0, EnergyCost = 0, GasCost = 0, Effect = "Transform", Cooldown = 10, Order = 5, SFX = "Transform", VFX = "ExplosionMark", Description = "Bite your hand and trigger a Titan transformation." },
-	["Eject"] = { Requirement = "Transformed", Type = "Transform", Mult = 0, EnergyCost = 0, GasCost = 0, Effect = "Eject", Cooldown = 0, Order = 1, SFX = "Dash", VFX = "SlashMark", Description = "Cut yourself out of the nape, returning to human form." },
-	["Titan Recover"] = { Requirement = "Transformed", Type = "Basic", Mult = 0, EnergyCost = 0, GasCost = 0, Effect = "TitanRest", Cooldown = 3, Order = 2, SFX = "Steam", VFX = "HealMark", Description = "Channel your Titan regeneration to massively recover HP." },
-	["Titan Punch"] = { Requirement = "Transformed", Type = "Basic", Mult = 2.0, EnergyCost = 0, GasCost = 0, Cooldown = 0, Order = 3, SFX = "Punch", VFX = "ExplosionMark", Description = "A heavy punch that consumes no steam." },
-	["Titan Kick"] = { Requirement = "Transformed", Type = "Basic", Mult = 2.5, EnergyCost = 0, GasCost = 0, Cooldown = 2, Order = 4, SFX = "Kick", VFX = "ExplosionMark", Description = "A sweeping kick that knocks the enemy back." },
+	["Transform"] = { Requirement = "AnyTitan", Range = "Any", Type = "Transform", Mult = 0, EnergyCost = 0, GasCost = 0, Effect = "Transform", Cooldown = 10, Order = 5, SFX = "Transform", VFX = "ExplosionMark", Description = "Bite your hand and trigger a Titan transformation." },
+	["Eject"] = { Requirement = "Transformed", Range = "Any", Type = "Transform", Mult = 0, EnergyCost = 0, GasCost = 0, Effect = "Eject", Cooldown = 0, Order = 1, SFX = "Dash", VFX = "SlashMark", Description = "Cut yourself out of the nape, returning to human form." },
+	["Titan Recover"] = { Requirement = "Transformed", Range = "Any", Type = "Basic", Mult = 0, EnergyCost = 0, GasCost = 0, Effect = "TitanRest", Cooldown = 3, Order = 2, SFX = "Steam", VFX = "HealMark", Description = "Channel your Titan regeneration to massively recover HP." },
+	["Titan Punch"] = { Requirement = "Transformed", Range = "Close", Type = "Basic", Mult = 2.0, EnergyCost = 0, GasCost = 0, Cooldown = 0, Order = 3, SFX = "Punch", VFX = "ExplosionMark", Description = "A heavy punch that consumes no steam." },
+	["Titan Kick"] = { Requirement = "Transformed", Range = "Close", Type = "Basic", Mult = 2.5, EnergyCost = 0, GasCost = 0, Cooldown = 2, Order = 4, SFX = "Kick", VFX = "ExplosionMark", Description = "A sweeping kick that knocks the enemy back." },
+	["Cannibalize"] = { Requirement = "Transformed", Range = "Close", Type = "Titan", Mult = 1.5, EnergyCost = 0, Cooldown = 4, Order = 5, Effect = "RestoreHeat", SFX = "Bite", VFX = "ClawMark", Description = "Viciously bite the enemy, restoring 40 Heat and 15% HP." },
 
 	-- [[ BASE ODM SYNERGY CHAIN ]]
 	["Spinning Slash"] = { Requirement = "ODM", Type = "Style", Mult = 1.2, Hits = 3, GasCost = 20, Order = 6, ComboReq = "Basic Slash", ComboMult = 1.3, SFX = "SpinSlash", VFX = "SlashMark", Description = "Burn gas to rapidly spin and slash the target 3 times." },
