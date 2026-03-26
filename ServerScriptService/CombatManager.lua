@@ -464,7 +464,12 @@ local function ProcessEnemyDeath(player, battle)
 		battle.Player.Statuses = {} 
 		battle.Player.HP = battle.Player.MaxHP; battle.Player.Gas = battle.Player.MaxGas; battle.Player.TitanEnergy = math.min(100, (battle.Player.TitanEnergy or 0) + 30); battle.Player.LastSkill = "None"
 
-		CombatUpdate:FireClient(player, "WaveComplete", {Battle = battle, LogMsg = logFlavor .. "\n" .. rewardStr .. killMsg, XP = xpGain, Dews = dewsGain, Items = droppedItems})
+		-- [[ THE FIX: Added conditional routing for Minigames here ]]
+		if nextEnemyTemplate.IsMinigame then
+			CombatUpdate:FireClient(player, "StartMinigame", {Battle = battle, LogMsg = logFlavor .. "\n" .. rewardStr .. killMsg, MinigameType = nextEnemyTemplate.IsMinigame})
+		else
+			CombatUpdate:FireClient(player, "WaveComplete", {Battle = battle, LogMsg = logFlavor .. "\n" .. rewardStr .. killMsg, XP = xpGain, Dews = dewsGain, Items = droppedItems})
+		end
 		battle.IsProcessing = false
 		return
 	end
@@ -499,6 +504,7 @@ local function ProcessEnemyDeath(player, battle)
 		local nextFinalDropDews = math.floor(nextBaseDropDews * dropMult)
 
 		local flavorText = waveData.Flavor
+
 		if nextEnemyTemplate.Name:find("Beast Titan") then
 			battle.Context.Range = "Long"
 			battle.Context.GapCloses = 0
@@ -665,7 +671,7 @@ CombatAction.OnServerEvent:Connect(function(player, actionType, actionData)
 					combatant.Statuses[sName] = duration - 1
 					if combatant.Statuses[sName] <= 0 then 
 						combatant.Statuses[sName] = nil 
-						if sName == "Stun" or sName == "Bleed" or sName == "Burn" or sName == "Crippled" or sName == "Weakened" or sName == "Blinded" or sName == "TrueBlind" or sName == "Debuff_Defense" then
+						if sName == "Stun" or sName == "Bleed" or sName == "Burn" or sName == "Crippled" or sName == "Immobilized" or sName == "Weakened" or sName == "Blinded" or sName == "TrueBlind" or sName == "Debuff_Defense" then
 							immunitiesToAdd[sName .. "Immunity"] = 2
 						end
 					end
