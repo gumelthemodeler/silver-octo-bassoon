@@ -49,18 +49,31 @@ RemotesFolder:WaitForChild("UpgradeStat").OnServerEvent:Connect(function(player,
 	if added > 0 then player:SetAttribute(xpPoolName, currentXP); player:SetAttribute(statName, currentStat + added) end
 end)
 
+
+-- [[ THE FIX: Clamped comboBonus to stop exploiters & added Roblox Premium Boost ]]
+local playerTrainDebounce = {}
 RemotesFolder:WaitForChild("TrainAction").OnServerEvent:Connect(function(player, comboBonus, isTitan)
+	local now = os.time()
+	if playerTrainDebounce[player.UserId] and now - playerTrainDebounce[player.UserId] < 0.1 then return end
+	playerTrainDebounce[player.UserId] = now
+
 	player:SetAttribute("AutoTrainSessionTime", 0) 
 	local prestige = player.leaderstats.Prestige.Value
 	local totalStats = (player:GetAttribute("Strength") or 10) + (player:GetAttribute("Defense") or 10) + (player:GetAttribute("Speed") or 10) + (player:GetAttribute("Resolve") or 10)
+
+	-- Stop exploiters from faking a massive combo
+	local safeCombo = math.clamp(tonumber(comboBonus) or 0, 0, 200)
 	local baseXP = 1 + (prestige * 50) + math.floor(totalStats / 4)
-	local xpGain = math.floor(baseXP * (1.0 + ((comboBonus or 0) * 0.1)))
+	local xpGain = math.floor(baseXP * (1.0 + (safeCombo * 0.1)))
 
 	if player:GetAttribute("HasDoubleXP") then xpGain *= 2 end
 	if player:GetAttribute("Buff_XP_Expiry") and os.time() < player:GetAttribute("Buff_XP_Expiry") then xpGain *= 2 end
 
 	local winReg = RemotesFolder:FindFirstChild("WinningRegiment")
 	if winReg and winReg.Value ~= "None" and player:GetAttribute("Regiment") == winReg.Value then xpGain = math.floor(xpGain * 1.15) end
+
+	-- Roblox Premium Benefit!
+	if player.MembershipType == Enum.MembershipType.Premium then xpGain = math.floor(xpGain * 1.20) end
 
 	local xpPoolName = isTitan and "TitanXP" or "XP"
 	player:SetAttribute(xpPoolName, (player:GetAttribute(xpPoolName) or 0) + xpGain)
@@ -87,6 +100,9 @@ task.spawn(function()
 
 					local winReg = RemotesFolder:FindFirstChild("WinningRegiment")
 					if winReg and winReg.Value ~= "None" and p:GetAttribute("Regiment") == winReg.Value then baseGain = math.floor(baseGain * 1.15) end
+
+					-- Roblox Premium Benefit!
+					if p.MembershipType == Enum.MembershipType.Premium then baseGain = math.floor(baseGain * 1.20) end
 
 					p:SetAttribute("XP", (p:GetAttribute("XP") or 0) + baseGain)
 					if (p:GetAttribute("Titan") or "None") ~= "None" then p:SetAttribute("TitanXP", (p:GetAttribute("TitanXP") or 0) + baseGain) end
@@ -314,17 +330,37 @@ RemotesFolder:WaitForChild("GachaRoll").OnServerEvent:Connect(function(player, g
 	end
 end)
 
+
+-- [[ THE FIX: Stops on Transcendent & limits to 100 auto-rolls to prevent freezing! ]]
 RemotesFolder:WaitForChild("GachaRollAuto").OnServerEvent:Connect(function(player, gType)
-	local reqAttr = gType == "Titan" and "StandardTitanSerumCount" or "ClanBloodVialCount"; local result, rType
+	local reqAttr = gType == "Titan" and "StandardTitanSerumCount" or "ClanBloodVialCount"
+	local result, rType
+	local rollsUsed = 0
+
 	while (player:GetAttribute(reqAttr) or 0) > 0 do
 		player:SetAttribute(reqAttr, player:GetAttribute(reqAttr) - 1)
+		rollsUsed += 1
 		UpdateBountyProgress(player, "Roll", 1)
+
 		result, rType = PerformRoll(gType, false, player)
-		if rType == "Legendary" or rType == "Mythical" then break end
+
+		if rType == "Legendary" or rType == "Mythical" or rType == "Transcendent" then 
+			break 
+		end
+
+		if rollsUsed >= 100 then 
+			RemotesFolder.NotificationEvent:FireClient(player, "Auto-Roll paused after 100 attempts to prevent lag.", "Info")
+			break 
+		end
 	end
+
 	if result then
 		player:SetAttribute(gType, result)
-		if gType == "Titan" then for _, s in ipairs({"Titan_Power_Val", "Titan_Speed_Val", "Titan_Hardening_Val", "Titan_Endurance_Val", "Titan_Precision_Val", "Titan_Potential_Val"}) do player:SetAttribute(s, 10) end end
+		if gType == "Titan" then 
+			for _, s in ipairs({"Titan_Power_Val", "Titan_Speed_Val", "Titan_Hardening_Val", "Titan_Endurance_Val", "Titan_Precision_Val", "Titan_Potential_Val"}) do 
+				player:SetAttribute(s, 10) 
+			end 
+		end
 		RemotesFolder.GachaResult:FireClient(player, gType, result, rType)
 	end
 end)
