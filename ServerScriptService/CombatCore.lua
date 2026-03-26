@@ -266,13 +266,14 @@ function CombatCore.ExecuteStrike(attacker, defender, skillName, targetLimb, log
 		local effectLog = ""
 		local isArmored = defender.GateType == "Reinforced Skin" and (tonumber(defender.GateHP) or 0) > 0
 
+		-- FIX: Added "Weakened" to the armor block list 
 		if skill.Effect and skill.Effect ~= "None" and skill.Effect ~= "Block" and skill.Effect ~= "Rest" and skill.Effect ~= "Flee" and skill.Effect ~= "Transform" and skill.Effect ~= "Eject" then
 			if not defender.Statuses then defender.Statuses = {} end
 
 			local currentEffect = tonumber(defender.Statuses[skill.Effect]) or 0
 			local currentImmunity = tonumber(defender.Statuses[skill.Effect .. "Immunity"]) or 0
 
-			if isArmored and (skill.Effect == "Stun" or skill.Effect == "Bleed" or skill.Effect == "Blinded" or skill.Effect == "TrueBlind" or skill.Effect == "Crippled") then
+			if isArmored and (skill.Effect == "Stun" or skill.Effect == "Bleed" or skill.Effect == "Blinded" or skill.Effect == "TrueBlind" or skill.Effect == "Crippled" or skill.Effect == "Weakened") then
 				effectLog = effectLog .. " <font color='#888888'>[ARMOR RESISTS EFFECT]</font>"
 			elseif currentEffect > 0 then
 				effectLog = effectLog .. " <font color='#888888'>[ALREADY ACTIVE]</font>"
@@ -326,6 +327,7 @@ function CombatCore.ExecuteStrike(attacker, defender, skillName, targetLimb, log
 				else
 					defender.Statuses["Weakened"] = 3; effectLog = effectLog .. " <font color='#FFDD55'>[WEAKENED]</font>"
 				end
+				-- FIX: Removed Manual Immunity Assignment
 			elseif targetLimb == "Eyes" and attacker.IsPlayer and not defender.IsHuman then
 				if not defender.Statuses then defender.Statuses = {} end
 				local tblBlind = tonumber(defender.Statuses["TrueBlind"]) or 0
@@ -340,11 +342,9 @@ function CombatCore.ExecuteStrike(attacker, defender, skillName, targetLimb, log
 				else
 					if blStatus > 0 then
 						defender.Statuses["TrueBlind"] = 2; defender.Statuses["Blinded"] = nil
-						defender.Statuses["TrueBlindImmunity"] = 5 
 						effectLog = effectLog .. " <font color='#555555'>[TRUE BLINDNESS]</font>"
 					else
 						defender.Statuses["Blinded"] = 2
-						defender.Statuses["BlindedImmunity"] = 4 
 						effectLog = effectLog .. " <font color='#DDDDDD'>[BLINDED]</font>"
 					end
 				end
