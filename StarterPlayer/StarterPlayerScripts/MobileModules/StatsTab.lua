@@ -18,6 +18,15 @@ local statRowRefs = {}
 local humanCombo = 0
 local titanCombo = 0
 
+local Suffixes = {"", "K", "M", "B", "T", "Qa", "Qi", "Sx"}
+local function AbbreviateNumber(n)
+	if not n then return "0" end; n = tonumber(n) or 0
+	if n < 1000 then return tostring(math.floor(n)) end
+	local suffixIndex = math.floor(math.log10(n) / 3); local value = n / (10 ^ (suffixIndex * 3))
+	local str = string.format("%.1f", value); str = str:gsub("%.0$", "")
+	return str .. (Suffixes[suffixIndex + 1] or "")
+end
+
 local function GetCombinedBonus(statName)
 	local wpn = player:GetAttribute("EquippedWeapon") or "None"
 	local acc = player:GetAttribute("EquippedAccessory") or "None"
@@ -34,7 +43,6 @@ local function GetUpgradeCosts(currentStat, cleanName, prestige)
 	return GameData.CalculateStatCost(currentStat, base, prestige)
 end
 
--- [[ Premium Dark Gradient Helper ]]
 local function ApplyButtonGradient(btn, topColor, botColor, strokeColor)
 	btn.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
 	local grad = btn:FindFirstChildOfClass("UIGradient") or Instance.new("UIGradient", btn)
@@ -99,8 +107,8 @@ local function CreateStatRow(statName, parent, isTitan, layoutOrder, amtInput)
 		task.wait(0.15); isUpgrading = false
 	end
 
-	bAdd.MouseButton1Click:Connect(function() local customAmt = tonumber(amtInput.Text) or 1; if customAmt < 1 then customAmt = 1 end; TryUpgrade(math.floor(customAmt)) end)
-	bMax.MouseButton1Click:Connect(function() TryUpgrade("MAX") end)
+	bAdd.MouseButton1Down:Connect(function() local customAmt = tonumber(amtInput.Text) or 1; if customAmt < 1 then customAmt = 1 end; TryUpgrade(math.floor(customAmt)) end)
+	bMax.MouseButton1Down:Connect(function() TryUpgrade("MAX") end)
 	statRowRefs[statName] = { Label = statLabel, BtnContainer = btnContainer, BtnAdd = bAdd, BtnMax = bMax }
 end
 
@@ -116,7 +124,6 @@ function StatsTab.Init(parentFrame)
 		TweenService:Create(fTxt, TweenInfo.new(0.6, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {Position = fTxt.Position - UDim2.new(0, 0, 0.3, 0), TextTransparency = 1}):Play(); game.Debris:AddItem(fTxt, 0.6)
 	end
 
-	-- [[ MOBILE: Vertically stacked Stat panels that house their own Training Boxes! ]]
 	local function SetupPanel(titleTxt, statList, isTitan, layoutOrd)
 		local panel = Instance.new("Frame", MainFrame)
 		panel.Size = UDim2.new(0.95, 0, 0, 0); panel.AutomaticSize = Enum.AutomaticSize.Y; panel.BackgroundColor3 = Color3.fromRGB(20, 20, 25); panel.LayoutOrder = layoutOrd
@@ -135,20 +142,23 @@ function StatsTab.Init(parentFrame)
 		ApplyButtonGradient(allBtn, Color3.fromRGB(200, 120, 30), Color3.fromRGB(120, 60, 15), Color3.fromRGB(220, 150, 50))
 
 		local amtInput = Instance.new("TextBox", controls); amtInput.Size = UDim2.new(0.3, 0, 0.8, 0); amtInput.BackgroundColor3 = Color3.fromRGB(15, 15, 20); amtInput.Text = "1"; amtInput.Font = Enum.Font.GothamBold; amtInput.TextColor3 = Color3.new(1,1,1); amtInput.TextSize = 11; Instance.new("UICorner", amtInput).CornerRadius = UDim.new(0, 4); Instance.new("UIStroke", amtInput).Color = Color3.fromRGB(100, 60, 140)
-		local ptsLbl = Instance.new("TextLabel", controls); ptsLbl.Size = UDim2.new(0.2, 0, 0.8, 0); ptsLbl.BackgroundTransparency = 1; ptsLbl.Text = "Pts:"; ptsLbl.Font = Enum.Font.GothamMedium; ptsLbl.TextColor3 = Color3.fromRGB(180, 180, 180); ptsLbl.TextSize = 10; ptsLbl.TextXAlignment = Enum.TextXAlignment.Right
+
+		local ptsLbl = Instance.new("TextLabel", controls); ptsLbl.Size = UDim2.new(0.4, 0, 0.8, 0); ptsLbl.BackgroundTransparency = 1; ptsLbl.Text = "0 XP"; ptsLbl.Font = Enum.Font.GothamMedium; ptsLbl.TextColor3 = isTitan and Color3.fromRGB(255, 100, 100) or Color3.fromRGB(100, 255, 100); ptsLbl.TextSize = 11; ptsLbl.TextXAlignment = Enum.TextXAlignment.Right
 
 		local list = Instance.new("Frame", panel); list.Size = UDim2.new(1, -20, 0, 0); list.AutomaticSize = Enum.AutomaticSize.Y; list.BackgroundTransparency = 1; list.LayoutOrder = 2
 		local lLayout = Instance.new("UIListLayout", list); lLayout.SortOrder = Enum.SortOrder.LayoutOrder; lLayout.Padding = UDim.new(0, 8)
 
 		for i, s in ipairs(statList) do CreateStatRow(s, list, isTitan, i, amtInput) end
 
-		-- Embedded Mobile Training Box
 		local trainBox = Instance.new("Frame", panel)
 		trainBox.Size = UDim2.new(1, -10, 0, 110); trainBox.BackgroundColor3 = Color3.fromRGB(15, 15, 20); trainBox.LayoutOrder = 3; trainBox.ClipsDescendants = true
 		Instance.new("UICorner", trainBox).CornerRadius = UDim.new(0, 8); Instance.new("UIStroke", trainBox).Color = Color3.fromRGB(120, 100, 60)
 
 		local comboLbl = Instance.new("TextLabel", trainBox)
-		comboLbl.Size = UDim2.new(1, -20, 0, 30); comboLbl.Position = UDim2.new(0, 10, 0, 10); comboLbl.BackgroundTransparency = 1; comboLbl.Font = Enum.Font.GothamBlack; comboLbl.TextColor3 = isTitan and Color3.fromRGB(255, 150, 100) or Color3.fromRGB(150, 255, 100); comboLbl.TextSize = 16; comboLbl.TextXAlignment = Enum.TextXAlignment.Left; comboLbl.Text = ""; comboLbl.Visible = false; comboLbl.ZIndex = 2
+		comboLbl.Size = UDim2.new(1, -20, 0, 30); comboLbl.Position = UDim2.new(0, 10, 0, 10); comboLbl.BackgroundTransparency = 1; comboLbl.Font = Enum.Font.GothamBlack; comboLbl.TextColor3 = isTitan and Color3.fromRGB(255, 150, 100) or Color3.fromRGB(150, 255, 100); comboLbl.TextSize = 16; comboLbl.TextXAlignment = Enum.TextXAlignment.Left; comboLbl.Text = ""
+		comboLbl.Visible = false
+		comboLbl.RichText = true -- [[ THE FIX: Resolves the String rendering issue! ]]
+		comboLbl.ZIndex = 2
 
 		local missBtn = Instance.new("TextButton", trainBox); missBtn.Size = UDim2.new(1, 0, 1, 0); missBtn.BackgroundTransparency = 1; missBtn.Text = ""; missBtn.ZIndex = 1 
 
@@ -160,17 +170,22 @@ function StatsTab.Init(parentFrame)
 		if isTitan then ApplyButtonGradient(tBtn, Color3.fromRGB(200, 60, 60), Color3.fromRGB(120, 30, 30), Color3.fromRGB(80, 20, 20))
 		else ApplyButtonGradient(tBtn, Color3.fromRGB(80, 180, 80), Color3.fromRGB(40, 100, 40), Color3.fromRGB(20, 80, 20)) end
 
+		-- [[ THE FIX: Use MouseButton1Down for perfectly responsive, ghost-touch-free aim training ]]
 		tBtn.MouseButton1Down:Connect(function()
 			local currentPos = tBtn.Position
 			if isTitan then titanCombo += 1 else humanCombo += 1 end
 			local activeCombo = isTitan and titanCombo or humanCombo
 
-			if activeCombo > 1 then comboLbl.Visible = true; comboLbl.Text = "x" .. activeCombo .. " COMBO!" end
+			if activeCombo > 1 then 
+				comboLbl.TextColor3 = isTitan and Color3.fromRGB(255, 150, 100) or Color3.fromRGB(150, 255, 100)
+				comboLbl.Visible = true
+				comboLbl.Text = "x" .. activeCombo .. " COMBO!" 
+			end
 
 			local prestige = player:WaitForChild("leaderstats") and player.leaderstats:FindFirstChild("Prestige") and player.leaderstats.Prestige.Value or 0
 			local totalStats = (player:GetAttribute("Strength") or 10) + (player:GetAttribute("Defense") or 10) + (player:GetAttribute("Speed") or 10) + (player:GetAttribute("Resolve") or 10)
 			local baseXP = 1 + (prestige * 50) + math.floor(totalStats / 4)
-			local xpGain = math.floor(baseXP * (1.0 + (activeCombo * 0.02)))
+			local xpGain = math.floor(baseXP * (1.0 + (activeCombo * 0.1)))
 
 			CreateFloatingText("+" .. xpGain .. (isTitan and " T-XP" or " XP"), Color3.fromRGB(100, 255, 100), trainBox, currentPos)
 			tBtn.Position = UDim2.new(math.random(25, 75)/100, 0, math.random(30, 80)/100, 0)
@@ -179,16 +194,20 @@ function StatsTab.Init(parentFrame)
 
 		missBtn.MouseButton1Down:Connect(function()
 			if isTitan and titanCombo > 0 then
-				titanCombo = 0; comboLbl.Visible = true; comboLbl.Text = "<font color='#FF5555'>COMBO DROPPED!</font>"
+				titanCombo = 0
+				comboLbl.Visible = true
+				comboLbl.Text = "<font color='#FF5555'>COMBO DROPPED!</font>"
 				task.delay(1.5, function() if titanCombo == 0 then comboLbl.Visible = false end end)
 			elseif not isTitan and humanCombo > 0 then
-				humanCombo = 0; comboLbl.Visible = true; comboLbl.Text = "<font color='#FF5555'>COMBO DROPPED!</font>"
+				humanCombo = 0
+				comboLbl.Visible = true
+				comboLbl.Text = "<font color='#FF5555'>COMBO DROPPED!</font>"
 				task.delay(1.5, function() if humanCombo == 0 then comboLbl.Visible = false end end)
 			end
 		end)
 
 		local isSpammingAll = false
-		allBtn.MouseButton1Click:Connect(function()
+		allBtn.MouseButton1Down:Connect(function()
 			if isSpammingAll then return end
 			isSpammingAll = true
 
@@ -224,17 +243,20 @@ function StatsTab.Init(parentFrame)
 			task.wait(0.25); isSpammingAll = false
 		end)
 
-		return panel
+		return { Panel = panel, PtsLbl = ptsLbl }
 	end
 
-	local soldierColumn = SetupPanel("SOLDIER VITALITY", playerStatsList, false, 1)
-	local titanColumn = SetupPanel("TITAN POTENTIAL", titanStatsList, true, 2)
+	local soldierData = SetupPanel("SOLDIER VITALITY", playerStatsList, false, 1)
+	local titanData = SetupPanel("TITAN POTENTIAL", titanStatsList, true, 2)
 
 	local function UpdateStats()
 		local prestigeObj = player:WaitForChild("leaderstats", 5) and player.leaderstats:FindFirstChild("Prestige")
 		local prestige = prestigeObj and prestigeObj.Value or 0
 		local hXP = player:GetAttribute("XP") or 0; local tXP = player:GetAttribute("TitanXP") or 0
 		local statCap = GameData.GetStatCap(prestige)
+
+		soldierData.PtsLbl.Text = AbbreviateNumber(hXP) .. " XP"
+		titanData.PtsLbl.Text = AbbreviateNumber(tXP) .. " T-XP"
 
 		local allStats = {}
 		for _, s in ipairs(playerStatsList) do table.insert(allStats, s) end
@@ -253,6 +275,7 @@ function StatsTab.Init(parentFrame)
 				data.Label.Text = cleanName .. ": <font color='" .. (isTitanStat and "#FF5555" or "#FFFFFF") .. "'>" .. val .. "</font>" .. bonusText .. " <font color='#FF5555'>[MAX]</font>"
 				ApplyButtonGradient(data.BtnAdd, Color3.fromRGB(20, 15, 25), Color3.fromRGB(10, 8, 15), Color3.fromRGB(40, 30, 60))
 				data.BtnAdd.TextColor3 = Color3.fromRGB(100, 100, 100)
+
 				ApplyButtonGradient(data.BtnMax, Color3.fromRGB(20, 15, 25), Color3.fromRGB(10, 8, 15), Color3.fromRGB(40, 30, 60))
 				data.BtnMax.TextColor3 = Color3.fromRGB(100, 100, 100)
 			else
@@ -274,6 +297,14 @@ function StatsTab.Init(parentFrame)
 	end
 
 	player.AttributeChanged:Connect(function(attr) if table.find(playerStatsList, attr) or table.find(titanStatsList, attr) or attr == "XP" or attr == "TitanXP" or attr == "Titan" then UpdateStats() end end)
+
+	task.spawn(function()
+		local ls = player:WaitForChild("leaderstats", 10)
+		if ls and ls:FindFirstChild("Prestige") then
+			ls.Prestige.Changed:Connect(UpdateStats)
+		end
+	end)
+
 	UpdateStats()
 end
 
