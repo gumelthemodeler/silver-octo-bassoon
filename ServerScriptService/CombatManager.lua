@@ -522,7 +522,10 @@ CombatAction.OnServerEvent:Connect(function(player, actionType, actionData)
 		local battle = ActiveBattles[player.UserId]
 		if not battle or not battle.Enemy.IsMinigame then return end
 
+		-- [[ THE FIX: Block exploiters from spamming the success remote ]]
+		if battle.IsProcessing then return end
 		battle.IsProcessing = true
+
 		if actionData.Success then
 			battle.Enemy.HP = 0
 			ProcessEnemyDeath(player, battle)
@@ -809,4 +812,9 @@ CombatAction.OnServerEvent:Connect(function(player, actionType, actionData)
 		battle.IsProcessing = false
 		CombatUpdate:FireClient(player, "Update", {Battle = battle})
 	end
+end)
+
+-- [[ THE FIX: Cleans up ghost battles so the server doesn't lag over time ]]
+Players.PlayerRemoving:Connect(function(player)
+	ActiveBattles[player.UserId] = nil
 end)
