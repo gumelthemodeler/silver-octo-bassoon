@@ -20,7 +20,7 @@ local RadarContainer, regIcon, AvatarBox
 local toggleStatsBtn
 local InvTitle 
 local isShowingTitanStats = false
-local MAX_INVENTORY_CAPACITY = 50
+local MAX_INVENTORY_CAPACITY = 25
 
 local RarityColors = { ["Common"] = "#AAAAAA", ["Uncommon"] = "#55FF55", ["Rare"] = "#5588FF", ["Epic"] = "#CC44FF", ["Legendary"] = "#FFD700", ["Mythical"] = "#FF3333", ["Transcendent"] = "#FF55FF" }
 local RarityOrder = { Transcendent = 0, Mythical = 1, Legendary = 2, Epic = 3, Rare = 4, Uncommon = 5, Common = 6 }
