@@ -4,6 +4,8 @@ local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RemotesFolder = ReplicatedStorage:WaitForChild("Network")
 
+local GameData = require(ReplicatedStorage:WaitForChild("GameData"))
+
 local ActiveTrades = {} -- [TradeID] = {P1 = player, P2 = player, P1Offer = {Dews=0, Items={}}, P2Offer = {Dews=0, Items={}}, P1Ready=false, P2Ready=false, P1Confirm=false, P2Confirm=false}
 local TradeRequests = {} -- [TargetId] = {RequesterId1, RequesterId2}
 
@@ -32,7 +34,6 @@ local function ExecuteTrade(tradeId)
 	local trade = ActiveTrades[tradeId]
 	if not trade then return end
 
-	-- Security Check: Ensure both players STILL have the items/dews they offered
 	local function ValidateOffer(plr, offer)
 		if plr.leaderstats.Dews.Value < offer.Dews then return false end
 		for itemName, amount in pairs(offer.Items) do
@@ -47,13 +48,28 @@ local function ExecuteTrade(tradeId)
 		return
 	end
 
+	-- [[ THE FIX: Check Inventory Caps based on net item flow ]]
+	local p1NetItems = 0; local p2NetItems = 0
+	for _, amt in pairs(trade.P2Offer.Items) do p1NetItems += amt end
+	for _, amt in pairs(trade.P1Offer.Items) do p1NetItems -= amt end
+	for _, amt in pairs(trade.P1Offer.Items) do p2NetItems += amt end
+	for _, amt in pairs(trade.P2Offer.Items) do p2NetItems -= amt end
+
+	if p1NetItems > 0 and (GameData.GetInventoryCount(trade.P1) + p1NetItems) > GameData.GetMaxInventory(trade.P1) then
+		CancelTrade(tradeId, trade.P1.Name .. "'s inventory is full!")
+		return
+	end
+	if p2NetItems > 0 and (GameData.GetInventoryCount(trade.P2) + p2NetItems) > GameData.GetMaxInventory(trade.P2) then
+		CancelTrade(tradeId, trade.P2.Name .. "'s inventory is full!")
+		return
+	end
+
 	-- Deduct Offers
 	trade.P1.leaderstats.Dews.Value -= trade.P1Offer.Dews
 	for itemName, amount in pairs(trade.P1Offer.Items) do
 		local safeName = itemName:gsub("[^%w]", "") .. "Count"
 		trade.P1:SetAttribute(safeName, trade.P1:GetAttribute(safeName) - amount)
 	end
-
 	trade.P2.leaderstats.Dews.Value -= trade.P2Offer.Dews
 	for itemName, amount in pairs(trade.P2Offer.Items) do
 		local safeName = itemName:gsub("[^%w]", "") .. "Count"
@@ -66,7 +82,6 @@ local function ExecuteTrade(tradeId)
 		local safeName = itemName:gsub("[^%w]", "") .. "Count"
 		trade.P1:SetAttribute(safeName, (trade.P1:GetAttribute(safeName) or 0) + amount)
 	end
-
 	trade.P2.leaderstats.Dews.Value += trade.P1Offer.Dews
 	for itemName, amount in pairs(trade.P1Offer.Items) do
 		local safeName = itemName:gsub("[^%w]", "") .. "Count"
