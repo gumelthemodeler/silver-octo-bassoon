@@ -50,18 +50,49 @@ local function ShakeUI(intensity)
 	end)
 end
 
-local function CreateBar(parent, color1, color2, size, labelText)
+-- [[ The New Gradient Helpers ]]
+local function ApplyGradient(label, color1, color2)
+	local grad = Instance.new("UIGradient", label)
+	grad.Color = ColorSequence.new{ColorSequenceKeypoint.new(0, color1), ColorSequenceKeypoint.new(1, color2)}
+end
+
+local function ApplyButtonGradient(btn, topColor, botColor, strokeColor)
+	btn.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+	local grad = btn:FindFirstChildOfClass("UIGradient") or Instance.new("UIGradient", btn)
+	grad.Color = ColorSequence.new{ColorSequenceKeypoint.new(0, topColor), ColorSequenceKeypoint.new(1, botColor)}; grad.Rotation = 90
+	local corner = btn:FindFirstChildOfClass("UICorner") or Instance.new("UICorner", btn); corner.CornerRadius = UDim.new(0, 4)
+	if strokeColor then
+		local stroke = btn:FindFirstChildOfClass("UIStroke") or Instance.new("UIStroke", btn)
+		stroke.Color = strokeColor; stroke.Thickness = 1; stroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border; stroke.LineJoinMode = Enum.LineJoinMode.Miter
+	end
+	if not btn:GetAttribute("GradientTextFixed") then
+		btn:SetAttribute("GradientTextFixed", true)
+		local textLbl = Instance.new("TextLabel", btn); textLbl.Name = "BtnTextLabel"; textLbl.Size = UDim2.new(1, 0, 1, 0); textLbl.BackgroundTransparency = 1
+		textLbl.Font = btn.Font; textLbl.TextSize = btn.TextSize; textLbl.TextScaled = btn.TextScaled; textLbl.RichText = btn.RichText; textLbl.TextWrapped = btn.TextWrapped
+		textLbl.TextXAlignment = btn.TextXAlignment; textLbl.TextYAlignment = btn.TextYAlignment; textLbl.ZIndex = btn.ZIndex + 1
+		local tConstraint = btn:FindFirstChildOfClass("UITextSizeConstraint"); if tConstraint then tConstraint.Parent = textLbl end
+		btn.ChildAdded:Connect(function(child) if child:IsA("UITextSizeConstraint") then task.delay(0, function() child.Parent = textLbl end) end end)
+		textLbl.Text = btn.Text; textLbl.TextColor3 = btn.TextColor3; btn.Text = ""
+		btn:GetPropertyChangedSignal("Text"):Connect(function() if btn.Text ~= "" then textLbl.Text = btn.Text; btn.Text = "" end end)
+		btn:GetPropertyChangedSignal("TextColor3"):Connect(function() textLbl.TextColor3 = btn.TextColor3 end)
+		btn:GetPropertyChangedSignal("RichText"):Connect(function() textLbl.RichText = btn.RichText end)
+	end
+end
+
+local function CreateBar(parent, color1, color2, size, labelText, alignRight)
 	local container = Instance.new("Frame", parent)
 	container.Size = size; container.BackgroundColor3 = Color3.fromRGB(20, 20, 25)
 	Instance.new("UICorner", container).CornerRadius = UDim.new(0, 4); Instance.new("UIStroke", container).Color = Color3.fromRGB(80, 80, 90)
 
 	local fill = Instance.new("Frame", container)
 	fill.Size = UDim2.new(1, 0, 1, 0); fill.BackgroundColor3 = Color3.fromRGB(255, 255, 255); Instance.new("UICorner", fill).CornerRadius = UDim.new(0, 4)
+	if alignRight then fill.AnchorPoint = Vector2.new(1, 0); fill.Position = UDim2.new(1, 0, 0, 0) end
 	local grad = Instance.new("UIGradient", fill); grad.Color = ColorSequence.new{ColorSequenceKeypoint.new(0, color1), ColorSequenceKeypoint.new(1, color2)}; grad.Rotation = 90
 
 	local text = Instance.new("TextLabel", container)
 	text.Size = UDim2.new(1, -10, 1, 0); text.Position = UDim2.new(0, 5, 0, 0); text.BackgroundTransparency = 1
 	text.Font = Enum.Font.GothamBold; text.TextColor3 = Color3.fromRGB(255, 255, 255); text.TextSize = 11; text.TextStrokeTransparency = 0.5; text.Text = labelText
+	text.TextXAlignment = alignRight and Enum.TextXAlignment.Right or Enum.TextXAlignment.Left
 	return fill, text, container
 end
 
@@ -140,10 +171,10 @@ function CombatTab.Init(parentFrame, tooltipMgr, switchTabFunc)
 	AmbientContainer.ZIndex = 50 
 	AmbientContainer.Visible = false
 
-	MainFrame = Instance.new("ScrollingFrame", parentFrame.Parent)
+	-- Restoring the base structure
+	MainFrame = Instance.new("Frame", parentFrame.Parent)
 	MainFrame.Name = "CombatFrame"; MainFrame.Size = UDim2.new(0.98, 0, 0.95, 0); MainFrame.Position = UDim2.new(0.5, 0, 0.5, 0); MainFrame.AnchorPoint = Vector2.new(0.5, 0.5)
-	MainFrame.BackgroundColor3 = Color3.fromRGB(15, 15, 20); MainFrame.Visible = false; MainFrame.ZIndex = 200; MainFrame.ScrollBarThickness = 0
-	MainFrame.AutomaticCanvasSize = Enum.AutomaticSize.Y
+	MainFrame.BackgroundColor3 = Color3.fromRGB(15, 15, 20); MainFrame.Visible = false; MainFrame.ZIndex = 200
 	Instance.new("UICorner", MainFrame).CornerRadius = UDim.new(0, 12)
 	local outerStroke = Instance.new("UIStroke", MainFrame); outerStroke.Thickness = 3; outerStroke.Color = Color3.fromRGB(255, 210, 60)
 
@@ -157,76 +188,85 @@ function CombatTab.Init(parentFrame, tooltipMgr, switchTabFunc)
 	WaveLabel.Size = UDim2.new(1, 0, 0, 20); WaveLabel.BackgroundTransparency = 1
 	WaveLabel.Font = Enum.Font.GothamBlack; WaveLabel.TextColor3 = Color3.fromRGB(255, 215, 100); WaveLabel.TextSize = 18; WaveLabel.Text = "WAVE 1/1"
 	WaveLabel.LayoutOrder = 1
+	ApplyGradient(WaveLabel, Color3.fromRGB(255, 215, 100), Color3.fromRGB(255, 150, 50))
 
+	-- [[ RESTORED: Side-by-side CombatantsFrame ]]
 	local CombatantsFrame = Instance.new("Frame", MainFrame)
-	CombatantsFrame.Size = UDim2.new(0.96, 0, 0, 170); CombatantsFrame.BackgroundTransparency = 1
+	CombatantsFrame.Size = UDim2.new(0.96, 0, 0.25, 0); CombatantsFrame.BackgroundTransparency = 1
 	CombatantsFrame.LayoutOrder = 2
 
-	local listLayout = Instance.new("UIListLayout", CombatantsFrame)
-	listLayout.FillDirection = Enum.FillDirection.Vertical
-	listLayout.Padding = UDim.new(0, 10)
-
+	-- Player Side
 	local PlayerPanel = Instance.new("Frame", CombatantsFrame)
-	PlayerPanel.Size = UDim2.new(1, 0, 0, 80); PlayerPanel.BackgroundTransparency = 1
+	PlayerPanel.Size = UDim2.new(0.45, 0, 1, 0); PlayerPanel.Position = UDim2.new(0, 0, 0, 0); PlayerPanel.BackgroundTransparency = 1
 
 	pAvatarBox = Instance.new("Frame", PlayerPanel)
-	pAvatarBox.Size = UDim2.new(0, 70, 0, 70); pAvatarBox.BackgroundColor3 = Color3.fromRGB(10, 10, 15)
+	pAvatarBox.Size = UDim2.new(0.25, 0, 1, 0); pAvatarBox.Position = UDim2.new(0, 0, 0, 0); pAvatarBox.BackgroundColor3 = Color3.fromRGB(10, 10, 15)
+	Instance.new("UIAspectRatioConstraint", pAvatarBox).AspectRatio = 1
 	Instance.new("UIStroke", pAvatarBox).Color = Color3.fromRGB(255, 255, 255); Instance.new("UIStroke", pAvatarBox).Thickness = 2
 	local pAvatarImg = Instance.new("ImageLabel", pAvatarBox); pAvatarImg.Size = UDim2.new(1, 0, 1, 0); pAvatarImg.BackgroundTransparency = 1; pAvatarImg.Image = "rbxthumb://type=AvatarHeadShot&id=" .. player.UserId .. "&w=150&h=150"
 
 	local pStatsArea = Instance.new("Frame", PlayerPanel)
-	pStatsArea.Size = UDim2.new(1, -80, 1, 0); pStatsArea.Position = UDim2.new(0, 80, 0, 0); pStatsArea.BackgroundTransparency = 1
-	local pLayout = Instance.new("UIListLayout", pStatsArea); pLayout.SortOrder = Enum.SortOrder.LayoutOrder; pLayout.Padding = UDim.new(0, 4)
+	pStatsArea.Size = UDim2.new(0.7, 0, 1, 0); pStatsArea.Position = UDim2.new(0.3, 0, 0, 0); pStatsArea.BackgroundTransparency = 1
+	local pLayout = Instance.new("UIListLayout", pStatsArea); pLayout.SortOrder = Enum.SortOrder.LayoutOrder; pLayout.Padding = UDim.new(0.05, 0); pLayout.VerticalAlignment = Enum.VerticalAlignment.Center
 
 	PlayerNameText = Instance.new("TextLabel", pStatsArea)
-	PlayerNameText.Size = UDim2.new(1, 0, 0, 15); PlayerNameText.BackgroundTransparency = 1; PlayerNameText.Font = Enum.Font.GothamBlack; PlayerNameText.TextColor3 = Color3.fromRGB(255, 255, 255); PlayerNameText.TextSize = 14; PlayerNameText.TextXAlignment = Enum.TextXAlignment.Left; PlayerNameText.TextScaled = true; PlayerNameText.Text = player.Name
+	PlayerNameText.Size = UDim2.new(1, 0, 0.25, 0); PlayerNameText.BackgroundTransparency = 1; PlayerNameText.Font = Enum.Font.GothamBlack; PlayerNameText.TextColor3 = Color3.fromRGB(255, 255, 255); PlayerNameText.TextSize = 14; PlayerNameText.TextXAlignment = Enum.TextXAlignment.Left; PlayerNameText.TextScaled = true; PlayerNameText.Text = player.Name
 
-	PlayerHPBar, PlayerHPText = CreateBar(pStatsArea, Color3.fromRGB(220, 40, 40), Color3.fromRGB(120, 20, 20), UDim2.new(1, 0, 0, 16), "HP: 100")
-	PlayerGasBar, PlayerGasText = CreateBar(pStatsArea, Color3.fromRGB(150, 220, 255), Color3.fromRGB(60, 140, 200), UDim2.new(1, 0, 0, 12), "GAS: 100")
-	PlayerNrgBar, PlayerNrgText, PlayerNrgContainer = CreateBar(pStatsArea, Color3.fromRGB(255, 150, 50), Color3.fromRGB(180, 80, 20), UDim2.new(1, 0, 0, 12), "HEAT: 0"); PlayerNrgContainer.Visible = false
+	PlayerHPBar, PlayerHPText = CreateBar(pStatsArea, Color3.fromRGB(220, 40, 40), Color3.fromRGB(120, 20, 20), UDim2.new(1, 0, 0.25, 0), "HP: 100", false)
+	PlayerGasBar, PlayerGasText = CreateBar(pStatsArea, Color3.fromRGB(150, 220, 255), Color3.fromRGB(60, 140, 200), UDim2.new(1, 0, 0.2, 0), "GAS: 100", false)
+	PlayerNrgBar, PlayerNrgText, PlayerNrgContainer = CreateBar(pStatsArea, Color3.fromRGB(255, 150, 50), Color3.fromRGB(180, 80, 20), UDim2.new(1, 0, 0.2, 0), "HEAT: 0", false); PlayerNrgContainer.Visible = false
 
 	PlayerStatusBox = Instance.new("Frame", pStatsArea)
-	PlayerStatusBox.Size = UDim2.new(1, 0, 0, 18); PlayerStatusBox.BackgroundTransparency = 1
+	PlayerStatusBox.Size = UDim2.new(1, 0, 0.2, 0); PlayerStatusBox.BackgroundTransparency = 1
 	local pStatusLayout = Instance.new("UIListLayout", PlayerStatusBox); pStatusLayout.FillDirection = Enum.FillDirection.Horizontal; pStatusLayout.Padding = UDim.new(0, 2)
 
+	-- VS Label
+	local vsLbl = Instance.new("TextLabel", CombatantsFrame)
+	vsLbl.Size = UDim2.new(0.1, 0, 1, 0); vsLbl.Position = UDim2.new(0.45, 0, 0, 0); vsLbl.BackgroundTransparency = 1
+	vsLbl.Font = Enum.Font.GothamBlack; vsLbl.TextColor3 = Color3.fromRGB(100, 100, 110); vsLbl.TextSize = 24; vsLbl.Text = "VS"
+
+	-- Enemy Side
 	local EnemyPanel = Instance.new("Frame", CombatantsFrame)
-	EnemyPanel.Size = UDim2.new(1, 0, 0, 80); EnemyPanel.BackgroundTransparency = 1
+	EnemyPanel.Size = UDim2.new(0.45, 0, 1, 0); EnemyPanel.Position = UDim2.new(0.55, 0, 0, 0); EnemyPanel.BackgroundTransparency = 1
 
 	eAvatarBox = Instance.new("Frame", EnemyPanel)
-	eAvatarBox.Size = UDim2.new(0, 70, 0, 70); eAvatarBox.Position = UDim2.new(1, 0, 0, 0); eAvatarBox.AnchorPoint = Vector2.new(1, 0); eAvatarBox.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+	eAvatarBox.Size = UDim2.new(0.25, 0, 1, 0); eAvatarBox.Position = UDim2.new(1, 0, 0, 0); eAvatarBox.AnchorPoint = Vector2.new(1, 0); eAvatarBox.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+	Instance.new("UIAspectRatioConstraint", eAvatarBox).AspectRatio = 1
 	Instance.new("UIStroke", eAvatarBox).Color = Color3.fromRGB(255, 255, 255); Instance.new("UIStroke", eAvatarBox).Thickness = 2
 	local eAvatarIcon = Instance.new("TextLabel", eAvatarBox); eAvatarIcon.Size = UDim2.new(1, 0, 1, 0); eAvatarIcon.BackgroundTransparency = 1; eAvatarIcon.Font = Enum.Font.GothamBlack; eAvatarIcon.TextColor3 = Color3.fromRGB(255, 0, 0); eAvatarIcon.TextScaled = true; eAvatarIcon.Text = "?"
 
 	local eStatsArea = Instance.new("Frame", EnemyPanel)
-	eStatsArea.Size = UDim2.new(1, -80, 1, 0); eStatsArea.BackgroundTransparency = 1
-	local eStatsLayout = Instance.new("UIListLayout", eStatsArea); eStatsLayout.SortOrder = Enum.SortOrder.LayoutOrder; eStatsLayout.Padding = UDim.new(0, 4); eStatsLayout.HorizontalAlignment = Enum.HorizontalAlignment.Right
+	eStatsArea.Size = UDim2.new(0.7, 0, 1, 0); eStatsArea.Position = UDim2.new(0, 0, 0, 0); eStatsArea.BackgroundTransparency = 1
+	local eStatsLayout = Instance.new("UIListLayout", eStatsArea); eStatsLayout.SortOrder = Enum.SortOrder.LayoutOrder; eStatsLayout.Padding = UDim.new(0.05, 0); eStatsLayout.VerticalAlignment = Enum.VerticalAlignment.Center; eStatsLayout.HorizontalAlignment = Enum.HorizontalAlignment.Right
 
 	EnemyNameText = Instance.new("TextLabel", eStatsArea)
-	EnemyNameText.Size = UDim2.new(1, 0, 0, 15); EnemyNameText.BackgroundTransparency = 1; EnemyNameText.Font = Enum.Font.GothamBlack; EnemyNameText.TextColor3 = Color3.fromRGB(255, 80, 80); EnemyNameText.TextSize = 14; EnemyNameText.TextScaled = true; EnemyNameText.TextXAlignment = Enum.TextXAlignment.Right
+	EnemyNameText.Size = UDim2.new(1, 0, 0.25, 0); EnemyNameText.BackgroundTransparency = 1; EnemyNameText.Font = Enum.Font.GothamBlack; EnemyNameText.TextColor3 = Color3.fromRGB(255, 80, 80); EnemyNameText.TextSize = 14; EnemyNameText.TextScaled = true; EnemyNameText.TextXAlignment = Enum.TextXAlignment.Right
 
 	local eHpCont
-	EnemyHPBar, EnemyHPText, eHpCont = CreateBar(eStatsArea, Color3.fromRGB(220, 40, 40), Color3.fromRGB(120, 20, 20), UDim2.new(1, 0, 0, 16), "HP: 100")
-	EnemyShieldBar = Instance.new("Frame", eHpCont); EnemyShieldBar.Size = UDim2.new(0, 0, 1, 0); EnemyShieldBar.BackgroundColor3 = Color3.fromRGB(220, 230, 240); Instance.new("UICorner", EnemyShieldBar).CornerRadius = UDim.new(0, 4); EnemyShieldBar.ZIndex = 5; EnemyHPText.ZIndex = 6
+	EnemyHPBar, EnemyHPText, eHpCont = CreateBar(eStatsArea, Color3.fromRGB(220, 40, 40), Color3.fromRGB(120, 20, 20), UDim2.new(1, 0, 0.25, 0), "HP: 100", true)
+	EnemyShieldBar = Instance.new("Frame", eHpCont); EnemyShieldBar.Size = UDim2.new(0, 0, 1, 0); EnemyShieldBar.AnchorPoint = Vector2.new(1,0); EnemyShieldBar.Position = UDim2.new(1,0,0,0); EnemyShieldBar.BackgroundColor3 = Color3.fromRGB(220, 230, 240); Instance.new("UICorner", EnemyShieldBar).CornerRadius = UDim.new(0, 4); EnemyShieldBar.ZIndex = 5; EnemyHPText.ZIndex = 6
 
 	EnemyStatusBox = Instance.new("Frame", eStatsArea)
-	EnemyStatusBox.Size = UDim2.new(1, 0, 0, 18); EnemyStatusBox.BackgroundTransparency = 1
+	EnemyStatusBox.Size = UDim2.new(1, 0, 0.2, 0); EnemyStatusBox.BackgroundTransparency = 1
 	local eStatusLayout = Instance.new("UIListLayout", EnemyStatusBox); eStatusLayout.FillDirection = Enum.FillDirection.Horizontal; eStatusLayout.HorizontalAlignment = Enum.HorizontalAlignment.Right; eStatusLayout.Padding = UDim.new(0, 2)
 
+	-- [[ RESTORED: FeedBox ]]
 	local FeedBox = Instance.new("Frame", MainFrame)
-	FeedBox.Size = UDim2.new(0.96, 0, 0, 80); FeedBox.BackgroundColor3 = Color3.fromRGB(20, 20, 25); FeedBox.ClipsDescendants = true; FeedBox.LayoutOrder = 3
+	FeedBox.Size = UDim2.new(0.96, 0, 0.2, 0); FeedBox.BackgroundColor3 = Color3.fromRGB(20, 20, 25); FeedBox.ClipsDescendants = true; FeedBox.LayoutOrder = 3
 	Instance.new("UICorner", FeedBox).CornerRadius = UDim.new(0, 4); Instance.new("UIStroke", FeedBox).Color = Color3.fromRGB(0, 0, 0); Instance.new("UIStroke", FeedBox).Thickness = 2
 
 	LogText = Instance.new("TextLabel", FeedBox)
 	LogText.Size = UDim2.new(1, -10, 1, -10); LogText.Position = UDim2.new(0, 5, 0, 5); LogText.BackgroundTransparency = 1; LogText.Font = Enum.Font.GothamMedium; LogText.TextColor3 = Color3.fromRGB(230, 230, 230); LogText.TextSize = 12; LogText.TextXAlignment = Enum.TextXAlignment.Left; LogText.TextYAlignment = Enum.TextYAlignment.Bottom; LogText.TextWrapped = true; LogText.RichText = true; LogText.Text = ""
 
+	-- [[ RESTORED: BottomArea ]]
 	local BottomArea = Instance.new("Frame", MainFrame)
-	BottomArea.Size = UDim2.new(0.96, 0, 0, 180); BottomArea.BackgroundColor3 = Color3.fromRGB(20, 20, 25); BottomArea.LayoutOrder = 4
+	BottomArea.Size = UDim2.new(0.96, 0, 0.45, 0); BottomArea.BackgroundColor3 = Color3.fromRGB(20, 20, 25); BottomArea.LayoutOrder = 4
 	Instance.new("UICorner", BottomArea).CornerRadius = UDim.new(0, 4); Instance.new("UIStroke", BottomArea).Color = Color3.fromRGB(0, 0, 0); Instance.new("UIStroke", BottomArea).Thickness = 2
 
 	ActionGrid = Instance.new("ScrollingFrame", BottomArea)
 	ActionGrid.Size = UDim2.new(1, -10, 1, -10); ActionGrid.Position = UDim2.new(0, 5, 0, 5); ActionGrid.BackgroundTransparency = 1; ActionGrid.ScrollBarThickness = 4; ActionGrid.BorderSizePixel = 0; ActionGrid.AutomaticCanvasSize = Enum.AutomaticSize.Y; ActionGrid.CanvasSize = UDim2.new(0,0,0,0)
 	local gridLayout = Instance.new("UIGridLayout", ActionGrid)
-	gridLayout.CellSize = UDim2.new(0.48, 0, 0, 40); gridLayout.CellPadding = UDim2.new(0.04, 0, 0, 10); gridLayout.SortOrder = Enum.SortOrder.LayoutOrder
+	gridLayout.CellSize = UDim2.new(0.24, 0, 0, 45); gridLayout.CellPadding = UDim2.new(0.013, 0, 0, 10); gridLayout.SortOrder = Enum.SortOrder.LayoutOrder; gridLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
 
 	TargetMenu = Instance.new("Frame", BottomArea)
 	TargetMenu.Size = UDim2.new(1, 0, 1, 0); TargetMenu.BackgroundColor3 = Color3.fromRGB(20, 20, 25); TargetMenu.Visible = false
@@ -237,6 +277,7 @@ function CombatTab.Init(parentFrame, tooltipMgr, switchTabFunc)
 
 	local tHoverTitle = Instance.new("TextLabel", InfoPanel)
 	tHoverTitle.Size = UDim2.new(1, -20, 0, 30); tHoverTitle.Position = UDim2.new(0, 10, 0, 10); tHoverTitle.BackgroundTransparency = 1; tHoverTitle.Font = Enum.Font.GothamBlack; tHoverTitle.TextColor3 = Color3.fromRGB(255, 215, 100); tHoverTitle.TextSize = 16; tHoverTitle.TextXAlignment = Enum.TextXAlignment.Left; tHoverTitle.Text = "SELECT TARGET"
+	ApplyGradient(tHoverTitle, Color3.fromRGB(255, 215, 100), Color3.fromRGB(255, 150, 50))
 
 	local tHoverDesc = Instance.new("TextLabel", InfoPanel)
 	tHoverDesc.Size = UDim2.new(1, -20, 0, 100); tHoverDesc.Position = UDim2.new(0, 10, 0, 40); tHoverDesc.BackgroundTransparency = 1; tHoverDesc.Font = Enum.Font.GothamMedium; tHoverDesc.TextColor3 = Color3.fromRGB(200, 200, 200); tHoverDesc.TextSize = 12; tHoverDesc.TextXAlignment = Enum.TextXAlignment.Left; tHoverDesc.TextYAlignment = Enum.TextYAlignment.Top; tHoverDesc.TextWrapped = true; tHoverDesc.Text = "Hover over a limb to see its tactical advantage."
@@ -244,6 +285,7 @@ function CombatTab.Init(parentFrame, tooltipMgr, switchTabFunc)
 	local CancelBtn = Instance.new("TextButton", InfoPanel)
 	CancelBtn.Size = UDim2.new(0.8, 0, 0, 40); CancelBtn.Position = UDim2.new(0.1, 0, 1, -50); CancelBtn.BackgroundColor3 = Color3.fromRGB(60, 40, 40); CancelBtn.Font = Enum.Font.GothamBlack; CancelBtn.TextColor3 = Color3.fromRGB(255, 150, 150); CancelBtn.TextSize = 14; CancelBtn.Text = "CANCEL"
 	Instance.new("UICorner", CancelBtn).CornerRadius = UDim.new(0, 6)
+	ApplyButtonGradient(CancelBtn, Color3.fromRGB(160, 60, 60), Color3.fromRGB(100, 30, 30), Color3.fromRGB(60, 20, 20))
 	CancelBtn.MouseButton1Click:Connect(function() TargetMenu.Visible = false; ActionGrid.Visible = true; pendingSkillName = nil end)
 
 	local BodyContainer = Instance.new("Frame", TargetMenu)
@@ -253,6 +295,9 @@ function CombatTab.Init(parentFrame, tooltipMgr, switchTabFunc)
 		local limb = Instance.new("TextButton", BodyContainer)
 		limb.Size = size; limb.Position = pos; limb.BackgroundColor3 = color; limb.BackgroundTransparency = 0.6; limb.Text = name:upper(); limb.Font = Enum.Font.GothamBlack; limb.TextColor3 = Color3.fromRGB(255, 255, 255); limb.TextSize = 12
 		Instance.new("UICorner", limb).CornerRadius = UDim.new(0, 12); Instance.new("UIStroke", limb).Color = color; limb.UIStroke.Thickness = 2
+		local mTop = Color3.new(math.clamp(color.R * 0.6, 0, 1), math.clamp(color.G * 0.6, 0, 1), math.clamp(color.B * 0.6, 0, 1))
+		local mBot = Color3.new(math.clamp(color.R * 0.3, 0, 1), math.clamp(color.G * 0.3, 0, 1), math.clamp(color.B * 0.3, 0, 1))
+		ApplyButtonGradient(limb, mTop, mBot, color)
 
 		limb.MouseEnter:Connect(function()
 			TweenService:Create(limb, TweenInfo.new(0.1), {BackgroundTransparency = 0.2}):Play()
@@ -285,12 +330,12 @@ function CombatTab.Init(parentFrame, tooltipMgr, switchTabFunc)
 
 	for _, child in ipairs(BodyContainer:GetChildren()) do if child:IsA("TextButton") then child.AnchorPoint = Vector2.new(0.5, 0.5) end end
 
-	LeaveBtn = Instance.new("TextButton", MainFrame); LeaveBtn.Size = UDim2.new(0.6, 0, 0, 40); LeaveBtn.BackgroundColor3 = Color3.fromRGB(80, 160, 80); LeaveBtn.Font = Enum.Font.GothamBlack; LeaveBtn.TextColor3 = Color3.fromRGB(25, 25, 30); LeaveBtn.TextSize = 16; LeaveBtn.Text = "RETURN TO BASE"; LeaveBtn.Visible = false; LeaveBtn.LayoutOrder = 5
+	LeaveBtn = Instance.new("TextButton", BottomArea); LeaveBtn.Size = UDim2.new(0.6, 0, 0, 40); LeaveBtn.BackgroundColor3 = Color3.fromRGB(80, 160, 80); LeaveBtn.Font = Enum.Font.GothamBlack; LeaveBtn.TextColor3 = Color3.fromRGB(25, 25, 30); LeaveBtn.TextSize = 16; LeaveBtn.Text = "RETURN TO BASE"; LeaveBtn.Visible = false; LeaveBtn.AnchorPoint = Vector2.new(0.5, 0.5); LeaveBtn.Position = UDim2.new(0.5, 0, 0.5, 0)
 	Instance.new("UICorner", LeaveBtn).CornerRadius = UDim.new(0, 6)
 
 	LeaveBtn.MouseButton1Click:Connect(function()
 		EffectsManager.PlaySFX("Click")
-		MainFrame.Visible = false; isBattleActive = false; parentFrame.Visible = true 
+		MainFrame.Visible = false; isBattleActive = false
 		local topGui = parentFrame:FindFirstAncestorOfClass("ScreenGui")
 		if topGui then
 			if topGui:FindFirstChild("TopBar") then topGui.TopBar.Visible = true end
@@ -302,7 +347,7 @@ function CombatTab.Init(parentFrame, tooltipMgr, switchTabFunc)
 		inputLocked = true
 		for _, btn in ipairs(ActionGrid:GetChildren()) do
 			if btn:IsA("TextButton") then
-				btn.BackgroundColor3 = Color3.fromRGB(15, 15, 20); btn.UIStroke.Color = Color3.fromRGB(30, 30, 35); btn.TextColor3 = Color3.fromRGB(100, 100, 100)
+				ApplyButtonGradient(btn, Color3.fromRGB(25, 20, 30), Color3.fromRGB(15, 10, 20), Color3.fromRGB(40, 30, 50)); btn.TextColor3 = Color3.fromRGB(120, 120, 120)
 			end
 		end
 	end
@@ -338,12 +383,20 @@ function CombatTab.Init(parentFrame, tooltipMgr, switchTabFunc)
 			Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 4)
 			Instance.new("UIStroke", btn).Color = isReady and Color3.fromRGB(120, 100, 60) or Color3.fromRGB(50, 50, 55)
 
+			local baseColor = color or Color3.fromRGB(60, 60, 70)
+			if isReady then
+				local topC = Color3.new(math.clamp(baseColor.R * 1.2, 0, 1), math.clamp(baseColor.G * 1.2, 0, 1), math.clamp(baseColor.B * 1.2, 0, 1))
+				local botC = Color3.new(math.clamp(baseColor.R * 0.7, 0, 1), math.clamp(baseColor.G * 0.7, 0, 1), math.clamp(baseColor.B * 0.7, 0, 1))
+				ApplyButtonGradient(btn, topC, botC, baseColor)
+			else
+				ApplyButtonGradient(btn, Color3.fromRGB(25, 20, 30), Color3.fromRGB(15, 10, 20), Color3.fromRGB(40, 30, 50))
+			end
+
 			local cdStr = isReady and "READY" or "CD: " .. cd
 			if cd == 0 then if not hasGas then cdStr = "NO GAS" elseif not hasEnergy then cdStr = "NO HEAT" end end
 
 			btn.Text = sName:upper() .. "\n<font size='9' color='" .. (isReady and "#AAAAAA" or "#FF5555") .. "'>[" .. cdStr .. "]</font>"; btn.RichText = true
 
-			-- [[ THE FIX: Correctly opens TargetMenu again instead of skipping it ]]
 			btn.MouseButton1Click:Connect(function()
 				if isBattleActive and not inputLocked and isReady then
 					if sName == "Retreat" or sData.Effect == "Rest" or sData.Effect == "TitanRest" or sData.Effect == "Eject" or sData.Effect == "Transform" or sData.Effect == "Block" or sData.Effect == "Flee" then
@@ -480,30 +533,29 @@ function CombatTab.Init(parentFrame, tooltipMgr, switchTabFunc)
 		elseif action == "Victory" then
 			EffectsManager.PlaySFX("Victory", 1)
 			SyncBars(data.Battle); isBattleActive = false; LockGrid()
-			BottomArea.Visible = false; LeaveBtn.Visible = true; LeaveBtn.Text = "VICTORY - RETURN"; LeaveBtn.BackgroundColor3 = Color3.fromRGB(80, 200, 80)
+			ActionGrid.Visible = false; TargetMenu.Visible = false; LeaveBtn.Visible = true; LeaveBtn.Text = "VICTORY - RETURN"
+			ApplyButtonGradient(LeaveBtn, Color3.fromRGB(80, 200, 80), Color3.fromRGB(40, 100, 40), Color3.fromRGB(20, 80, 20)); LeaveBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
 			AddLogMessage("<b><font color='#55FF55'>ENEMY DEFEATED!</font></b>", false)
-			local xpAmt = data.XP or 0; local dewsAmt = data.Dews or 0
-			local rewardStr = "<font color='#55FF55'>Rewards: +" .. xpAmt .. " XP | +" .. dewsAmt .. " Dews</font>"
-			if data.Items and #data.Items > 0 then rewardStr = rewardStr .. "<br/><font color='#AA55FF'>Drops: " .. table.concat(data.Items, ", ") .. "</font>" end
-			if data.ExtraLog then rewardStr = rewardStr .. "<br/>" .. data.ExtraLog end
-			AddLogMessage(rewardStr, true)
 
 		elseif action == "Defeat" then
 			EffectsManager.PlaySFX("Defeat", 1)
 			SyncBars(data.Battle); isBattleActive = false; LockGrid()
-			BottomArea.Visible = false; LeaveBtn.Visible = true; LeaveBtn.Text = "DEFEAT - RETREAT"; LeaveBtn.BackgroundColor3 = Color3.fromRGB(200, 80, 80)
+			ActionGrid.Visible = false; TargetMenu.Visible = false; LeaveBtn.Visible = true; LeaveBtn.Text = "DEFEAT - RETREAT"
+			ApplyButtonGradient(LeaveBtn, Color3.fromRGB(200, 80, 80), Color3.fromRGB(100, 40, 40), Color3.fromRGB(80, 20, 20)); LeaveBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
 			AddLogMessage("<b><font color='#FF5555'>YOU WERE SLAUGHTERED.</font></b>", false)
 
 		elseif action == "Fled" then
 			EffectsManager.PlaySFX("Flee", 1)
 			isBattleActive = false; LockGrid()
-			BottomArea.Visible = false; LeaveBtn.Visible = true; LeaveBtn.Text = "COWARD - RETURN"; LeaveBtn.BackgroundColor3 = Color3.fromRGB(150, 150, 150)
+			ActionGrid.Visible = false; TargetMenu.Visible = false; LeaveBtn.Visible = true; LeaveBtn.Text = "COWARD - RETURN"
+			ApplyButtonGradient(LeaveBtn, Color3.fromRGB(150, 150, 150), Color3.fromRGB(80, 80, 80), Color3.fromRGB(50, 50, 50)); LeaveBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
 			AddLogMessage("<b><font color='#AAAAAA'>You fired a smoke signal and fled.</font></b>", false)
 		end
 	end)
 end
 
 function CombatTab.Show()
+	-- Handled via remote events
 end
 
 return CombatTab
