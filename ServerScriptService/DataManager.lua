@@ -5,15 +5,18 @@ local DataStoreService = game:GetService("DataStoreService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local HttpService = game:GetService("HttpService")
 local MarketplaceService = game:GetService("MarketplaceService")
-local MessagingService = game:GetService("MessagingService") -- [[ NEW: For cross-server comms ]]
+local MessagingService = game:GetService("MessagingService") 
 local BountyData = require(ReplicatedStorage:WaitForChild("BountyData"))
 local ItemData = require(ReplicatedStorage:WaitForChild("ItemData"))
-local GameData = require(ReplicatedStorage:WaitForChild("GameData"))
 
--- Change these two lines in DataManager.lua:
-local GameDataStore = DataStoreService:GetDataStore("AoT_Data_V4") -- Was V3
-local BackupDataStore = DataStoreService:GetDataStore("AoT_Backups_V2") -- Was V1
+local GameDataStore = DataStoreService:GetDataStore("AoT_Data_V3") 
+local BackupDataStore = DataStoreService:GetDataStore("AoT_Backups_V1") 
 local RegimentStore = DataStoreService:GetDataStore("RegimentWars_V1")
+
+-- [[ LEADERBOARD DATA STORES ]]
+local PrestigeLB = DataStoreService:GetOrderedDataStore("Global_Prestige_LB_V1")
+local EloLB = DataStoreService:GetOrderedDataStore("Global_Elo_LB_V1")
+local LBCache = { Prestige = {}, Elo = {} }
 
 local RemotesFolder = ReplicatedStorage:FindFirstChild("Network") or Instance.new("Folder", ReplicatedStorage)
 RemotesFolder.Name = "Network"
@@ -35,14 +38,65 @@ if not RemotesFolder:FindFirstChild("GetShopData") then
 	local rf = Instance.new("RemoteFunction"); rf.Name = "GetShopData"; rf.Parent = RemotesFolder
 end
 
+-- [[ THE FIX: LIVE-SPLICING LEADERBOARD REMOTE ]]
+if not RemotesFolder:FindFirstChild("GetLeaderboardData") then
+	local rf = Instance.new("RemoteFunction"); rf.Name = "GetLeaderboardData"; rf.Parent = RemotesFolder
+end
+RemotesFolder.GetLeaderboardData.OnServerInvoke = function(player, lbType)
+	local cache = LBCache[lbType] or {}
+	local dynamicList = {}
+
+	-- 1. Copy the global cached top 50
+	for _, entry in ipairs(cache) do
+		table.insert(dynamicList, {Name = entry.Name, Value = entry.Value})
+	end
+
+	-- 2. Inject/Override with LIVE data from players currently in this server
+	for _, p in ipairs(Players:GetPlayers()) do
+		local ls = p:FindFirstChild("leaderstats")
+		if ls then
+			local liveVal = 0
+			if lbType == "Prestige" and ls:FindFirstChild("Prestige") then liveVal = ls.Prestige.Value
+			elseif lbType == "Elo" and ls:FindFirstChild("Elo") then liveVal = ls.Elo.Value end
+
+			local found = false
+			for _, entry in ipairs(dynamicList) do
+				if entry.Name == p.Name then
+					entry.Value = liveVal
+					found = true
+					break
+				end
+			end
+
+			-- If they aren't on the cached LB but are in the server, inject them so they can be sorted natively
+			if not found and (lbType == "Elo" or liveVal > 0) then
+				table.insert(dynamicList, {Name = p.Name, Value = liveVal})
+			end
+		end
+	end
+
+	-- 3. Re-sort the leaderboard dynamically to reflect real-time changes
+	table.sort(dynamicList, function(a, b) return a.Value > b.Value end)
+
+	-- 4. Package and return the true Top 50
+	local finalList = {}
+	for i = 1, math.min(50, #dynamicList) do
+		if lbType == "Elo" or dynamicList[i].Value > 0 then
+			table.insert(finalList, {Rank = i, Name = dynamicList[i].Name, Value = dynamicList[i].Value})
+		end
+	end
+
+	return finalList
+end
+
 local DefaultData = { 
 	Prestige = 0, CurrentPart = 1, CurrentMission = 1, CurrentWave = 1, XP = 0, TitanXP = 0, Dews = 0, Elo = 1000, 
 	Titan = "None", FightingStyle = "None", Clan = "None", Regiment = "Cadet Corps", 
-	TitanPity = 0, TitanMythicalPity = 0, ClanPity = 0, ClanMythicalPity = 0, -- [[ UPDATED PITIES ]]
+	TitanPity = 0, TitanMythicalPity = 0, ClanPity = 0, ClanMythicalPity = 0, 
 	EquippedWeapon = "None", EquippedAccessory = "None", PathDust = 0, PathsFloor = 1, 
 	DispatchData = "{}", AllyLevels = "{}", UnlockedAllies = "", MaxDeployments = 2, 
 	Health = 10, Strength = 10, Defense = 10, Speed = 10, Gas = 10, Resolve = 10, LastFreeReroll = 0, RedeemedCodes = "", RewardClaimedWeek = 0,
-	LoginStreak = 0, LastLoginDate = "", AutoTrainSessionTime = 0 -- [[ NEW LOGIN/AFK TRACKERS ]]
+	LoginStreak = 0, LastLoginDate = "", AutoTrainSessionTime = 0 
 }
 
 local CurrentVP = { ["Scout Regiment"] = 0, ["Garrison"] = 0, ["Military Police"] = 0, Week = math.floor(os.time() / 604800), Winner = "None" }
@@ -58,16 +112,46 @@ vpEvent.Event:Connect(function(player, amount)
 	if CurrentVP[reg] then CurrentVP[reg] += amount end
 end)
 
+-- [[ GLOBAL LEADERBOARD CACHING LOOP ]]
 task.spawn(function()
 	while true do
-		task.wait(60)
+		-- Update Regiment War
 		local currentWeek = math.floor(os.time() / 604800)
 		if currentWeek > CurrentVP.Week then
 			local winner = "None"; local highest = -1
 			for reg, vp in pairs(CurrentVP) do if reg ~= "Week" and reg ~= "Winner" and vp > highest then highest = vp; winner = reg end end
 			CurrentVP = { ["Scout Regiment"] = 0, ["Garrison"] = 0, ["Military Police"] = 0, Week = currentWeek, Winner = winner }; winVal.Value = winner
+			pcall(function() RegimentStore:SetAsync("GlobalWarData", CurrentVP) end)
 		end
-		pcall(function() RegimentStore:SetAsync("GlobalWarData", CurrentVP) end)
+
+		-- Fetch Top 50 Prestige
+		pcall(function()
+			local pages = PrestigeLB:GetSortedAsync(false, 50)
+			local data = pages:GetCurrentPage()
+			local newCache = {}
+			for rank, entry in ipairs(data) do
+				local pName = "Unknown"
+				pcall(function() pName = Players:GetNameFromUserIdAsync(tonumber(entry.key)) end)
+				table.insert(newCache, {Rank = rank, Name = pName, Value = entry.value})
+			end
+			LBCache.Prestige = newCache
+		end)
+		task.wait(2)
+
+		-- Fetch Top 50 Elo
+		pcall(function()
+			local pages = EloLB:GetSortedAsync(false, 50)
+			local data = pages:GetCurrentPage()
+			local newCache = {}
+			for rank, entry in ipairs(data) do
+				local pName = "Unknown"
+				pcall(function() pName = Players:GetNameFromUserIdAsync(tonumber(entry.key)) end)
+				table.insert(newCache, {Rank = rank, Name = pName, Value = entry.value})
+			end
+			LBCache.Elo = newCache
+		end)
+
+		task.wait(60) -- Refresh leaderboards every 60 seconds
 	end
 end)
 
@@ -97,20 +181,17 @@ RemotesFolder.JoinRegiment.OnServerEvent:Connect(function(player, regName)
 	RemotesFolder.NotificationEvent:FireClient(player, "You have pledged your life to the " .. regName .. "!", "Success")
 end)
 
--- [[ NEW: Cross-Server Global Rollback Listener ]]
 pcall(function()
 	MessagingService:SubscribeAsync("GlobalDataRollback", function(message)
 		for _, p in ipairs(Players:GetPlayers()) do
 			local success, backup = pcall(function() return BackupDataStore:GetAsync("Backup_" .. p.UserId) end)
 			if success and backup then
 				pcall(function() GameDataStore:SetAsync(p.UserId, backup) end)
-				p:Kick("SYSTEM ALARM: A Global Data Rollback has been initiated by Administrators to fix a critical bug. Your previous safe save has been restored. Please rejoin.")
+				p:Kick("SYSTEM ALARM: A Global Data Rollback has been initiated by Administrators. Your previous safe save has been restored. Please rejoin.")
 			end
 		end
 	end)
 end)
-
-
 
 RemotesFolder.AdminCommand.OnServerEvent:Connect(function(player, command, targetName, args)
 	if player.UserId ~= 4068160397 and player.Name ~= "girthbender1209" then player:Kick("Unauthorized Admin Access"); return end
@@ -142,7 +223,10 @@ RemotesFolder.AdminCommand.OnServerEvent:Connect(function(player, command, targe
 	elseif command == "SetDews" then targetPlayer.leaderstats.Dews.Value = tonumber(args) or 0
 	elseif command == "UnlockAllParts" then targetPlayer:SetAttribute("CurrentPart", 8); targetPlayer:SetAttribute("CurrentWave", 1)
 	elseif command == "GiveItem" then local safeName = args.Item:gsub("[^%w]", "") .. "Count"; targetPlayer:SetAttribute(safeName, (targetPlayer:GetAttribute(safeName) or 0) + (tonumber(args.Amount) or 1))
-	elseif command == "MaxPrestige" then targetPlayer.leaderstats.Prestige.Value = 10
+	elseif command == "MaxPrestige" then 
+		targetPlayer.leaderstats.Prestige.Value = 10
+		task.spawn(function() PrestigeLB:SetAsync(tostring(targetPlayer.UserId), 10) end) -- INSTANT UPDATE
+
 	elseif command == "SetTitan" then targetPlayer:SetAttribute("Titan", tostring(args))
 	elseif command == "SetClan" then targetPlayer:SetAttribute("Clan", tostring(args))
 	elseif command == "MaxStats" then
@@ -162,10 +246,14 @@ RemotesFolder.AdminCommand.OnServerEvent:Connect(function(player, command, targe
 		for k, _ in pairs(targetPlayer:GetAttributes()) do targetPlayer:SetAttribute(k, nil) end
 		for k, v in pairs(DefaultData) do if k ~= "Prestige" and k ~= "Dews" and k ~= "Elo" then targetPlayer:SetAttribute(k, v) end end
 		for k, v in pairs(savedItems) do targetPlayer:SetAttribute(k, v) end
+
+		-- INSTANT UPDATE FOR WIPES
+		task.spawn(function() 
+			PrestigeLB:SetAsync(tostring(targetPlayer.UserId), 0)
+			EloLB:SetAsync(tostring(targetPlayer.UserId), 1000)
+		end)
 	end
 end)
-
-
 
 local function RollBounties(player)
 	local now = os.time(); local currentDay = math.floor(now / 86400); local currentWeek = math.floor(now / 604800)
@@ -212,10 +300,9 @@ local function LoadPlayer(player)
 		player:SetAttribute("RewardClaimedWeek", CurrentVP.Week); player:SetAttribute("TitanHardeningExtractCount", (player:GetAttribute("TitanHardeningExtractCount") or 0) + 2); player:SetAttribute("AncestralAwakeningSerumCount", (player:GetAttribute("AncestralAwakeningSerumCount") or 0) + 1)
 		task.delay(3, function() RemotesFolder.NotificationEvent:FireClient(player, "Your Regiment won the war! Received Forge Chest!", "Success") end)
 	end
-	
+
 	local LoginData = require(ReplicatedStorage:WaitForChild("LoginData"))
 
-	-- [[ DAILY LOGIN LOGIC ]]
 	local now = os.time()
 	local dateDict = os.date("!*t", now)
 	local todayStr = dateDict.year .. "-" .. dateDict.month .. "-" .. dateDict.day
@@ -230,7 +317,7 @@ local function LoadPlayer(player)
 		if lastLogin == yesterdayStr then
 			streak += 1
 		else
-			streak = 1 -- Reset if they missed a day
+			streak = 1 
 		end
 		if streak > 7 then streak = 1 end
 
@@ -255,6 +342,9 @@ local function LoadPlayer(player)
 
 	RollBounties(player)
 	player:SetAttribute("DataLoaded", true)
+
+	pcall(function() PrestigeLB:SetAsync(tostring(player.UserId), pVal.Value) end)
+	pcall(function() EloLB:SetAsync(tostring(player.UserId), eVal.Value) end)
 end
 
 Players.PlayerAdded:Connect(LoadPlayer)
@@ -270,6 +360,9 @@ local function SavePlayer(p)
 	end
 
 	pcall(function() GameDataStore:SetAsync(p.UserId, d) end)
+
+	pcall(function() PrestigeLB:SetAsync(tostring(p.UserId), p.leaderstats.Prestige.Value) end)
+	pcall(function() EloLB:SetAsync(tostring(p.UserId), p.leaderstats.Elo.Value) end)
 end
 
 Players.PlayerRemoving:Connect(SavePlayer)
