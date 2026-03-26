@@ -21,6 +21,21 @@ local CombatUpdate = GetRemote("CombatUpdate")
 
 local ActiveBattles = {}
 
+-- [[ INVENTORY CAP & AUTO-SELL CONFIG ]]
+local MAX_INVENTORY_CAPACITY = 25
+local SellValues = { Common = 10, Uncommon = 25, Rare = 75, Epic = 200, Legendary = 500, Mythical = 1500, Transcendent = 0 }
+
+local function GetUniqueSlotCount(plr)
+	local count = 0
+	for iName, _ in pairs(ItemData.Equipment) do
+		if (plr:GetAttribute(iName:gsub("[^%w]", "") .. "Count") or 0) > 0 then count += 1 end
+	end
+	for iName, _ in pairs(ItemData.Consumables) do
+		if (plr:GetAttribute(iName:gsub("[^%w]", "") .. "Count") or 0) > 0 then count += 1 end
+	end
+	return count
+end
+
 local function UpdateBountyProgress(plr, taskType, amt)
 	for i = 1, 3 do
 		if plr:GetAttribute("D"..i.."_Task") == taskType and not plr:GetAttribute("D"..i.."_Claimed") then
@@ -285,7 +300,6 @@ local function ProcessEnemyDeath(player, battle)
 	if player:GetAttribute("HasDoubleXP") then xpGain *= 2; dewsGain *= 2 end
 	if player:GetAttribute("Buff_XP_Expiry") and os.time() < player:GetAttribute("Buff_XP_Expiry") then xpGain *= 2 end
 
-	-- [[ FIX 1: Changed RemotesFolder to Network ]]
 	local winReg = Network:FindFirstChild("WinningRegiment")
 	if winReg and winReg.Value ~= "None" and player:GetAttribute("Regiment") == winReg.Value then
 		xpGain = math.floor(xpGain * 1.15)
@@ -297,7 +311,13 @@ local function ProcessEnemyDeath(player, battle)
 
 	player.leaderstats.Dews.Value += dewsGain
 
+	local killMsg = ""
+
+	-- [[ INVENTORY CAP VERIFICATION LOGIC ]]
+	local currentSlots = GetUniqueSlotCount(player)
 	local droppedItems = {}
+	local autoSoldDews = 0
+
 	if battle.Enemy.Drops.ItemChance then
 		for itemName, baseChance in pairs(battle.Enemy.Drops.ItemChance) do
 			local iData = ItemData.Equipment[itemName] or ItemData.Consumables[itemName]
@@ -324,13 +344,21 @@ local function ProcessEnemyDeath(player, battle)
 
 			local roll = math.random() * 100
 			if roll <= finalChance then
-				table.insert(droppedItems, itemName)
 				local attrName = itemName:gsub("[^%w]", "") .. "Count"
-				player:SetAttribute(attrName, (player:GetAttribute(attrName) or 0) + 1)
+				local currentAmt = player:GetAttribute(attrName) or 0
+
+				if currentAmt == 0 and currentSlots >= MAX_INVENTORY_CAPACITY then
+					-- INVENTORY FULL: Auto sell the new item
+					autoSoldDews += (SellValues[rarity] or 10)
+				else
+					table.insert(droppedItems, itemName)
+					player:SetAttribute(attrName, currentAmt + 1)
+					if currentAmt == 0 then currentSlots += 1 end
+				end
 			end
 		end
 
-		if battle.Context.IsEndless and #droppedItems == 0 and battle.Context.CurrentWave % 3 == 0 then
+		if battle.Context.IsEndless and #droppedItems == 0 and autoSoldDews == 0 and battle.Context.CurrentWave % 3 == 0 then
 			local pool = {}
 			for iname, _ in pairs(battle.Enemy.Drops.ItemChance) do 
 				local iData = ItemData.Equipment[iname] or ItemData.Consumables[iname]
@@ -340,22 +368,33 @@ local function ProcessEnemyDeath(player, battle)
 			end
 			if #pool > 0 then
 				local pItem = pool[math.random(1, #pool)]
-				table.insert(droppedItems, pItem)
 				local attrName = pItem:gsub("[^%w]", "") .. "Count"
-				player:SetAttribute(attrName, (player:GetAttribute(attrName) or 0) + 1)
+				local currentAmt = player:GetAttribute(attrName) or 0
+
+				if currentAmt == 0 and currentSlots >= MAX_INVENTORY_CAPACITY then
+					local iData = ItemData.Equipment[pItem] or ItemData.Consumables[pItem]
+					autoSoldDews += (SellValues[iData and iData.Rarity or "Common"] or 10)
+				else
+					table.insert(droppedItems, pItem)
+					player:SetAttribute(attrName, currentAmt + 1)
+					if currentAmt == 0 then currentSlots += 1 end
+				end
 			end
 		end
 	end
 
-	local killMsg = ""
+	if autoSoldDews > 0 then
+		player.leaderstats.Dews.Value += autoSoldDews
+		killMsg = killMsg .. "<br/><font color='#FFD700'>[Inventory Full: Auto-sold new drops for " .. autoSoldDews .. " Dews]</font>"
+	end
+
 	if battle.Player.AwakenedStats and battle.Player.AwakenedStats.HealOnKill > 0 then
-		-- [[ FIX 2: Wrapped in tonumber() to silence Luau type errors and prevent edge-case crashes ]]
 		local pMax = tonumber(battle.Player.MaxHP) or 100
 		local pCur = tonumber(battle.Player.HP) or 100
 		local healAmt = math.floor(pMax * battle.Player.AwakenedStats.HealOnKill)
 
 		battle.Player.HP = math.min(pMax, pCur + healAmt)
-		killMsg = "<br/><font color='#55FF55'>[Awakened: Healed " .. healAmt .. " HP!]</font>"
+		killMsg = killMsg .. "<br/><font color='#55FF55'>[Awakened: Healed " .. healAmt .. " HP!]</font>"
 	end
 
 	if battle.Context.IsPaths then
@@ -522,7 +561,6 @@ CombatAction.OnServerEvent:Connect(function(player, actionType, actionData)
 		local battle = ActiveBattles[player.UserId]
 		if not battle or not battle.Enemy.IsMinigame then return end
 
-		-- [[ THE FIX: Block exploiters from spamming the success remote ]]
 		if battle.IsProcessing then return end
 		battle.IsProcessing = true
 
@@ -814,7 +852,6 @@ CombatAction.OnServerEvent:Connect(function(player, actionType, actionData)
 	end
 end)
 
--- [[ THE FIX: Cleans up ghost battles so the server doesn't lag over time ]]
 Players.PlayerRemoving:Connect(function(player)
 	ActiveBattles[player.UserId] = nil
 end)
