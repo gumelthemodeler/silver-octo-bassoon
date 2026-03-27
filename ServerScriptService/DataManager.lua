@@ -46,12 +46,10 @@ RemotesFolder.GetLeaderboardData.OnServerInvoke = function(player, lbType)
 	local cache = LBCache[lbType] or {}
 	local dynamicList = {}
 
-	-- 1. Copy the global cached top 50
 	for _, entry in ipairs(cache) do
 		table.insert(dynamicList, {Name = entry.Name, Value = entry.Value})
 	end
 
-	-- 2. Inject/Override with LIVE data from players currently in this server
 	for _, p in ipairs(Players:GetPlayers()) do
 		local ls = p:FindFirstChild("leaderstats")
 		if ls then
@@ -68,17 +66,14 @@ RemotesFolder.GetLeaderboardData.OnServerInvoke = function(player, lbType)
 				end
 			end
 
-			-- If they aren't on the cached LB but are in the server, inject them so they can be sorted natively
 			if not found and (lbType == "Elo" or liveVal > 0) then
 				table.insert(dynamicList, {Name = p.Name, Value = liveVal})
 			end
 		end
 	end
 
-	-- 3. Re-sort the leaderboard dynamically to reflect real-time changes
 	table.sort(dynamicList, function(a, b) return a.Value > b.Value end)
 
-	-- 4. Package and return the true Top 50
 	local finalList = {}
 	for i = 1, math.min(50, #dynamicList) do
 		if lbType == "Elo" or dynamicList[i].Value > 0 then
@@ -115,7 +110,6 @@ end)
 -- [[ GLOBAL LEADERBOARD CACHING LOOP ]]
 task.spawn(function()
 	while true do
-		-- Update Regiment War
 		local currentWeek = math.floor(os.time() / 604800)
 		if currentWeek > CurrentVP.Week then
 			local winner = "None"; local highest = -1
@@ -124,7 +118,6 @@ task.spawn(function()
 			pcall(function() RegimentStore:SetAsync("GlobalWarData", CurrentVP) end)
 		end
 
-		-- Fetch Top 50 Prestige
 		pcall(function()
 			local pages = PrestigeLB:GetSortedAsync(false, 50)
 			local data = pages:GetCurrentPage()
@@ -138,7 +131,6 @@ task.spawn(function()
 		end)
 		task.wait(2)
 
-		-- Fetch Top 50 Elo
 		pcall(function()
 			local pages = EloLB:GetSortedAsync(false, 50)
 			local data = pages:GetCurrentPage()
@@ -151,7 +143,7 @@ task.spawn(function()
 			LBCache.Elo = newCache
 		end)
 
-		task.wait(60) -- Refresh leaderboards every 60 seconds
+		task.wait(60) 
 	end
 end)
 
@@ -176,7 +168,18 @@ RemotesFolder.ClaimBounty.OnServerEvent:Connect(function(player, bType)
 	end
 end)
 
+-- [[ THE FIX: Regiment Swap Cost & Security ]]
 RemotesFolder.JoinRegiment.OnServerEvent:Connect(function(player, regName)
+	local currentReg = player:GetAttribute("Regiment") or "Cadet Corps"
+	if currentReg ~= "Cadet Corps" and currentReg ~= regName then
+		if player.leaderstats.Dews.Value >= 50000 then
+			player.leaderstats.Dews.Value -= 50000
+		else
+			RemotesFolder.NotificationEvent:FireClient(player, "Not enough Dews! Need 50,000 to swap.", "Error")
+			return
+		end
+	end
+
 	player:SetAttribute("Regiment", regName)
 	RemotesFolder.NotificationEvent:FireClient(player, "You have pledged your life to the " .. regName .. "!", "Success")
 end)
@@ -193,6 +196,7 @@ pcall(function()
 	end)
 end)
 
+-- [[ THE FIX: Updated Admin Commands (Wipe, MaxStats, SetTitle) ]]
 RemotesFolder.AdminCommand.OnServerEvent:Connect(function(player, command, targetName, args)
 	if player.UserId ~= 4068160397 and player.Name ~= "girthbender1209" then player:Kick("Unauthorized Admin Access"); return end
 
@@ -229,23 +233,25 @@ RemotesFolder.AdminCommand.OnServerEvent:Connect(function(player, command, targe
 
 	elseif command == "SetTitan" then targetPlayer:SetAttribute("Titan", tostring(args))
 	elseif command == "SetClan" then targetPlayer:SetAttribute("Clan", tostring(args))
+	elseif command == "SetTitle" then targetPlayer:SetAttribute("CustomTitle", tostring(args))
 	elseif command == "MaxStats" then
-		local p = targetPlayer.leaderstats.Prestige.Value; local c = GameData.GetStatCap(p)
+		local GameDataInfo = require(ReplicatedStorage:WaitForChild("GameData"))
+		local p = targetPlayer.leaderstats.Prestige.Value; local c = GameDataInfo.GetStatCap(p)
 		local statsToMax = {"Health", "Strength", "Defense", "Speed", "Gas", "Resolve", "Titan_Power_Val", "Titan_Speed_Val", "Titan_Hardening_Val", "Titan_Endurance_Val", "Titan_Precision_Val", "Titan_Potential_Val"}
 		for _, s in ipairs(statsToMax) do targetPlayer:SetAttribute(s, c) end
 	elseif command == "WipePlayer" then
 		targetPlayer.leaderstats.Prestige.Value = 0; targetPlayer.leaderstats.Dews.Value = 0; targetPlayer.leaderstats.Elo.Value = 1000
 
-		local savedItems = {}
+		local savedGamepasses = {}
 		for k, v in pairs(targetPlayer:GetAttributes()) do
-			if string.match(k, "Count$") or string.match(k, "^Has") or string.match(k, "_Awakened$") then
-				savedItems[k] = v
+			if string.match(k, "^Has") then
+				savedGamepasses[k] = v
 			end
 		end
 
 		for k, _ in pairs(targetPlayer:GetAttributes()) do targetPlayer:SetAttribute(k, nil) end
 		for k, v in pairs(DefaultData) do if k ~= "Prestige" and k ~= "Dews" and k ~= "Elo" then targetPlayer:SetAttribute(k, v) end end
-		for k, v in pairs(savedItems) do targetPlayer:SetAttribute(k, v) end
+		for k, v in pairs(savedGamepasses) do targetPlayer:SetAttribute(k, v) end
 
 		-- INSTANT UPDATE FOR WIPES
 		task.spawn(function() 
