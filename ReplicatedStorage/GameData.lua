@@ -38,30 +38,12 @@ GameData.StatDescriptions = {
 }
 
 GameData.BattleConditions = {
-	["Clear Weather"] = { 
-		Description = "Conditions are standard. No advantages or disadvantages.", 
-		Color = "#FFFFFF" 
-	},
-	["Night Operation"] = { 
-		Description = "Pure Titans lack sunlight and become sluggish. Enemies suffer -25% Speed.", 
-		Color = "#00008B" 
-	},
-	["Rainstorm"] = { 
-		Description = "Visibility is poor and ODM grips slip. Player suffers -15% Speed and -15% Precision.", 
-		Color = "#5555FF" 
-	},
-	["Forest of Giant Trees"] = { 
-		Description = "Perfect terrain for ODM Gear. Player gains +30% Speed and +15% Strength.", 
-		Color = "#228B22" 
-	},
-	["Open Plains"] = { 
-		Description = "Nowhere to grapple. Player suffers -25% Speed and -10% Defense.", 
-		Color = "#DAA520" 
-	},
-	["The Rumbling"] = { 
-		Description = "Absolute chaos. Everyone (Player and Enemies) deals +50% damage.", 
-		Color = "#FF0000" 
-	}
+	["Clear Weather"] = { Description = "Conditions are standard. No advantages or disadvantages.", Color = "#FFFFFF" },
+	["Night Operation"] = { Description = "Pure Titans lack sunlight and become sluggish. Enemies suffer -25% Speed.", Color = "#00008B" },
+	["Rainstorm"] = { Description = "Visibility is poor and ODM grips slip. Player suffers -15% Speed and -15% Precision.", Color = "#5555FF" },
+	["Forest of Giant Trees"] = { Description = "Perfect terrain for ODM Gear. Player gains +30% Speed and +15% Strength.", Color = "#228B22" },
+	["Open Plains"] = { Description = "Nowhere to grapple. Player suffers -25% Speed and -10% Defense.", Color = "#DAA520" },
+	["The Rumbling"] = { Description = "Absolute chaos. Everyone (Player and Enemies) deals +50% damage.", Color = "#FF0000" }
 }
 
 function GameData.GetStatCap(prestige)
@@ -80,15 +62,18 @@ function GameData.GetMaxInventory(player)
 	if not player then return 15 end
 	local baseMax = 15
 
-	-- Changed GangInvBoost to ClanInvBoost
 	local clanBoost = player:GetAttribute("ClanInvBoost") or 0
 
 	local ls = player:FindFirstChild("leaderstats")
 	local elo = ls and ls:FindFirstChild("Elo") and ls.Elo.Value or 1000
-
 	local eloBoost = elo >= 4000 and 5 or 0
 
 	local totalCapacity = baseMax + clanBoost + eloBoost
+
+	-- [[ THE FIX: Applied Backpack Expansion Gamepass ]]
+	if player:GetAttribute("HasBackpackExpansion") then
+		totalCapacity = totalCapacity + 50
+	end
 
 	if player:GetAttribute("Has2xInventory") then
 		totalCapacity = totalCapacity * 2
@@ -102,7 +87,6 @@ function GameData.GetInventoryCount(player)
 	local count = 0
 
 	local ItemData = require(game:GetService("ReplicatedStorage"):WaitForChild("ItemData"))
-
 	local ignoredKeys = {}
 
 	for itemName, data in pairs(ItemData.Consumables) do
