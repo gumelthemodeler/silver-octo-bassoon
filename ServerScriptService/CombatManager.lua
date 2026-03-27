@@ -21,7 +21,6 @@ local CombatUpdate = GetRemote("CombatUpdate")
 
 local ActiveBattles = {}
 
--- [[ INVENTORY CAP & AUTO-SELL CONFIG ]]
 local MAX_INVENTORY_CAPACITY = 25
 local SellValues = { Common = 10, Uncommon = 25, Rare = 75, Epic = 200, Legendary = 500, Mythical = 1500, Transcendent = 0 }
 
@@ -314,8 +313,6 @@ local function ProcessEnemyDeath(player, battle)
 	player.leaderstats.Dews.Value += dewsGain
 
 	local killMsg = ""
-
-	-- [[ INVENTORY CAP VERIFICATION LOGIC ]]
 	local currentSlots = GetUniqueSlotCount(player)
 	local droppedItems = {}
 	local autoSoldDews = 0
@@ -348,12 +345,9 @@ local function ProcessEnemyDeath(player, battle)
 			if roll <= finalChance then
 				local attrName = itemName:gsub("[^%w]", "") .. "Count"
 				local currentAmt = player:GetAttribute(attrName) or 0
-
-				-- [[ THE FIX: Check for DoubleDrops Gamepass ]]
 				local dropMultiplier = player:GetAttribute("HasDoubleDrops") and 2 or 1
 
 				if currentAmt == 0 and currentSlots >= MAX_INVENTORY_CAPACITY then
-					-- INVENTORY FULL: Auto sell the new item
 					autoSoldDews += (SellValues[rarity] or 10) * dropMultiplier
 				else
 					local nameTag = (dropMultiplier > 1) and (itemName .. " (x" .. dropMultiplier .. ")") or itemName
@@ -572,11 +566,34 @@ CombatAction.OnServerEvent:Connect(function(player, actionType, actionData)
 
 	if actionType == "MinigameResult" then
 		local battle = ActiveBattles[player.UserId]
-		if not battle or not battle.Enemy.IsMinigame then return end
+		if not battle then return end
 
 		if battle.IsProcessing then return end
 		battle.IsProcessing = true
 
+		if actionData.MinigameType == "GapClose" then
+			if actionData.Success then
+				battle.Context.Range = "Close"
+				CombatUpdate:FireClient(player, "TurnStrike", {Battle = battle, LogMsg = "<font color='#55FF55'>You successfully dodged the attacks and closed the gap! You are in melee range!</font>", DidHit = false, ShakeType = "Heavy"})
+			else
+				local dmg = math.floor(battle.Player.MaxHP * 0.15)
+				battle.Player.HP = math.max(1, battle.Player.HP - dmg)
+				if battle.Player.HP <= 0 then
+					CombatUpdate:FireClient(player, "Defeat", {Battle = battle})
+					if battle.Context.IsPaths then CombatUpdate:FireClient(player, "PathsDeath", {Battle = battle}) end
+					ActiveBattles[player.UserId] = nil
+					return
+				end
+				CombatUpdate:FireClient(player, "TurnStrike", {Battle = battle, LogMsg = "<font color='#FF5555'>You were struck while trying to advance! Took " .. dmg .. " damage. Still at LONG RANGE.</font>", DidHit = false, ShakeType = "Normal"})
+			end
+			local turnDelay = player:GetAttribute("HasDoubleSpeed") and 0.75 or 1.5
+			task.wait(turnDelay)
+			battle.IsProcessing = false
+			CombatUpdate:FireClient(player, "Update", {Battle = battle})
+			return
+		end
+
+		if not battle.Enemy.IsMinigame then return end
 		if actionData.Success then
 			battle.Enemy.HP = 0
 			ProcessEnemyDeath(player, battle)
@@ -627,8 +644,6 @@ CombatAction.OnServerEvent:Connect(function(player, actionType, actionData)
 				msg = "<font color='#AAAAAA'>You missed the " .. defender.Name .. "!</font>"
 			end
 			CombatUpdate:FireClient(player, "TurnStrike", {Battle = battle, LogMsg = msg, DidHit = didHit, ShakeType = shakeType, SkillUsed = strikeSkill, IsPlayerAttacking = attacker.IsPlayer})
-
-			-- [[ THE FIX: Dynamic 2x Speed Check ]]
 			task.wait(turnDelay) 
 		else 
 			CombatUpdate:FireClient(player, "TurnStrike", {Battle = battle, LogMsg = "<font color='#FF0000'>SERVER LOGIC ERROR: " .. tostring(msg) .. "</font>", DidHit = false, ShakeType = "None"}) 
@@ -643,12 +658,16 @@ CombatAction.OnServerEvent:Connect(function(player, actionType, actionData)
 	if battle.Enemy.Statuses and battle.Enemy.Statuses["Crippled"] then eSpeed *= 0.5 end
 	if battle.Enemy.Statuses and battle.Enemy.Statuses["Immobilized"] then eSpeed = -999 end
 
-	if skillName == "Maneuver" or skillName == "Evasive Maneuver" or skillName == "Retreat" or skillName == "Recover" or skillName == "Block" then pSpeed += 9999 end
+	if skillName == "Maneuver" or skillName == "Evasive Maneuver" or skillName == "Advance Maneuver" or skillName == "Retreat" or skillName == "Recover" or skillName == "Block" then pSpeed += 9999 end
+
+	-- [[ THE FIX: Pre-calculate the random rolls OUTSIDE the sorter to ensure strict deterministic ordering ]]
+	local pRoll = pSpeed + math.random(1, 15)
+	local eRoll = eSpeed + math.random(1, 15)
 
 	local combatants = { battle.Player, battle.Enemy }
 	table.sort(combatants, function(a, b)
-		local speedA = a.IsPlayer and pSpeed or eSpeed
-		local speedB = b.IsPlayer and pSpeed or eSpeed
+		local speedA = a.IsPlayer and pRoll or eRoll
+		local speedB = b.IsPlayer and pRoll or eRoll
 		return speedA > speedB
 	end)
 
@@ -677,7 +696,7 @@ CombatAction.OnServerEvent:Connect(function(player, actionType, actionData)
 			for sName, duration in pairs(combatant.Statuses) do
 				if string.find(sName, "Immunity") then
 					table.insert(immunitiesToTick, sName)
-				elseif sName ~= "Transformed" and duration > 0 then
+				elseif sName ~= "Transformed" and type(duration) == "number" and duration > 0 then
 					combatant.Statuses[sName] = duration - 1
 					if combatant.Statuses[sName] <= 0 then 
 						combatant.Statuses[sName] = nil 
@@ -728,12 +747,17 @@ CombatAction.OnServerEvent:Connect(function(player, actionType, actionData)
 		if combatant.IsPlayer then
 			if skill.Effect == "Flee" or skillName == "Retreat" then 
 				CombatUpdate:FireClient(player, "Fled", {Battle = battle})
+				if battle.Context.IsPaths then CombatUpdate:FireClient(player, "PathsDeath", {Battle = battle}) end
 				ActiveBattles[player.UserId] = nil
 				return 
 			end
 
 			if battle.Context.Range == "Long" then
-				if skillName == "Maneuver" or skillName == "Evasive Maneuver" then
+				if skillName == "Advance Maneuver" then
+					combatant.Gas = math.max(0, combatant.Gas - (skill.GasCost or 20))
+					CombatUpdate:FireClient(player, "StartMinigame", {Battle = battle, LogMsg = "<font color='#FFAA00'>Incoming projectiles! Evade to close the distance!</font>", MinigameType = "GapClose"})
+					return -- Stop processing turn until minigame finishes
+				elseif skillName == "Maneuver" or skillName == "Evasive Maneuver" then
 					battle.Context.GapCloses = (battle.Context.GapCloses or 0) + 1
 					combatant.Gas = math.max(0, combatant.Gas - (skill.GasCost or 15))
 					if battle.Context.GapCloses >= 3 then
@@ -757,7 +781,7 @@ CombatAction.OnServerEvent:Connect(function(player, actionType, actionData)
 					task.wait(turnDelay)
 					continue
 				else
-					CombatUpdate:FireClient(player, "TurnStrike", {Battle = battle, LogMsg = "<font color='#FF5555'>You are at LONG RANGE! You must use Maneuver to close the gap!</font>", DidHit = false, ShakeType = "None"})
+					CombatUpdate:FireClient(player, "TurnStrike", {Battle = battle, LogMsg = "<font color='#FF5555'>You are at LONG RANGE! You must use Advance Maneuver to close the gap!</font>", DidHit = false, ShakeType = "None"})
 					task.wait(turnDelay)
 					continue
 				end
@@ -793,26 +817,38 @@ CombatAction.OnServerEvent:Connect(function(player, actionType, actionData)
 			battle.Context.TurnCount = (battle.Context.TurnCount or 0) + 1
 			local aiSkill = "Brutal Swipe"
 
-			if battle.Context.Range == "Long" then
-				aiSkill = "Crushed Boulders"
-			elseif string.find(combatant.Name, "Female Titan") and combatant.Statuses and combatant.Statuses.Crippled then
-				aiSkill = "Nape Guard"
-			elseif string.find(combatant.Name, "Founding Titan") and battle.Context.TurnCount % 8 == 0 and not battle.Context.StoredBoss then
-				aiSkill = "Coordinate Command"
-			elseif combatant.LastSkill == "Titan Grab" and table.find(combatant.Skills, "Titan Bite") then
-				aiSkill = "Titan Bite" 
-			elseif #validAiSkills > 0 then
-				local attackMoves = {}
-				for _, s in ipairs(validAiSkills) do
-					if s ~= "Evasive Maneuver" and s ~= "Smoke Screen" and s ~= "Block" and s ~= "Regroup" then
-						table.insert(attackMoves, s)
+			if combatant.Statuses["Telegraphing"] then
+				aiSkill = combatant.Statuses["Telegraphing"]
+				combatant.Statuses["Telegraphing"] = nil
+			else
+				if battle.Context.Range == "Long" then
+					aiSkill = "Crushed Boulders"
+				elseif string.find(combatant.Name, "Female Titan") and combatant.Statuses and combatant.Statuses.Crippled then
+					aiSkill = "Nape Guard"
+				elseif string.find(combatant.Name, "Founding Titan") and battle.Context.TurnCount % 8 == 0 and not battle.Context.StoredBoss then
+					aiSkill = "Coordinate Command"
+				elseif combatant.LastSkill == "Titan Grab" and table.find(combatant.Skills, "Titan Bite") then
+					aiSkill = "Titan Bite" 
+				elseif #validAiSkills > 0 then
+					local attackMoves = {}
+					for _, s in ipairs(validAiSkills) do
+						if s ~= "Evasive Maneuver" and s ~= "Smoke Screen" and s ~= "Block" and s ~= "Regroup" then
+							table.insert(attackMoves, s)
+						end
+					end
+
+					if #attackMoves > 0 and math.random(1, 100) <= 80 then
+						aiSkill = attackMoves[math.random(1, #attackMoves)]
+					else
+						aiSkill = validAiSkills[math.random(1, #validAiSkills)]
 					end
 				end
 
-				if #attackMoves > 0 and math.random(1, 100) <= 80 then
-					aiSkill = attackMoves[math.random(1, #attackMoves)]
-				else
-					aiSkill = validAiSkills[math.random(1, #validAiSkills)]
+				if SkillData.Skills[aiSkill] and SkillData.Skills[aiSkill].Telegraphed then
+					combatant.Statuses["Telegraphing"] = aiSkill
+					CombatUpdate:FireClient(player, "TurnStrike", {Battle = battle, LogMsg = "<b><font color='#FFAA00'>WARNING: " .. combatant.Name .. " is charging up " .. aiSkill:upper() .. "! Brace yourself!</font></b>", DidHit = false, ShakeType = "Heavy"})
+					task.wait(turnDelay)
+					continue
 				end
 			end
 
@@ -859,7 +895,9 @@ CombatAction.OnServerEvent:Connect(function(player, actionType, actionData)
 	end
 
 	if battle.Player.HP < 1 then
-		CombatUpdate:FireClient(player, "Defeat", {Battle = battle}); ActiveBattles[player.UserId] = nil
+		CombatUpdate:FireClient(player, "Defeat", {Battle = battle})
+		if battle.Context.IsPaths then CombatUpdate:FireClient(player, "PathsDeath", {Battle = battle}) end
+		ActiveBattles[player.UserId] = nil
 	elseif battle.Enemy.HP < 1 then
 		ProcessEnemyDeath(player, battle)
 	else
