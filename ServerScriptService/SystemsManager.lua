@@ -1,384 +1,905 @@
 -- @ScriptType: Script
 -- @ScriptType: Script
 local Players = game:GetService("Players")
-local DataStoreService = game:GetService("DataStoreService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local HttpService = game:GetService("HttpService")
-local MarketplaceService = game:GetService("MarketplaceService")
-local MessagingService = game:GetService("MessagingService") 
-local BountyData = require(ReplicatedStorage:WaitForChild("BountyData"))
+local EnemyData = require(ReplicatedStorage:WaitForChild("EnemyData"))
 local ItemData = require(ReplicatedStorage:WaitForChild("ItemData"))
+local SkillData = require(ReplicatedStorage:WaitForChild("SkillData"))
+local CombatCore = require(script.Parent:WaitForChild("CombatCore"))
 
-local GameDataStore = DataStoreService:GetDataStore("AoT_Data_V3") 
-local BackupDataStore = DataStoreService:GetDataStore("AoT_Backups_V1") 
-local RegimentStore = DataStoreService:GetDataStore("RegimentWars_V1")
+local Network = ReplicatedStorage:FindFirstChild("Network") or Instance.new("Folder", ReplicatedStorage)
+Network.Name = "Network"
 
--- [[ LEADERBOARD DATA STORES ]]
-local PrestigeLB = DataStoreService:GetOrderedDataStore("Global_Prestige_LB_V1")
-local EloLB = DataStoreService:GetOrderedDataStore("Global_Elo_LB_V1")
-local LBCache = { Prestige = {}, Elo = {} }
+local function GetRemote(name)
+	local r = Network:FindFirstChild(name)
+	if not r then r = Instance.new("RemoteEvent"); r.Name = name; r.Parent = Network end
+	return r
+end
 
-local RemotesFolder = ReplicatedStorage:FindFirstChild("Network") or Instance.new("Folder", ReplicatedStorage)
-RemotesFolder.Name = "Network"
+local CombatAction = GetRemote("CombatAction")
+local CombatUpdate = GetRemote("CombatUpdate")
 
-local requiredRemotes = {
-	"ToggleMute", "CombatAction", "CombatUpdate", "PrestigeEvent", "NotificationEvent", "DungeonUpdate", "WorldBossUpdate", "WorldBossAction", 
-	"RaidAction", "RaidUpdate", "ToggleTraining", "ShopAction", "ShopUpdate", "UpgradeStat", "TrainAction", "EquipItem", "SellItem", "AutoSell", "AdminCommand",
-	"GachaRoll", "GachaRollAuto", "GachaResult", "AwakenAction", "ManageStorage", "VIPFreeReroll", "RedeemCode", "ClaimBounty", "ForgeItem", "ConsumeItem", "JoinRegiment", "ShowRegimentUI",
-	"FuseTitan", "PathsShopBuy", "AwakenWeapon", "DispatchAction", "TradeAction", "TradeUpdate", "TradeRequest"
-}
+local ActiveBattles = {}
 
-for _, remoteName in ipairs(requiredRemotes) do
-	if not RemotesFolder:FindFirstChild(remoteName) then
-		local re = Instance.new("RemoteEvent"); re.Name = remoteName; re.Parent = RemotesFolder
+-- [[ INVENTORY CAP & AUTO-SELL CONFIG ]]
+local MAX_INVENTORY_CAPACITY = 25
+local SellValues = { Common = 10, Uncommon = 25, Rare = 75, Epic = 200, Legendary = 500, Mythical = 1500, Transcendent = 0 }
+
+local function GetUniqueSlotCount(plr)
+	local count = 0
+	for iName, _ in pairs(ItemData.Equipment) do
+		if (plr:GetAttribute(iName:gsub("[^%w]", "") .. "Count") or 0) > 0 then count += 1 end
+	end
+	for iName, _ in pairs(ItemData.Consumables) do
+		if (plr:GetAttribute(iName:gsub("[^%w]", "") .. "Count") or 0) > 0 then count += 1 end
+	end
+	return count
+end
+
+local function UpdateBountyProgress(plr, taskType, amt)
+	for i = 1, 3 do
+		if plr:GetAttribute("D"..i.."_Task") == taskType and not plr:GetAttribute("D"..i.."_Claimed") then
+			local p = plr:GetAttribute("D"..i.."_Prog") or 0
+			local m = plr:GetAttribute("D"..i.."_Max") or 1
+			plr:SetAttribute("D"..i.."_Prog", math.min(p + amt, m))
+		end
+	end
+	if plr:GetAttribute("W1_Task") == taskType and not plr:GetAttribute("W1_Claimed") then
+		local p = plr:GetAttribute("W1_Prog") or 0
+		local m = plr:GetAttribute("W1_Max") or 1
+		plr:SetAttribute("W1_Prog", math.min(p + amt, m))
 	end
 end
 
-if not RemotesFolder:FindFirstChild("GetShopData") then
-	local rf = Instance.new("RemoteFunction"); rf.Name = "GetShopData"; rf.Parent = RemotesFolder
+local function GetTemplate(partData, templateName)
+	if partData.Templates and partData.Templates[templateName] then return partData.Templates[templateName] end
+	for _, mob in ipairs(partData.Mobs) do if mob.Name == templateName then return mob end end
+	return partData.Mobs[1] 
 end
 
--- [[ THE FIX: LIVE-SPLICING LEADERBOARD REMOTE ]]
-if not RemotesFolder:FindFirstChild("GetLeaderboardData") then
-	local rf = Instance.new("RemoteFunction"); rf.Name = "GetLeaderboardData"; rf.Parent = RemotesFolder
+local function GetHPScale(targetPart, prestige)
+	return 1.0 + (targetPart * 0.2) + (prestige * 0.4) 
 end
-RemotesFolder.GetLeaderboardData.OnServerInvoke = function(player, lbType)
-	local cache = LBCache[lbType] or {}
-	local dynamicList = {}
+local function GetDmgScale(targetPart, prestige)
+	return 1.0 + (targetPart * 0.1) + (prestige * 0.2) 
+end
 
-	for _, entry in ipairs(cache) do
-		table.insert(dynamicList, {Name = entry.Name, Value = entry.Value})
+local function GetActualStyle(plr)
+	local eqWpn = plr:GetAttribute("EquippedWeapon") or "None"
+	if ItemData.Equipment[eqWpn] and ItemData.Equipment[eqWpn].Style then return ItemData.Equipment[eqWpn].Style end
+	return "None"
+end
+
+local function ParseAwakenedStats(statString)
+	local stats = { DmgMult = 1.0, DodgeBonus = 0, CritBonus = 0, HpBonus = 0, SpdBonus = 0, GasBonus = 0, HealOnKill = 0, IgnoreArmor = 0 }
+	if not statString then return stats end
+
+	for stat in string.gmatch(statString, "[^|]+") do
+		stat = stat:match("^%s*(.-)%s*$")
+		if stat:find("DMG") then stats.DmgMult += tonumber(stat:match("%d+")) / 100
+		elseif stat:find("DODGE") then stats.DodgeBonus += tonumber(stat:match("%d+"))
+		elseif stat:find("CRIT") then stats.CritBonus += tonumber(stat:match("%d+"))
+		elseif stat:find("MAX HP") then stats.HpBonus += tonumber(stat:match("%d+"))
+		elseif stat:find("SPEED") then stats.SpdBonus += tonumber(stat:match("%d+"))
+		elseif stat:find("GAS CAP") then stats.GasBonus += tonumber(stat:match("%d+"))
+		elseif stat:find("HEAL") then stats.HealOnKill += tonumber(stat:match("%d+")) / 100
+		elseif stat:find("IGNORE") then stats.IgnoreArmor += tonumber(stat:match("%d+")) / 100
+		end
+	end
+	return stats
+end
+
+local function StartBattle(player, encounterType, requestedPartId)
+	local currentPart = player:GetAttribute("CurrentPart") or 1
+	local eTemplate, logFlavor
+	local isStory = false
+	local isEndless = false
+	local isPaths = false
+	local isWorldBoss = false
+	local activeMissionData = nil
+	local totalWaves = 1
+	local startingWave = 1
+	local targetPart = currentPart
+
+	local prestige = player:FindFirstChild("leaderstats") and player.leaderstats.Prestige.Value or 0
+
+	if encounterType == "EngageStory" then
+		isStory = true
+		targetPart = requestedPartId or currentPart
+		if type(targetPart) == "number" and targetPart > currentPart then targetPart = currentPart end
+
+		local partData = EnemyData.Parts[targetPart]
+		if not partData then return end
+
+		if targetPart == currentPart then startingWave = player:GetAttribute("CurrentWave") or 1 else startingWave = 1 end
+
+		local missionTable = (prestige > 0 and partData.PrestigeMissions) and partData.PrestigeMissions or partData.Missions
+		activeMissionData = missionTable[1]
+		totalWaves = #activeMissionData.Waves
+
+		if startingWave > totalWaves then startingWave = totalWaves end
+		local waveData = activeMissionData.Waves[startingWave]
+		eTemplate = GetTemplate(partData, waveData.Template)
+		logFlavor = "<font color='#FFD700'>[Mission: " .. activeMissionData.Name .. "]</font>\n" .. waveData.Flavor
+
+	elseif encounterType == "EngageEndless" then
+		isEndless = true
+		local maxPart = math.min(8, currentPart)
+		targetPart = math.random(1, maxPart)
+		local partData = EnemyData.Parts[targetPart]
+		eTemplate = partData.Mobs[math.random(1, #partData.Mobs)]
+		logFlavor = "<font color='#AA55FF'>[ENDLESS EXPEDITION]</font>\nYou have encountered a " .. eTemplate.Name .. "!"
+
+	elseif encounterType == "EngagePaths" then
+		isPaths = true
+		local floor = player:GetAttribute("PathsFloor") or 1
+		targetPart = math.random(1, 8) 
+		local partData = EnemyData.Parts[targetPart]
+		eTemplate = partData.Mobs[math.random(1, #partData.Mobs)]
+		logFlavor = "<font color='#55FFFF'>[THE PATHS - MEMORY " .. floor .. "]</font>\nA manifestation of " .. eTemplate.Name .. " emerges from the sand..."
+
+	elseif encounterType == "EngageWorldBoss" then
+		isWorldBoss = true
+		eTemplate = EnemyData.WorldBosses[requestedPartId]
+		if not eTemplate then return end
+		logFlavor = "<font color='#FFAA00'>[WORLD EVENT]</font>\n" .. eTemplate.Name .. " has appeared!"
+		targetPart = 1 
+	else
+		targetPart = math.min(8, currentPart)
+		local partData = EnemyData.Parts[targetPart]
+		eTemplate = partData.Mobs[math.random(1, #partData.Mobs)]
+		local flavors = partData.RandomFlavor or {"You encounter a %s!"}
+		logFlavor = string.format(flavors[math.random(1, #flavors)], eTemplate.Name)
 	end
 
-	for _, p in ipairs(Players:GetPlayers()) do
-		local ls = p:FindFirstChild("leaderstats")
-		if ls then
-			local liveVal = 0
-			if lbType == "Prestige" and ls:FindFirstChild("Prestige") then liveVal = ls.Prestige.Value
-			elseif lbType == "Elo" and ls:FindFirstChild("Elo") then liveVal = ls.Elo.Value end
+	local hpMult = GetHPScale(targetPart, prestige)
+	local dmgMult = GetDmgScale(targetPart, prestige)
+	local dropMult = 1.0 + (targetPart * 1.5) + (prestige * 2.5)
 
-			local found = false
-			for _, entry in ipairs(dynamicList) do
-				if entry.Name == p.Name then
-					entry.Value = liveVal
-					found = true
-					break
+	if isEndless then 
+		hpMult *= 1.4; dmgMult *= 1.4; dropMult *= 1.5 
+	elseif isPaths then
+		local floor = player:GetAttribute("PathsFloor") or 1
+		local pathScale = math.pow(1.25, floor - 1) 
+		hpMult = hpMult * pathScale
+		dmgMult = dmgMult * pathScale
+	end
+
+	local baseDropXP = eTemplate.Drops and eTemplate.Drops.XP or 15
+	local baseDropDews = eTemplate.Drops and eTemplate.Drops.Dews or 10
+	local finalDropXP = math.floor(baseDropXP * dropMult)
+	local finalDropDews = math.floor(baseDropDews * dropMult)
+
+	local wpnName = player:GetAttribute("EquippedWeapon") or "None"
+	local accName = player:GetAttribute("EquippedAccessory") or "None"
+
+	local wpnBonus = (ItemData.Equipment[wpnName] and ItemData.Equipment[wpnName].Bonus) or {}
+	local accBonus = (ItemData.Equipment[accName] and ItemData.Equipment[accName].Bonus) or {}
+
+	local safeWpnName = wpnName:gsub("[^%w]", "")
+	local awakenedString = player:GetAttribute(safeWpnName .. "_Awakened")
+	local awakenedStats = ParseAwakenedStats(awakenedString)
+
+	local clanName = player:GetAttribute("Clan") or "None"
+	local pMaxHP = ((player:GetAttribute("Health") or 10) + (wpnBonus.Health or 0) + (accBonus.Health or 0)) * 10
+	if clanName == "Reiss" then pMaxHP = math.floor(pMaxHP * 1.5) end
+	pMaxHP = pMaxHP + awakenedStats.HpBonus
+
+	local pMaxGas = ((player:GetAttribute("Gas") or 10) + (wpnBonus.Gas or 0) + (accBonus.Gas or 0)) * 10
+	pMaxGas = pMaxGas + awakenedStats.GasBonus
+
+	local pTotalStr = (player:GetAttribute("Strength") or 10) + (wpnBonus.Strength or 0) + (accBonus.Strength or 0)
+	local pTotalDef = (player:GetAttribute("Defense") or 10) + (wpnBonus.Defense or 0) + (accBonus.Defense or 0)
+
+	local pTotalSpd = (player:GetAttribute("Speed") or 10) + (wpnBonus.Speed or 0) + (accBonus.Speed or 0)
+	pTotalSpd = pTotalSpd + awakenedStats.SpdBonus
+
+	local pTotalRes = (player:GetAttribute("Resolve") or 10) + (wpnBonus.Resolve or 0) + (accBonus.Resolve or 0)
+
+	local ctxRange = "Close"
+	if eTemplate.Name:find("Beast Titan") then
+		ctxRange = "Long"
+		logFlavor = logFlavor .. "\n<font color='#FF5555'>The Beast Titan is at LONG RANGE. Use Maneuver to close the gap!</font>"
+	end
+
+	local isMinigame = eTemplate.IsMinigame
+
+	local eHP = math.floor(eTemplate.Health * hpMult)
+	local eGateType = eTemplate.GateType
+	local eGateHP = math.floor((eTemplate.GateHP or 0) * (eGateType == "Steam" and 1 or hpMult))
+	local eStr = math.floor(eTemplate.Strength * dmgMult)
+	local eDef = math.floor(eTemplate.Defense * dmgMult)
+	local eSpd = math.floor(eTemplate.Speed * dmgMult)
+
+	local enemyAwakenedStats = nil
+	if isPaths then
+		local mutators = {"Armored", "Frenzied", "Elusive", "Colossal"}
+		local selectedMutator = mutators[math.random(1, #mutators)]
+
+		if selectedMutator == "Armored" then
+			eGateType = "Reinforced Skin"
+			eGateHP = math.floor(eHP * 0.3)
+			logFlavor = logFlavor .. "\n<font color='#AAAAAA'>[MUTATOR: ARMORED] Target has extreme hardening!</font>"
+		elseif selectedMutator == "Frenzied" then
+			eSpd = eSpd * 2.0
+			eStr = eStr * 1.2
+			logFlavor = logFlavor .. "\n<font color='#FF5555'>[MUTATOR: FRENZIED] Target is moving at terrifying speeds!</font>"
+		elseif selectedMutator == "Elusive" then
+			enemyAwakenedStats = { DodgeBonus = 15 }
+			logFlavor = logFlavor .. "\n<font color='#55FF55'>[MUTATOR: ELUSIVE] Target is incredibly hard to hit!</font>"
+		elseif selectedMutator == "Colossal" then
+			eHP = eHP * 2.0
+			eStr = eStr * 1.5
+			eSpd = math.floor(eSpd * 0.5)
+			logFlavor = logFlavor .. "\n<font color='#FFAA00'>[MUTATOR: COLOSSAL] Target is massive and deals lethal damage!</font>"
+		end
+	end
+
+	ActiveBattles[player.UserId] = {
+		IsProcessing = false,
+		Context = { IsStoryMission = isStory, IsEndless = isEndless, IsPaths = isPaths, IsWorldBoss = isWorldBoss, TargetPart = targetPart, CurrentWave = startingWave, TotalWaves = totalWaves, MissionData = activeMissionData, TurnCount = 0, Range = ctxRange, GapCloses = 0 },
+		Player = {
+			IsPlayer = true, Name = player.Name, PlayerObj = player, Titan = player:GetAttribute("Titan") or "None",
+			Style = GetActualStyle(player), Clan = clanName,
+			HP = pMaxHP, MaxHP = pMaxHP,
+			TitanEnergy = 100, MaxTitanEnergy = 100, Gas = pMaxGas, MaxGas = pMaxGas,
+			TotalStrength = pTotalStr, TotalDefense = pTotalDef,
+			TotalSpeed = pTotalSpd, TotalResolve = pTotalRes,
+			Statuses = {}, Cooldowns = {}, LastSkill = "None",
+			AwakenedStats = awakenedStats
+		},
+		Enemy = {
+			IsMinigame = isMinigame,
+			IsPlayer = false, Name = eTemplate.Name, 
+			IsHuman = isPaths and false or (eTemplate.IsHuman or false),
+			HP = eHP, MaxHP = eHP,
+			GateType = eGateType, GateHP = eGateHP, MaxGateHP = eGateHP,
+			TotalStrength = eStr, TotalDefense = eDef, TotalSpeed = eSpd,
+			Statuses = {}, Cooldowns = {}, Skills = eTemplate.Skills or {"Brutal Swipe"},
+			Drops = { XP = finalDropXP, Dews = finalDropDews, ItemChance = eTemplate.Drops and eTemplate.Drops.ItemChance or {} },
+			LastSkill = "None",
+			AwakenedStats = enemyAwakenedStats
+		}
+	}
+
+	if isMinigame then
+		CombatUpdate:FireClient(player, "StartMinigame", { Battle = ActiveBattles[player.UserId], LogMsg = logFlavor, MinigameType = isMinigame })
+	else
+		CombatUpdate:FireClient(player, "Start", { Battle = ActiveBattles[player.UserId], LogMsg = logFlavor })
+	end
+end
+
+local function ProcessEnemyDeath(player, battle)
+	if not player or not player:FindFirstChild("leaderstats") then return end
+
+	local turnDelay = player:GetAttribute("HasDoubleSpeed") and 0.75 or 1.5
+
+	if battle.Context.StoredBoss then
+		local b = battle.Context.StoredBoss
+		battle.Enemy.Name = b.Name; battle.Enemy.HP = b.HP; battle.Enemy.MaxHP = b.MaxHP
+		battle.Enemy.GateType = b.GateType; battle.Enemy.GateHP = b.GateHP; battle.Enemy.MaxGateHP = b.MaxGateHP
+		battle.Enemy.TotalStrength = b.TotalStrength; battle.Enemy.TotalDefense = b.TotalDefense; battle.Enemy.TotalSpeed = b.TotalSpeed
+		battle.Enemy.Drops = b.Drops; battle.Enemy.Skills = b.Skills; battle.Enemy.Statuses = b.Statuses; battle.Enemy.Cooldowns = b.Cooldowns; battle.Enemy.LastSkill = b.LastSkill
+
+		battle.Context.StoredBoss = nil
+		battle.Context.TurnCount = 0 
+
+		CombatUpdate:FireClient(player, "TurnStrike", {Battle = battle, LogMsg = "<font color='#55FF55'>The Summoned Titan falls! The Founder is exposed!</font>", DidHit = false, ShakeType = "Heavy"})
+		task.wait(turnDelay)
+		battle.IsProcessing = false
+		CombatUpdate:FireClient(player, "Update", {Battle = battle})
+		return
+	end
+
+	UpdateBountyProgress(player, "Kill", 1); UpdateBountyProgress(player, "Clear", 1)
+
+	if battle.Context.IsWorldBoss then
+		local vpEvent = game:GetService("ServerStorage"):FindFirstChild("AddRegimentVP")
+		if vpEvent then vpEvent:Fire(player, 250) end
+	end
+
+	local xpGain = battle.Enemy.Drops.XP; local dewsGain = battle.Enemy.Drops.Dews
+	if player:GetAttribute("HasDoubleXP") then xpGain *= 2; dewsGain *= 2 end
+	if player:GetAttribute("Buff_XP_Expiry") and os.time() < player:GetAttribute("Buff_XP_Expiry") then xpGain *= 2 end
+
+	local winReg = Network:FindFirstChild("WinningRegiment")
+	if winReg and winReg.Value ~= "None" and player:GetAttribute("Regiment") == winReg.Value then
+		xpGain = math.floor(xpGain * 1.15)
+		dewsGain = math.floor(dewsGain * 1.15)
+	end
+
+	player:SetAttribute("XP", (player:GetAttribute("XP") or 0) + xpGain)
+	player:SetAttribute("TitanXP", (player:GetAttribute("TitanXP") or 0) + xpGain)
+
+	player.leaderstats.Dews.Value += dewsGain
+
+	local killMsg = ""
+
+	local currentSlots = GetUniqueSlotCount(player)
+	local droppedItems = {}
+	local autoSoldDews = 0
+
+	if battle.Enemy.Drops.ItemChance then
+		for itemName, baseChance in pairs(battle.Enemy.Drops.ItemChance) do
+			local iData = ItemData.Equipment[itemName] or ItemData.Consumables[itemName]
+			local rarity = iData and iData.Rarity or "Common"
+			local finalChance = baseChance
+
+			if rarity == "Mythical" then
+				finalChance = baseChance * 1.0 
+				if battle.Context.IsEndless then finalChance += (battle.Context.CurrentWave * 0.1) end
+				finalChance = math.min(finalChance, math.max(5, baseChance))
+			elseif rarity == "Legendary" then
+				finalChance = baseChance * 1.2
+				if battle.Context.IsEndless then finalChance += (battle.Context.CurrentWave * 0.25) end
+				finalChance = math.min(finalChance, math.max(12, baseChance))
+			elseif rarity == "Epic" then
+				finalChance = baseChance * 2.0
+				if battle.Context.IsEndless then finalChance += (battle.Context.CurrentWave * 1.0) end
+				finalChance = math.min(finalChance, math.max(40, baseChance))
+			else
+				finalChance = baseChance * 3.0
+				if battle.Context.IsEndless then finalChance += (battle.Context.CurrentWave * 2.5) end
+				finalChance = math.min(finalChance, 100)
+			end
+
+			local roll = math.random() * 100
+			if roll <= finalChance then
+				local attrName = itemName:gsub("[^%w]", "") .. "Count"
+				local currentAmt = player:GetAttribute(attrName) or 0
+				local dropMultiplier = player:GetAttribute("HasDoubleDrops") and 2 or 1
+
+				if currentAmt == 0 and currentSlots >= MAX_INVENTORY_CAPACITY then
+					autoSoldDews += (SellValues[rarity] or 10) * dropMultiplier
+				else
+					local nameTag = (dropMultiplier > 1) and (itemName .. " (x" .. dropMultiplier .. ")") or itemName
+					table.insert(droppedItems, nameTag)
+					player:SetAttribute(attrName, currentAmt + dropMultiplier)
+					if currentAmt == 0 then currentSlots += 1 end
+				end
+			end
+		end
+
+		if battle.Context.IsEndless and #droppedItems == 0 and autoSoldDews == 0 and battle.Context.CurrentWave % 3 == 0 then
+			local pool = {}
+			for iname, _ in pairs(battle.Enemy.Drops.ItemChance) do 
+				local iData = ItemData.Equipment[iname] or ItemData.Consumables[iname]
+				if iData and iData.Rarity ~= "Mythical" and iData.Rarity ~= "Legendary" then
+					table.insert(pool, iname) 
+				end
+			end
+			if #pool > 0 then
+				local pItem = pool[math.random(1, #pool)]
+				local attrName = pItem:gsub("[^%w]", "") .. "Count"
+				local currentAmt = player:GetAttribute(attrName) or 0
+				local dropMultiplier = player:GetAttribute("HasDoubleDrops") and 2 or 1
+
+				if currentAmt == 0 and currentSlots >= MAX_INVENTORY_CAPACITY then
+					local iData = ItemData.Equipment[pItem] or ItemData.Consumables[pItem]
+					autoSoldDews += (SellValues[iData and iData.Rarity or "Common"] or 10) * dropMultiplier
+				else
+					local nameTag = (dropMultiplier > 1) and (pItem .. " (x" .. dropMultiplier .. ")") or pItem
+					table.insert(droppedItems, nameTag)
+					player:SetAttribute(attrName, currentAmt + dropMultiplier)
+					if currentAmt == 0 then currentSlots += 1 end
+				end
+			end
+		end
+	end
+
+	if autoSoldDews > 0 then
+		player.leaderstats.Dews.Value += autoSoldDews
+		killMsg = killMsg .. "<br/><font color='#FFD700'>[Inventory Full: Auto-sold new drops for " .. autoSoldDews .. " Dews]</font>"
+	end
+
+	if battle.Player.AwakenedStats and battle.Player.AwakenedStats.HealOnKill > 0 then
+		local pMax = tonumber(battle.Player.MaxHP) or 100
+		local pCur = tonumber(battle.Player.HP) or 100
+		local healAmt = math.floor(pMax * battle.Player.AwakenedStats.HealOnKill)
+
+		battle.Player.HP = math.min(pMax, pCur + healAmt)
+		killMsg = killMsg .. "<br/><font color='#55FF55'>[Awakened: Healed " .. healAmt .. " HP!]</font>"
+	end
+
+	if battle.Context.IsPaths then
+		local floor = player:GetAttribute("PathsFloor") or 1
+		local dustGain = math.floor(1 + (floor * 0.2)) 
+		player:SetAttribute("PathDust", (player:GetAttribute("PathDust") or 0) + dustGain)
+
+		local nextFloor = floor + 1
+		player:SetAttribute("PathsFloor", nextFloor)
+
+		local rewardStr = "<font color='#55FFFF'>Memory Cleared! +" .. dustGain .. " Path Dust</font>"
+
+		local prestige = player.leaderstats.Prestige.Value
+		local targetPart = math.random(1, 8)
+		local partData = EnemyData.Parts[targetPart]
+		local nextEnemyTemplate = partData.Mobs[math.random(1, #partData.Mobs)]
+
+		local pathScale = math.pow(1.25, nextFloor - 1)
+		local hpMult = GetHPScale(targetPart, prestige) * pathScale
+		local dmgMult = GetDmgScale(targetPart, prestige) * pathScale
+		local dropMult = 1.0 + (targetPart * 1.5) + (prestige * 2.5)
+
+		local eHP = math.floor(nextEnemyTemplate.Health * hpMult)
+		local eGateType = nextEnemyTemplate.GateType
+		local eGateHP = math.floor((nextEnemyTemplate.GateHP or 0) * (eGateType == "Steam" and 1 or hpMult))
+		local eStr = math.floor(nextEnemyTemplate.Strength * dmgMult)
+		local eDef = math.floor(nextEnemyTemplate.Defense * dmgMult)
+		local eSpd = math.floor(nextEnemyTemplate.Speed * dmgMult)
+
+		local enemyAwakenedStats = nil
+		local mutators = {"Armored", "Frenzied", "Elusive", "Colossal"}
+		local selectedMutator = mutators[math.random(1, #mutators)]
+		local logFlavor = "<font color='#55FFFF'>[THE PATHS - MEMORY " .. nextFloor .. "]</font>\nA manifestation of " .. nextEnemyTemplate.Name .. " emerges from the sand..."
+
+		if selectedMutator == "Armored" then
+			eGateType = "Reinforced Skin"
+			eGateHP = math.floor(eHP * 0.3)
+			logFlavor = logFlavor .. "\n<font color='#AAAAAA'>[MUTATOR: ARMORED] Target has extreme hardening!</font>"
+		elseif selectedMutator == "Frenzied" then
+			eSpd = eSpd * 2.0
+			eStr = eStr * 1.2
+			logFlavor = logFlavor .. "\n<font color='#FF5555'>[MUTATOR: FRENZIED] Target is moving at terrifying speeds!</font>"
+		elseif selectedMutator == "Elusive" then
+			enemyAwakenedStats = { DodgeBonus = 15 }
+			logFlavor = logFlavor .. "\n<font color='#55FF55'>[MUTATOR: ELUSIVE] Target is incredibly hard to hit!</font>"
+		elseif selectedMutator == "Colossal" then
+			eHP = eHP * 2.0
+			eStr = eStr * 1.5
+			eSpd = math.floor(eSpd * 0.5)
+			logFlavor = logFlavor .. "\n<font color='#FFAA00'>[MUTATOR: COLOSSAL] Target is massive and deals lethal damage!</font>"
+		end
+
+		battle.Enemy = {
+			IsMinigame = nextEnemyTemplate.IsMinigame,
+			IsPlayer = false, Name = nextEnemyTemplate.Name, 
+			IsHuman = false, 
+			HP = eHP, MaxHP = eHP,
+			GateType = eGateType, GateHP = eGateHP, MaxGateHP = eGateHP,
+			TotalStrength = eStr, TotalDefense = eDef, TotalSpeed = eSpd,
+			Statuses = {}, Cooldowns = {}, Skills = nextEnemyTemplate.Skills or {"Brutal Swipe"},
+			Drops = { XP = math.floor((nextEnemyTemplate.Drops and nextEnemyTemplate.Drops.XP or 15) * dropMult), Dews = math.floor((nextEnemyTemplate.Drops and nextEnemyTemplate.Drops.Dews or 10) * dropMult), ItemChance = nextEnemyTemplate.Drops and nextEnemyTemplate.Drops.ItemChance or {} },
+			LastSkill = "None",
+			AwakenedStats = enemyAwakenedStats
+		}
+
+		battle.Player.Cooldowns = {} 
+		battle.Player.Statuses = {} 
+		battle.Player.HP = battle.Player.MaxHP; battle.Player.Gas = battle.Player.MaxGas; battle.Player.TitanEnergy = math.min(100, (battle.Player.TitanEnergy or 0) + 30); battle.Player.LastSkill = "None"
+
+		if nextEnemyTemplate.IsMinigame then
+			CombatUpdate:FireClient(player, "StartMinigame", {Battle = battle, LogMsg = logFlavor .. "\n" .. rewardStr .. killMsg, MinigameType = nextEnemyTemplate.IsMinigame})
+		else
+			CombatUpdate:FireClient(player, "WaveComplete", {Battle = battle, LogMsg = logFlavor .. "\n" .. rewardStr .. killMsg, XP = xpGain, Dews = dewsGain, Items = droppedItems})
+		end
+		battle.IsProcessing = false
+		return
+	end
+
+	if battle.Context.IsStoryMission and battle.Context.CurrentWave < battle.Context.TotalWaves then
+		battle.Context.CurrentWave += 1
+
+		if battle.Context.TargetPart == 2 and battle.Context.CurrentWave == battle.Context.TotalWaves then
+			local currentReg = player:GetAttribute("Regiment") or "Cadet Corps"
+			if currentReg ~= "Cadet Corps" then
+				CombatUpdate:FireClient(player, "Victory", {Battle = battle, XP = xpGain, Dews = dewsGain, Items = droppedItems, ExtraLog = killMsg})
+				ActiveBattles[player.UserId] = nil
+				return
+			end
+		end
+
+		if battle.Context.TargetPart == (player:GetAttribute("CurrentPart") or 1) then player:SetAttribute("CurrentWave", battle.Context.CurrentWave) end
+
+		local prestige = player.leaderstats.Prestige.Value
+		local hpMult = GetHPScale(battle.Context.TargetPart, prestige)
+		local dmgMult = GetDmgScale(battle.Context.TargetPart, prestige)
+
+		local currentPart = battle.Context.TargetPart
+		local partData = EnemyData.Parts[currentPart]
+		local waveData = battle.Context.MissionData.Waves[battle.Context.CurrentWave]
+		local nextEnemyTemplate = GetTemplate(partData, waveData.Template)
+
+		local dropMult = 1.0 + (battle.Context.TargetPart * 1.5) + (prestige * 2.5)
+		local nextBaseDropXP = nextEnemyTemplate.Drops and nextEnemyTemplate.Drops.XP or 15
+		local nextBaseDropDews = nextEnemyTemplate.Drops and nextEnemyTemplate.Drops.Dews or 10
+		local nextFinalDropXP = math.floor(nextBaseDropXP * dropMult)
+		local nextFinalDropDews = math.floor(nextBaseDropDews * dropMult)
+
+		local flavorText = waveData.Flavor
+
+		if nextEnemyTemplate.Name:find("Beast Titan") then
+			battle.Context.Range = "Long"
+			battle.Context.GapCloses = 0
+			flavorText = flavorText .. "\n<font color='#FF5555'>The Beast Titan is at LONG RANGE. Use Maneuver to close the gap!</font>"
+		else
+			battle.Context.Range = "Close"
+			battle.Context.GapCloses = 0
+		end
+		battle.Context.TurnCount = 0
+		battle.Context.StoredBoss = nil
+
+		local isMinigame = nextEnemyTemplate.IsMinigame
+
+		battle.Enemy = {
+			IsMinigame = isMinigame,
+			IsPlayer = false, Name = nextEnemyTemplate.Name, IsHuman = nextEnemyTemplate.IsHuman or false,
+			HP = math.floor(nextEnemyTemplate.Health * hpMult), MaxHP = math.floor(nextEnemyTemplate.Health * hpMult),
+			GateType = nextEnemyTemplate.GateType, GateHP = math.floor((nextEnemyTemplate.GateHP or 0) * (nextEnemyTemplate.GateType == "Steam" and 1 or hpMult)), MaxGateHP = math.floor((nextEnemyTemplate.GateHP or 0) * (nextEnemyTemplate.GateType == "Steam" and 1 or hpMult)),
+			TotalStrength = math.floor(nextEnemyTemplate.Strength * dmgMult), TotalDefense = math.floor(nextEnemyTemplate.Defense * dmgMult), TotalSpeed = math.floor(nextEnemyTemplate.Speed * dmgMult),
+			Statuses = {}, Cooldowns = {}, Skills = nextEnemyTemplate.Skills or {"Brutal Swipe"},
+			Drops = { XP = nextFinalDropXP, Dews = nextFinalDropDews, ItemChance = nextEnemyTemplate.Drops and nextEnemyTemplate.Drops.ItemChance or {} },
+			LastSkill = "None"
+		}
+
+		battle.Player.Cooldowns = {} 
+		battle.Player.Statuses = {} 
+		battle.Player.HP = battle.Player.MaxHP; battle.Player.Gas = battle.Player.MaxGas; battle.Player.TitanEnergy = math.min(100, (battle.Player.TitanEnergy or 0) + 30); battle.Player.LastSkill = "None"
+
+		if isMinigame then
+			CombatUpdate:FireClient(player, "StartMinigame", {Battle = battle, LogMsg = "<font color='#FFD700'>[WAVE " .. battle.Context.CurrentWave .. "]</font>\n" .. flavorText, MinigameType = isMinigame})
+		else
+			CombatUpdate:FireClient(player, "WaveComplete", {Battle = battle, LogMsg = "<font color='#FFD700'>[WAVE " .. battle.Context.CurrentWave .. "]</font>\n" .. flavorText .. killMsg, XP = xpGain, Dews = dewsGain, Items = droppedItems})
+		end
+		battle.IsProcessing = false
+	else
+		if battle.Context.IsStoryMission then
+			player:SetAttribute("CampaignClear_Part" .. battle.Context.TargetPart, true)
+
+			local playerCurrentPart = player:GetAttribute("CurrentPart") or 1
+			if battle.Context.TargetPart == playerCurrentPart then
+				local nextPart = playerCurrentPart + 1
+
+				if EnemyData.Parts[nextPart] or nextPart == 9 then
+					player:SetAttribute("CurrentPart", nextPart)
+					player:SetAttribute("CurrentWave", 1) 
+				end
+			end
+		end
+		CombatUpdate:FireClient(player, "Victory", {Battle = battle, XP = xpGain, Dews = dewsGain, Items = droppedItems, ExtraLog = killMsg})
+		ActiveBattles[player.UserId] = nil
+	end
+end
+
+CombatAction.OnServerEvent:Connect(function(player, actionType, actionData)
+	if actionType == "EngageRandom" or actionType == "EngageStory" or actionType == "EngageEndless" or actionType == "EngagePaths" or actionType == "EngageWorldBoss" then 
+		local pId = actionData and (actionData.PartId or actionData.BossId) or nil; StartBattle(player, actionType, pId); return 
+	end
+
+	if actionType == "MinigameResult" then
+		local battle = ActiveBattles[player.UserId]
+		if not battle then return end
+
+		if battle.IsProcessing then return end
+		battle.IsProcessing = true
+
+		if actionData.MinigameType == "GapClose" then
+			if actionData.Success then
+				battle.Context.Range = "Close"
+				CombatUpdate:FireClient(player, "TurnStrike", {Battle = battle, LogMsg = "<font color='#55FF55'>You successfully dodged the attacks and closed the gap! You are in melee range!</font>", DidHit = false, ShakeType = "Heavy"})
+			else
+				local dmg = math.floor(battle.Player.MaxHP * 0.15)
+				battle.Player.HP = math.max(1, battle.Player.HP - dmg)
+				CombatUpdate:FireClient(player, "TurnStrike", {Battle = battle, LogMsg = "<font color='#FF5555'>You were struck while trying to advance! Took " .. dmg .. " damage. Still at LONG RANGE.</font>", DidHit = false, ShakeType = "Normal"})
+			end
+			local turnDelay = player:GetAttribute("HasDoubleSpeed") and 0.75 or 1.5
+			task.wait(turnDelay)
+			battle.IsProcessing = false
+			CombatUpdate:FireClient(player, "Update", {Battle = battle})
+			return
+		end
+
+		if not battle.Enemy.IsMinigame then return end
+		if actionData.Success then
+			battle.Enemy.HP = 0
+			ProcessEnemyDeath(player, battle)
+		else
+			battle.Player.HP = 0
+			CombatUpdate:FireClient(player, "Defeat", {Battle = battle})
+			ActiveBattles[player.UserId] = nil
+		end
+		return
+	end
+
+	local battle = ActiveBattles[player.UserId]
+	if not battle or actionType ~= "Attack" then return end
+
+	if battle.IsProcessing then 
+		CombatUpdate:FireClient(player, "Update", {Battle = battle}); return 
+	end
+
+	local skillName = actionData.SkillName
+	local targetLimb = actionData.TargetLimb or "Body" 
+	local skill = SkillData.Skills[skillName]
+
+	if not skill or (battle.Player.Cooldowns[skillName] and battle.Player.Cooldowns[skillName] > 0) or ((battle.Player.Gas or 0) < (skill.GasCost or 0)) then 
+		CombatUpdate:FireClient(player, "Update", {Battle = battle}); return 
+	end
+
+	if (battle.Player.TitanEnergy or 0) < (skill.EnergyCost or 0) then
+		if battle.Player.Statuses and battle.Player.Statuses["Transformed"] then
+			skillName = "Eject"; skill = SkillData.Skills["Eject"]; targetLimb = "Body"
+		else
+			CombatUpdate:FireClient(player, "Update", {Battle = battle}); return 
+		end
+	end
+
+	battle.IsProcessing = true
+	local turnDelay = player:GetAttribute("HasDoubleSpeed") and 0.75 or 1.5
+
+	if skillName == "Maneuver" then UpdateBountyProgress(player, "Maneuver", 1) end
+	if skillName == "Transform" then UpdateBountyProgress(player, "Transform", 1) end
+
+	local function DispatchStrike(attacker, defender, strikeSkill, aimLimb)
+		if attacker.HP <= 0 or defender.HP <= 0 then return end
+		local success, msg, didHit, shakeType = pcall(function() 
+			return CombatCore.ExecuteStrike(attacker, defender, strikeSkill, aimLimb, attacker.IsPlayer and "You" or attacker.Name, defender.IsPlayer and "you" or defender.Name, attacker.IsPlayer and "#FFFFFF" or "#FF5555", defender.IsPlayer and "#FFFFFF" or "#FF5555") 
+		end)
+		if success then 
+			if not didHit and string.find(defender.Name, "Dummy") then
+				msg = "<font color='#AAAAAA'>You missed the " .. defender.Name .. "!</font>"
+			end
+			CombatUpdate:FireClient(player, "TurnStrike", {Battle = battle, LogMsg = msg, DidHit = didHit, ShakeType = shakeType, SkillUsed = strikeSkill, IsPlayerAttacking = attacker.IsPlayer})
+			task.wait(turnDelay) 
+		else 
+			CombatUpdate:FireClient(player, "TurnStrike", {Battle = battle, LogMsg = "<font color='#FF0000'>SERVER LOGIC ERROR: " .. tostring(msg) .. "</font>", DidHit = false, ShakeType = "None"}) 
+		end
+	end
+
+	local pSpeed = battle.Player.TotalSpeed or 10
+	if battle.Player.Statuses and battle.Player.Statuses["Crippled"] then pSpeed *= 0.5 end
+	if battle.Player.Statuses and battle.Player.Statuses["Immobilized"] then pSpeed = -999 end
+
+	local eSpeed = battle.Enemy.TotalSpeed or 10
+	if battle.Enemy.Statuses and battle.Enemy.Statuses["Crippled"] then eSpeed *= 0.5 end
+	if battle.Enemy.Statuses and battle.Enemy.Statuses["Immobilized"] then eSpeed = -999 end
+
+	if skillName == "Maneuver" or skillName == "Evasive Maneuver" or skillName == "Advance Maneuver" or skillName == "Retreat" or skillName == "Recover" or skillName == "Block" then pSpeed += 9999 end
+
+	local combatants = { battle.Player, battle.Enemy }
+	table.sort(combatants, function(a, b)
+		local speedA = (a.IsPlayer and pSpeed or eSpeed) + math.random(1, 15)
+		local speedB = (b.IsPlayer and pSpeed or eSpeed) + math.random(1, 15)
+		return speedA > speedB
+	end)
+
+	for _, combatant in ipairs(combatants) do
+		if battle.Player.HP < 1 or battle.Enemy.HP < 1 then break end
+		if combatant.HP < 1 then continue end
+
+		local dotDamage = 0
+		local dotLog = ""
+
+		if combatant.Statuses then
+			if combatant.Statuses["Bleed"] and combatant.Statuses["Bleed"] > 0 then
+				local dmg = combatant.IsPlayer and math.floor(combatant.MaxHP * 0.05) or math.min(math.floor(combatant.MaxHP * 0.02), 500)
+				dotDamage += dmg
+				dotLog = dotLog .. " <font color='#FF5555'>[BLEED: -" .. dmg .. "]</font>"
+			end
+			if combatant.Statuses["Burn"] and combatant.Statuses["Burn"] > 0 then
+				local dmg = combatant.IsPlayer and math.floor(combatant.MaxHP * 0.05) or math.min(math.floor(combatant.MaxHP * 0.02), 600)
+				dotDamage += dmg
+				dotLog = dotLog .. " <font color='#FFAA00'>[BURN: -" .. dmg .. "]</font>"
+			end
+
+			local immunitiesToTick = {}
+			local immunitiesToAdd = {}
+
+			for sName, duration in pairs(combatant.Statuses) do
+				if string.find(sName, "Immunity") then
+					table.insert(immunitiesToTick, sName)
+					-- [[ THE FIX: Added type check here to prevent strings from crashing it! ]]
+				elseif sName ~= "Transformed" and type(duration) == "number" and duration > 0 then
+					combatant.Statuses[sName] = duration - 1
+					if combatant.Statuses[sName] <= 0 then 
+						combatant.Statuses[sName] = nil 
+						if sName == "Stun" or sName == "Bleed" or sName == "Burn" or sName == "Crippled" or sName == "Immobilized" or sName == "Weakened" or sName == "Blinded" or sName == "TrueBlind" or sName == "Debuff_Defense" then
+							immunitiesToAdd[sName .. "Immunity"] = 2
+						end
+					end
 				end
 			end
 
-			if not found and (lbType == "Elo" or liveVal > 0) then
-				table.insert(dynamicList, {Name = p.Name, Value = liveVal})
+			for _, immName in ipairs(immunitiesToTick) do
+				combatant.Statuses[immName] = combatant.Statuses[immName] - 1
+				if combatant.Statuses[immName] <= 0 then combatant.Statuses[immName] = nil end
+			end
+			for immName, dur in pairs(immunitiesToAdd) do
+				combatant.Statuses[immName] = dur
 			end
 		end
-	end
 
-	table.sort(dynamicList, function(a, b) return a.Value > b.Value end)
-
-	local finalList = {}
-	for i = 1, math.min(50, #dynamicList) do
-		if lbType == "Elo" or dynamicList[i].Value > 0 then
-			table.insert(finalList, {Rank = i, Name = dynamicList[i].Name, Value = dynamicList[i].Value})
-		end
-	end
-
-	return finalList
-end
-
-local DefaultData = { 
-	Prestige = 0, CurrentPart = 1, CurrentMission = 1, CurrentWave = 1, XP = 0, TitanXP = 0, Dews = 0, Elo = 1000, 
-	Titan = "None", FightingStyle = "None", Clan = "None", Regiment = "Cadet Corps", 
-	TitanPity = 0, TitanMythicalPity = 0, ClanPity = 0, ClanMythicalPity = 0, 
-	EquippedWeapon = "None", EquippedAccessory = "None", PathDust = 0, PathsFloor = 1, 
-	DispatchData = "{}", AllyLevels = "{}", UnlockedAllies = "", MaxDeployments = 2, 
-	Health = 10, Strength = 10, Defense = 10, Speed = 10, Gas = 10, Resolve = 10, LastFreeReroll = 0, RedeemedCodes = "", RewardClaimedWeek = 0,
-	LoginStreak = 0, LastLoginDate = "", AutoTrainSessionTime = 0 
-}
-
-local CurrentVP = { ["Scout Regiment"] = 0, ["Garrison"] = 0, ["Military Police"] = 0, Week = math.floor(os.time() / 604800), Winner = "None" }
-local winVal = Instance.new("StringValue", RemotesFolder); winVal.Name = "WinningRegiment"; winVal.Value = "None"
-local GetVpRf = Instance.new("RemoteFunction", RemotesFolder); GetVpRf.Name = "GetRegimentVP"
-GetVpRf.OnServerInvoke = function() return CurrentVP end
-
-pcall(function() local data = RegimentStore:GetAsync("GlobalWarData") if data then CurrentVP = data; winVal.Value = data.Winner or "None" end end)
-
-local vpEvent = Instance.new("BindableEvent", game:GetService("ServerStorage")); vpEvent.Name = "AddRegimentVP"
-vpEvent.Event:Connect(function(player, amount)
-	local reg = player:GetAttribute("Regiment")
-	if CurrentVP[reg] then CurrentVP[reg] += amount end
-end)
-
--- [[ GLOBAL LEADERBOARD CACHING LOOP ]]
-task.spawn(function()
-	while true do
-		local currentWeek = math.floor(os.time() / 604800)
-		if currentWeek > CurrentVP.Week then
-			local winner = "None"; local highest = -1
-			for reg, vp in pairs(CurrentVP) do if reg ~= "Week" and reg ~= "Winner" and vp > highest then highest = vp; winner = reg end end
-			CurrentVP = { ["Scout Regiment"] = 0, ["Garrison"] = 0, ["Military Police"] = 0, Week = currentWeek, Winner = winner }; winVal.Value = winner
-			pcall(function() RegimentStore:SetAsync("GlobalWarData", CurrentVP) end)
+		if dotDamage > 0 then
+			combatant.HP -= dotDamage
+			local targetName = combatant.IsPlayer and "You" or combatant.Name
+			CombatUpdate:FireClient(player, "TurnStrike", {Battle = battle, LogMsg = targetName .. " took damage from status effects!" .. dotLog, DidHit = false, ShakeType = "None"})
+			task.wait(turnDelay)
+			if combatant.HP < 1 then continue end 
 		end
 
-		pcall(function()
-			local pages = PrestigeLB:GetSortedAsync(false, 50)
-			local data = pages:GetCurrentPage()
-			local newCache = {}
-			for rank, entry in ipairs(data) do
-				local pName = "Unknown"
-				pcall(function() pName = Players:GetNameFromUserIdAsync(tonumber(entry.key)) end)
-				table.insert(newCache, {Rank = rank, Name = pName, Value = entry.value})
+		if combatant.Statuses and (combatant.Statuses["Blinded"] or combatant.Statuses["TrueBlind"] or combatant.Statuses["Stun"]) then
+			local denyMsg = combatant.IsPlayer and "<font color='#555555'>You are INCAPACITATED and lost your turn!</font>" or "<font color='#555555'>" .. combatant.Name .. " is INCAPACITATED and lost their turn!</font>"
+			CombatUpdate:FireClient(player, "TurnStrike", {Battle = battle, LogMsg = denyMsg, DidHit = false, ShakeType = "None"})
+			task.wait(turnDelay)
+
+			if combatant.Cooldowns then for sName, cd in pairs(combatant.Cooldowns) do if cd > 0 then combatant.Cooldowns[sName] = cd - 1 end end end
+			if combatant.GateType == "Steam" and combatant.GateHP and combatant.GateHP > 0 then combatant.GateHP = math.max(0, combatant.GateHP - 1) end
+
+			if not combatant.IsPlayer and not combatant.IsHuman then
+				if not (combatant.Statuses and combatant.Statuses["Burn"]) then
+					local regenAmt = math.min(math.floor(combatant.MaxHP * 0.05), 100)
+					combatant.HP = math.min(combatant.MaxHP, combatant.HP + regenAmt)
+				end
 			end
-			LBCache.Prestige = newCache
-		end)
-		task.wait(2)
+			continue
+		end
 
-		pcall(function()
-			local pages = EloLB:GetSortedAsync(false, 50)
-			local data = pages:GetCurrentPage()
-			local newCache = {}
-			for rank, entry in ipairs(data) do
-				local pName = "Unknown"
-				pcall(function() pName = Players:GetNameFromUserIdAsync(tonumber(entry.key)) end)
-				table.insert(newCache, {Rank = rank, Name = pName, Value = entry.value})
+		if combatant.Cooldowns then for sName, cd in pairs(combatant.Cooldowns) do if cd > 0 then combatant.Cooldowns[sName] = cd - 1 end end end
+		if combatant.GateType == "Steam" and combatant.GateHP and combatant.GateHP > 0 then combatant.GateHP = math.max(0, combatant.GateHP - 1) end
+
+		if combatant.IsPlayer then
+			if skill.Effect == "Flee" or skillName == "Retreat" then 
+				CombatUpdate:FireClient(player, "Fled", {Battle = battle})
+				if battle.Context.IsPaths then CombatUpdate:FireClient(player, "PathsDeath", {Battle = battle}) end
+				ActiveBattles[player.UserId] = nil
+				return 
 			end
-			LBCache.Elo = newCache
-		end)
-		task.wait(60)
-	end
-end)
 
-RemotesFolder.ClaimBounty.OnServerEvent:Connect(function(player, bType)
-	local claimedAttr = bType .. "_Claimed"
-	if player:GetAttribute(claimedAttr) then return end
-	if (player:GetAttribute(bType .. "_Prog") or 0) >= (player:GetAttribute(bType .. "_Max") or 1) then
-		player:SetAttribute(claimedAttr, true)
-		vpEvent:Fire(player, 25)
+			if battle.Context.Range == "Long" then
+				if skillName == "Advance Maneuver" then
+					combatant.Gas = math.max(0, combatant.Gas - (skill.GasCost or 20))
+					CombatUpdate:FireClient(player, "StartMinigame", {Battle = battle, LogMsg = "<font color='#FFAA00'>Incoming projectiles! Evade to close the distance!</font>", MinigameType = "GapClose"})
+					return -- Stop processing turn until minigame finishes
+				elseif skillName == "Maneuver" or skillName == "Evasive Maneuver" then
+					battle.Context.GapCloses = (battle.Context.GapCloses or 0) + 1
+					combatant.Gas = math.max(0, combatant.Gas - (skill.GasCost or 15))
+					if battle.Context.GapCloses >= 3 then
+						battle.Context.Range = "Close"
+						CombatUpdate:FireClient(player, "TurnStrike", {Battle = battle, LogMsg = "<font color='#55FF55'>You successfully closed the gap! The Beast Titan is in melee range!</font>", DidHit = false, ShakeType = "Heavy"})
+					else
+						CombatUpdate:FireClient(player, "TurnStrike", {Battle = battle, LogMsg = "<font color='#AAAAAA'>You maneuvered closer... (" .. battle.Context.GapCloses .. "/3)</font>", DidHit = false, ShakeType = "None"})
+					end
+					task.wait(turnDelay)
+					continue
+				elseif skill.Effect == "Rest" or skillName == "Recover" then
+					local healAmount = (combatant.MaxHP or 100) * 0.30
+					combatant.HP = math.min(combatant.MaxHP, combatant.HP + healAmount)
+					combatant.Gas = math.min(combatant.MaxGas, combatant.Gas + (combatant.MaxGas * 0.40))
+					CombatUpdate:FireClient(player, "TurnStrike", {Battle = battle, LogMsg = "<font color='#55FF55'>You recovered HP and Gas.</font>", DidHit = false, ShakeType = "None"})
+					task.wait(turnDelay)
+					continue
+				elseif skill.Effect == "Transform" then
+					combatant.Statuses["Transformed"] = 999; combatant.HP = combatant.MaxHP; combatant.TitanEnergy = combatant.MaxTitanEnergy or 100
+					CombatUpdate:FireClient(player, "TurnStrike", {Battle = battle, LogMsg = "<font color='#55FF55'>Lightning strikes! You transformed, but you still need to close the gap!</font>", DidHit = false, ShakeType = "Heavy"})
+					task.wait(turnDelay)
+					continue
+				else
+					CombatUpdate:FireClient(player, "TurnStrike", {Battle = battle, LogMsg = "<font color='#FF5555'>You are at LONG RANGE! You must use Advance Maneuver to close the gap!</font>", DidHit = false, ShakeType = "None"})
+					task.wait(turnDelay)
+					continue
+				end
+			end
 
-		local hasBuff = winVal.Value ~= "None" and player:GetAttribute("Regiment") == winVal.Value
+			if skill.GasCost then combatant.Gas = math.max(0, combatant.Gas - skill.GasCost) end
+			if skill.Effect == "Rest" or skillName == "Recover" then combatant.Gas = math.min(combatant.MaxGas, combatant.Gas + (combatant.MaxGas * 0.40)) end
+			if skill.EnergyCost then combatant.TitanEnergy = math.max(0, combatant.TitanEnergy - skill.EnergyCost) end
 
-		if string.sub(bType, 1, 1) == "D" then
-			local reward = player:GetAttribute(bType .. "_Reward") or 500
-			if hasBuff then reward = math.floor(reward * 1.15) end
-			player.leaderstats.Dews.Value += reward
+			DispatchStrike(battle.Player, battle.Enemy, skillName, targetLimb)
+
+			if combatant.Statuses and combatant.Statuses["Transformed"] then if combatant.TitanEnergy <= 0 then combatant.Statuses["Transformed"] = nil end end
 		else
-			local rType = player:GetAttribute(bType .. "_RewardType")
-			local safeName = rType:gsub("[^%w]", "") .. "Count"
-			player:SetAttribute(safeName, (player:GetAttribute(safeName) or 0) + (player:GetAttribute(bType .. "_RewardAmt") or 1))
-		end
-	end
-end)
-
--- [[ THE FIX: Regiment Swap Security & Cost ]]
-RemotesFolder.JoinRegiment.OnServerEvent:Connect(function(player, regName)
-	local currentReg = player:GetAttribute("Regiment") or "Cadet Corps"
-	if currentReg ~= "Cadet Corps" and currentReg ~= regName then
-		if player.leaderstats.Dews.Value >= 50000 then
-			player.leaderstats.Dews.Value -= 50000
-		else
-			RemotesFolder.NotificationEvent:FireClient(player, "Not enough Dews! Need 50,000 to swap.", "Error")
-			return
-		end
-	end
-
-	player:SetAttribute("Regiment", regName)
-	RemotesFolder.NotificationEvent:FireClient(player, "You have pledged your life to the " .. regName .. "!", "Success")
-end)
-
-pcall(function()
-	MessagingService:SubscribeAsync("GlobalDataRollback", function(message)
-		for _, p in ipairs(Players:GetPlayers()) do
-			local success, backup = pcall(function() return BackupDataStore:GetAsync("Backup_" .. p.UserId) end)
-			if success and backup then
-				pcall(function() GameDataStore:SetAsync(p.UserId, backup) end)
-				p:Kick("SYSTEM ALARM: A Global Data Rollback has been initiated by Administrators. Your previous safe save has been restored. Please rejoin.")
-			end
-		end
-	end)
-end)
-
--- [[ THE FIX: Admin Command Updates (Wipe, SetTitle, MaxStats) ]]
-RemotesFolder.AdminCommand.OnServerEvent:Connect(function(player, command, targetName, args)
-	if player.UserId ~= 4068160397 and player.Name ~= "girthbender1209" then player:Kick("Unauthorized Admin Access"); return end
-
-	if command == "GlobalRollback" then
-		pcall(function() MessagingService:PublishAsync("GlobalDataRollback", "Initiate") end)
-		RemotesFolder.NotificationEvent:FireClient(player, "GLOBAL ROLLBACK INITIATED ACROSS ALL SERVERS.", "Success")
-		return
-	end
-
-	if command == "GenerateRecovery" then
-		local targetId = tonumber(targetName)
-		if not targetId then for _, p in ipairs(Players:GetPlayers()) do if string.find(p.Name:lower(), "^" .. targetName:lower()) then targetId = p.UserId; break end end end
-		if targetId then
-			local success, backupData = pcall(function() return BackupDataStore:GetAsync("Backup_" .. targetId) end)
-			if success and backupData then
-				local code = "AOT-" .. string.upper(string.sub(HttpService:GenerateGUID(false), 1, 6)); pcall(function() BackupDataStore:SetAsync(code, backupData) end)
-				RemotesFolder.NotificationEvent:FireClient(player, "Code for " .. targetId .. ": " .. code, "Success")
-			else RemotesFolder.NotificationEvent:FireClient(player, "No auto-backup found for ID: " .. targetId, "Error") end
-		else RemotesFolder.NotificationEvent:FireClient(player, "Player not found. Type their exact UserID.", "Error") end
-		return
-	end
-
-	local targetPlayer = player
-	if targetName and targetName ~= "" and targetName:lower() ~= "me" then targetPlayer = nil; for _, p in ipairs(Players:GetPlayers()) do if string.find(p.Name:lower(), "^" .. targetName:lower()) then targetPlayer = p; break end end end
-	if not targetPlayer then return end
-
-	if command == "SetXP" then targetPlayer:SetAttribute("XP", tonumber(args) or 0)
-	elseif command == "SetDews" then targetPlayer.leaderstats.Dews.Value = tonumber(args) or 0
-	elseif command == "UnlockAllParts" then targetPlayer:SetAttribute("CurrentPart", 8); targetPlayer:SetAttribute("CurrentWave", 1)
-	elseif command == "GiveItem" then local safeName = args.Item:gsub("[^%w]", "") .. "Count"; targetPlayer:SetAttribute(safeName, (targetPlayer:GetAttribute(safeName) or 0) + (tonumber(args.Amount) or 1))
-	elseif command == "MaxPrestige" then 
-		targetPlayer.leaderstats.Prestige.Value = 10
-		task.spawn(function() PrestigeLB:SetAsync(tostring(targetPlayer.UserId), 10) end) -- INSTANT UPDATE
-	elseif command == "SetTitan" then targetPlayer:SetAttribute("Titan", tostring(args))
-	elseif command == "SetClan" then targetPlayer:SetAttribute("Clan", tostring(args))
-	elseif command == "SetTitle" then targetPlayer:SetAttribute("CustomTitle", tostring(args))
-	elseif command == "MaxStats" then
-		local GameDataInfo = require(ReplicatedStorage:WaitForChild("GameData"))
-		local p = targetPlayer.leaderstats.Prestige.Value; local c = GameDataInfo.GetStatCap(p)
-		local statsToMax = {"Health", "Strength", "Defense", "Speed", "Gas", "Resolve", "Titan_Power_Val", "Titan_Speed_Val", "Titan_Hardening_Val", "Titan_Endurance_Val", "Titan_Precision_Val", "Titan_Potential_Val"}
-		for _, s in ipairs(statsToMax) do targetPlayer:SetAttribute(s, c) end
-	elseif command == "WipePlayer" then
-		targetPlayer.leaderstats.Prestige.Value = 0; targetPlayer.leaderstats.Dews.Value = 0; targetPlayer.leaderstats.Elo.Value = 1000
-
-		local savedGamepasses = {}
-		for k, v in pairs(targetPlayer:GetAttributes()) do
-			-- FIX: We only save Gamepasses now. All "Count" items will be permanently wiped!
-			if string.match(k, "^Has") then
-				savedGamepasses[k] = v
-			end
-		end
-
-		for k, _ in pairs(targetPlayer:GetAttributes()) do targetPlayer:SetAttribute(k, nil) end
-		for k, v in pairs(DefaultData) do if k ~= "Prestige" and k ~= "Dews" and k ~= "Elo" then targetPlayer:SetAttribute(k, v) end end
-		for k, v in pairs(savedGamepasses) do targetPlayer:SetAttribute(k, v) end
-
-		task.spawn(function() 
-			PrestigeLB:SetAsync(tostring(targetPlayer.UserId), 0)
-			EloLB:SetAsync(tostring(targetPlayer.UserId), 1000)
-		end)
-	end
-end)
-
-local function RollBounties(player)
-	local now = os.time(); local currentDay = math.floor(now / 86400); local currentWeek = math.floor(now / 604800)
-	if player:GetAttribute("LastDailyReset") ~= currentDay then
-		player:SetAttribute("LastDailyReset", currentDay); local available = {}
-		for _, v in ipairs(BountyData.Dailies) do table.insert(available, v) end
-		for i = 1, 3 do if #available == 0 then break end local idx = math.random(1, #available); local b = available[idx]; table.remove(available, idx); local target = math.random(b.Min, b.Max); player:SetAttribute("D"..i.."_Task", b.Task); player:SetAttribute("D"..i.."_Desc", string.format(b.Desc, target)); player:SetAttribute("D"..i.."_Prog", 0); player:SetAttribute("D"..i.."_Max", target); player:SetAttribute("D"..i.."_Reward", b.Reward); player:SetAttribute("D"..i.."_Claimed", false) end
-	end
-	if player:GetAttribute("LastWeeklyReset") ~= currentWeek then
-		player:SetAttribute("LastWeeklyReset", currentWeek); local b = BountyData.Weeklies[math.random(1, #BountyData.Weeklies)]; local target = math.random(b.Min, b.Max); player:SetAttribute("W1_Task", b.Task); player:SetAttribute("W1_Desc", string.format(b.Desc, target)); player:SetAttribute("W1_Prog", 0); player:SetAttribute("W1_Max", target); player:SetAttribute("W1_RewardType", b.RewardType); player:SetAttribute("W1_RewardAmt", b.RewardAmt); player:SetAttribute("W1_Claimed", false)
-	end
-end
-
-local function LoadPlayer(player)
-	local success, savedData = pcall(function() return GameDataStore:GetAsync(player.UserId) end)
-
-	if not success then
-		player:Kick("Roblox DataStores are currently experiencing issues. Please rejoin to protect your save data.")
-		return
-	end
-
-	if savedData then
-		pcall(function() BackupDataStore:SetAsync("Backup_" .. player.UserId, savedData) end)
-	end
-
-	local data = savedData or DefaultData
-
-	for _, gp in ipairs(ItemData.Gamepasses) do 
-		local hasPass = false
-		pcall(function() hasPass = MarketplaceService:UserOwnsGamePassAsync(player.UserId, gp.ID) end)
-		if player.UserId == 4068160397 then hasPass = true end
-		player:SetAttribute("Has" .. gp.Key, hasPass) 
-	end
-
-	local leaderstats = Instance.new("Folder"); leaderstats.Name = "leaderstats"; leaderstats.Parent = player
-	local pVal = Instance.new("IntValue"); pVal.Name = "Prestige"; pVal.Value = data.Prestige or 0; pVal.Parent = leaderstats
-	local dVal = Instance.new("IntValue"); dVal.Name = "Dews"; dVal.Value = data.Dews or 0; dVal.Parent = leaderstats
-	local eVal = Instance.new("IntValue"); eVal.Name = "Elo"; eVal.Value = data.Elo or 1000; eVal.Parent = leaderstats
-
-	for k, v in pairs(DefaultData) do if k ~= "Prestige" and k ~= "Dews" and k ~= "Elo" then player:SetAttribute(k, data[k] or v) end end
-	for k, v in pairs(data) do if DefaultData[k] == nil and k ~= "Prestige" and k ~= "Dews" and k ~= "Elo" then player:SetAttribute(k, v) end end
-
-	if CurrentVP.Winner ~= "None" and player:GetAttribute("Regiment") == CurrentVP.Winner and player:GetAttribute("RewardClaimedWeek") ~= CurrentVP.Week then
-		player:SetAttribute("RewardClaimedWeek", CurrentVP.Week); player:SetAttribute("TitanHardeningExtractCount", (player:GetAttribute("TitanHardeningExtractCount") or 0) + 2); player:SetAttribute("AncestralAwakeningSerumCount", (player:GetAttribute("AncestralAwakeningSerumCount") or 0) + 1)
-		task.delay(3, function() RemotesFolder.NotificationEvent:FireClient(player, "Your Regiment won the war! Received Forge Chest!", "Success") end)
-	end
-
-	local LoginData = require(ReplicatedStorage:WaitForChild("LoginData"))
-
-	local now = os.time()
-	local dateDict = os.date("!*t", now)
-	local todayStr = dateDict.year .. "-" .. dateDict.month .. "-" .. dateDict.day
-	local lastLogin = player:GetAttribute("LastLoginDate") or ""
-
-	if lastLogin ~= todayStr then
-		local streak = player:GetAttribute("LoginStreak") or 0
-		local yesterdayTime = now - 86400
-		local yDict = os.date("!*t", yesterdayTime)
-		local yesterdayStr = yDict.year .. "-" .. yDict.month .. "-" .. yDict.day
-
-		if lastLogin == yesterdayStr then
-			streak += 1
-		else
-			streak = 1 
-		end
-		if streak > 7 then streak = 1 end
-
-		player:SetAttribute("LoginStreak", streak)
-		player:SetAttribute("LastLoginDate", todayStr)
-
-		local rewardData = LoginData[streak]
-		if rewardData then
-			if rewardData.Type == "Dews" then
-				dVal.Value += rewardData.Amount
-			elseif rewardData.Type == "Item" then
-				local safeName = rewardData.Name:gsub("[^%w]", "") .. "Count"
-				player:SetAttribute(safeName, (player:GetAttribute(safeName) or 0) + rewardData.Amount)
+			if string.find(combatant.Name, "Dummy") then
+				CombatUpdate:FireClient(player, "TurnStrike", {Battle = battle, LogMsg = combatant.Name .. " stands completely still.", DidHit = false, ShakeType = "None"})
+				local dummyDelay = player:GetAttribute("HasDoubleSpeed") and 0.5 or 1.0
+				task.wait(dummyDelay)
+				continue
 			end
 
-			task.delay(5, function()
-				local rewardName = rewardData.Name or "Dews"
-				RemotesFolder.NotificationEvent:FireClient(player, "Day " .. streak .. " Login Reward: " .. rewardData.Amount .. "x " .. rewardName, "Success")
-			end)
+			if not combatant.Cooldowns then combatant.Cooldowns = {} end
+
+			local validAiSkills = {}
+			local isDodging = combatant.Statuses and combatant.Statuses["Dodge"]
+
+			for _, s in ipairs(combatant.Skills) do
+				if not combatant.Cooldowns[s] or combatant.Cooldowns[s] <= 0 then
+					if isDodging and (s == "Evasive Maneuver" or s == "Smoke Screen" or s == "Block") then continue end
+					table.insert(validAiSkills, s)
+				end
+			end
+
+			battle.Context.TurnCount = (battle.Context.TurnCount or 0) + 1
+			local aiSkill = "Brutal Swipe"
+
+			if combatant.Statuses["Telegraphing"] then
+				aiSkill = combatant.Statuses["Telegraphing"]
+				combatant.Statuses["Telegraphing"] = nil
+			else
+				if battle.Context.Range == "Long" then
+					aiSkill = "Crushed Boulders"
+				elseif string.find(combatant.Name, "Female Titan") and combatant.Statuses and combatant.Statuses.Crippled then
+					aiSkill = "Nape Guard"
+				elseif string.find(combatant.Name, "Founding Titan") and battle.Context.TurnCount % 8 == 0 and not battle.Context.StoredBoss then
+					aiSkill = "Coordinate Command"
+				elseif combatant.LastSkill == "Titan Grab" and table.find(combatant.Skills, "Titan Bite") then
+					aiSkill = "Titan Bite" 
+				elseif #validAiSkills > 0 then
+					local attackMoves = {}
+					for _, s in ipairs(validAiSkills) do
+						if s ~= "Evasive Maneuver" and s ~= "Smoke Screen" and s ~= "Block" and s ~= "Regroup" then
+							table.insert(attackMoves, s)
+						end
+					end
+
+					if #attackMoves > 0 and math.random(1, 100) <= 80 then
+						aiSkill = attackMoves[math.random(1, #attackMoves)]
+					else
+						aiSkill = validAiSkills[math.random(1, #validAiSkills)]
+					end
+				end
+
+				if SkillData.Skills[aiSkill] and SkillData.Skills[aiSkill].Telegraphed then
+					combatant.Statuses["Telegraphing"] = aiSkill
+					CombatUpdate:FireClient(player, "TurnStrike", {Battle = battle, LogMsg = "<b><font color='#FFAA00'>WARNING: " .. combatant.Name .. " is charging up " .. aiSkill:upper() .. "! Brace yourself!</font></b>", DidHit = false, ShakeType = "Heavy"})
+					task.wait(turnDelay)
+					continue
+				end
+			end
+
+			if (aiSkill == "Maneuver" or aiSkill == "Evasive Maneuver" or aiSkill == "Smoke Screen") and isDodging then 
+				aiSkill = "Heavy Slash" 
+			end
+
+			local aiTargets = {"Body", "Body", "Arms", "Legs", "Nape"}
+			DispatchStrike(battle.Enemy, battle.Player, aiSkill, aiTargets[math.random(1, #aiTargets)])
+
+			if aiSkill == "Coordinate Command" and string.find(combatant.Name, "Founding Titan") then
+				local pPrestige = player.leaderstats.Prestige.Value
+				local hpMult = GetHPScale(5, pPrestige) * 0.5 
+				local dmgMult = GetDmgScale(5, pPrestige)
+
+				battle.Context.StoredBoss = {
+					Name = battle.Enemy.Name, HP = battle.Enemy.HP, MaxHP = battle.Enemy.MaxHP, GateType = battle.Enemy.GateType, GateHP = battle.Enemy.GateHP, MaxGateHP = battle.Enemy.MaxGateHP, TotalStrength = battle.Enemy.TotalStrength, TotalDefense = battle.Enemy.TotalDefense, TotalSpeed = battle.Enemy.TotalSpeed, Drops = battle.Enemy.Drops, Skills = battle.Enemy.Skills, Statuses = battle.Enemy.Statuses, Cooldowns = battle.Enemy.Cooldowns, LastSkill = battle.Enemy.LastSkill
+				}
+
+				battle.Enemy.Name = "Summoned Pure Titan"
+				battle.Enemy.HP = math.floor(1000 * hpMult)
+				battle.Enemy.MaxHP = math.floor(1000 * hpMult)
+				battle.Enemy.GateType = nil
+				battle.Enemy.GateHP = 0
+				battle.Enemy.MaxGateHP = 0
+				battle.Enemy.TotalStrength = math.floor(50 * dmgMult)
+				battle.Enemy.TotalDefense = math.floor(20 * dmgMult)
+				battle.Enemy.TotalSpeed = math.floor(15 * dmgMult)
+				battle.Enemy.Skills = {"Brutal Swipe", "Titan Grab", "Titan Bite"}
+				battle.Enemy.Statuses = {}
+				battle.Enemy.Cooldowns = {}
+
+				CombatUpdate:FireClient(player, "TurnStrike", {Battle = battle, LogMsg = "<font color='#FF5555'>The Founding Titan summoned a Pure Titan to protect itself!</font>", DidHit = false, ShakeType = "Heavy"})
+				task.wait(turnDelay)
+			end
+		end
+
+		if not combatant.IsPlayer and not combatant.IsHuman and combatant.HP > 0 then
+			if not (combatant.Statuses and combatant.Statuses["Burn"]) then
+				local regenAmt = math.min(math.floor(combatant.MaxHP * 0.05), 100)
+				combatant.HP = math.min(combatant.MaxHP, combatant.HP + regenAmt)
+			end
 		end
 	end
 
-	RollBounties(player)
-	player:SetAttribute("DataLoaded", true)
-
-	pcall(function() PrestigeLB:SetAsync(tostring(player.UserId), pVal.Value) end)
-	pcall(function() EloLB:SetAsync(tostring(player.UserId), eVal.Value) end)
-end
-
-Players.PlayerAdded:Connect(LoadPlayer)
-for _, p in ipairs(Players:GetPlayers()) do task.spawn(function() LoadPlayer(p) end) end
-
-local function SavePlayer(p)
-	if not p:GetAttribute("DataLoaded") then return end
-	if not p:FindFirstChild("leaderstats") then return end
-
-	local d = { Prestige = p.leaderstats.Prestige.Value, Dews = p.leaderstats.Dews.Value, Elo = p.leaderstats.Elo.Value }
-	for k, v in pairs(p:GetAttributes()) do 
-		if k ~= "DataLoaded" then d[k] = v end 
+	if battle.Player.HP < 1 then
+		CombatUpdate:FireClient(player, "Defeat", {Battle = battle})
+		if battle.Context.IsPaths then CombatUpdate:FireClient(player, "PathsDeath", {Battle = battle}) end
+		ActiveBattles[player.UserId] = nil
+	elseif battle.Enemy.HP < 1 then
+		ProcessEnemyDeath(player, battle)
+	else
+		if not battle.Player.Statuses or not battle.Player.Statuses["Transformed"] then battle.Player.TitanEnergy = math.min(100, (battle.Player.TitanEnergy or 0) + 15) end
+		battle.IsProcessing = false
+		CombatUpdate:FireClient(player, "Update", {Battle = battle})
 	end
-
-	pcall(function() GameDataStore:SetAsync(p.UserId, d) end)
-
-	pcall(function() PrestigeLB:SetAsync(tostring(p.UserId), p.leaderstats.Prestige.Value) end)
-	pcall(function() EloLB:SetAsync(tostring(p.UserId), p.leaderstats.Elo.Value) end)
-end
-
-Players.PlayerRemoving:Connect(SavePlayer)
-
-task.spawn(function() 
-	while true do 
-		task.wait(120) 
-		for _, p in ipairs(Players:GetPlayers()) do SavePlayer(p) end 
-	end 
 end)
 
-game:BindToClose(function() 
-	for _, p in ipairs(Players:GetPlayers()) do SavePlayer(p) end 
-	task.wait(3) 
+Players.PlayerRemoving:Connect(function(player)
+	ActiveBattles[player.UserId] = nil
 end)
