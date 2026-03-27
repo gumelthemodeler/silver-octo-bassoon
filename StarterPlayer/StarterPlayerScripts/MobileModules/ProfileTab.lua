@@ -9,7 +9,7 @@ local Network = ReplicatedStorage:WaitForChild("Network")
 local ItemData = require(ReplicatedStorage:WaitForChild("ItemData"))
 local GameData = require(ReplicatedStorage:WaitForChild("GameData"))
 
-local NotificationManager = require(script.Parent.Parent:WaitForChild("UIModules"):WaitForChild("NotificationManager"))
+local NotificationManager = require(script.Parent:WaitForChild("NotificationManager"))
 
 local player = Players.LocalPlayer
 local MainFrame
@@ -20,41 +20,72 @@ local RadarContainer, regIcon, AvatarBox
 local toggleStatsBtn
 local InvTitle 
 local isShowingTitanStats = false
--- [[ THE FIX: Removed hardcoded MAX_INVENTORY_CAPACITY ]]
+local MAX_INVENTORY_CAPACITY = 50
 
 local RarityColors = { ["Common"] = "#AAAAAA", ["Uncommon"] = "#55FF55", ["Rare"] = "#5588FF", ["Epic"] = "#CC44FF", ["Legendary"] = "#FFD700", ["Mythical"] = "#FF3333", ["Transcendent"] = "#FF55FF" }
 local RarityOrder = { Transcendent = 0, Mythical = 1, Legendary = 2, Epic = 3, Rare = 4, Uncommon = 5, Common = 6 }
 local SellValues = { Common = 10, Uncommon = 25, Rare = 75, Epic = 200, Legendary = 500, Mythical = 1500, Transcendent = 0 }
-
-local RegimentIcons = { ["Garrison"] = "rbxassetid://133062844", ["Military Police"] = "rbxassetid://132793466", ["Scout Regiment"] = "rbxassetid://132793532" }
 
 local function ApplyGradient(label, color1, color2)
 	local grad = Instance.new("UIGradient", label)
 	grad.Color = ColorSequence.new{ColorSequenceKeypoint.new(0, color1), ColorSequenceKeypoint.new(1, color2)}
 end
 
--- [[ Premium Dark Gradient Helper ]]
 local function ApplyButtonGradient(btn, topColor, botColor, strokeColor)
 	btn.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+
 	local grad = btn:FindFirstChildOfClass("UIGradient") or Instance.new("UIGradient", btn)
-	grad.Color = ColorSequence.new{ColorSequenceKeypoint.new(0, topColor), ColorSequenceKeypoint.new(1, botColor)}; grad.Rotation = 90
-	local corner = btn:FindFirstChildOfClass("UICorner") or Instance.new("UICorner", btn); corner.CornerRadius = UDim.new(0, 4)
+	grad.Color = ColorSequence.new{ColorSequenceKeypoint.new(0, topColor), ColorSequenceKeypoint.new(1, botColor)}
+	grad.Rotation = 90
+
+	local corner = btn:FindFirstChildOfClass("UICorner") or Instance.new("UICorner", btn)
+	corner.CornerRadius = UDim.new(0, 4)
+
 	if strokeColor then
 		local stroke = btn:FindFirstChildOfClass("UIStroke") or Instance.new("UIStroke", btn)
-		stroke.Color = strokeColor; stroke.Thickness = 1; stroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border; stroke.LineJoinMode = Enum.LineJoinMode.Miter
+		stroke.Color = strokeColor
+		stroke.Thickness = 1
+		stroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
 	end
+
 	if not btn:GetAttribute("GradientTextFixed") then
 		btn:SetAttribute("GradientTextFixed", true)
-		local textLbl = Instance.new("TextLabel", btn); textLbl.Name = "BtnTextLabel"; textLbl.Size = UDim2.new(1, 0, 1, 0); textLbl.BackgroundTransparency = 1
-		textLbl.Font = btn.Font; textLbl.TextSize = btn.TextSize; textLbl.TextScaled = btn.TextScaled; textLbl.RichText = btn.RichText; textLbl.TextWrapped = btn.TextWrapped
-		textLbl.TextXAlignment = btn.TextXAlignment; textLbl.TextYAlignment = btn.TextYAlignment; textLbl.ZIndex = btn.ZIndex + 1
-		local tConstraint = btn:FindFirstChildOfClass("UITextSizeConstraint"); if tConstraint then tConstraint.Parent = textLbl end
-		btn.ChildAdded:Connect(function(child) if child:IsA("UITextSizeConstraint") then task.delay(0, function() child.Parent = textLbl end) end end)
-		textLbl.Text = btn.Text; textLbl.TextColor3 = btn.TextColor3; btn.Text = ""
-		btn:GetPropertyChangedSignal("Text"):Connect(function() if btn.Text ~= "" then textLbl.Text = btn.Text; btn.Text = "" end end)
-		btn:GetPropertyChangedSignal("TextColor3"):Connect(function() textLbl.TextColor3 = btn.TextColor3 end)
-		btn:GetPropertyChangedSignal("RichText"):Connect(function() textLbl.RichText = btn.RichText end)
-		btn:GetPropertyChangedSignal("TextSize"):Connect(function() textLbl.TextSize = btn.TextSize end)
+
+		local textLbl = Instance.new("TextLabel", btn)
+		textLbl.Name = "BtnTextLabel"
+		textLbl.Size = UDim2.new(1, 0, 1, 0)
+		textLbl.BackgroundTransparency = 1
+		textLbl.Font = btn.Font
+		textLbl.TextSize = btn.TextSize
+		textLbl.TextScaled = btn.TextScaled
+		textLbl.RichText = btn.RichText
+		textLbl.TextWrapped = btn.TextWrapped
+		textLbl.TextXAlignment = btn.TextXAlignment
+		textLbl.TextYAlignment = btn.TextYAlignment
+		textLbl.ZIndex = btn.ZIndex + 1
+
+		local tConstraint = btn:FindFirstChildOfClass("UITextSizeConstraint")
+		if tConstraint then tConstraint.Parent = textLbl end
+
+		btn.ChildAdded:Connect(function(child)
+			if child:IsA("UITextSizeConstraint") then
+				task.delay(0, function() child.Parent = textLbl end)
+			end
+		end)
+
+		textLbl.Text = btn.Text
+		textLbl.TextColor3 = btn.TextColor3
+		btn.Text = ""
+
+		btn:GetPropertyChangedSignal("Text"):Connect(function()
+			if btn.Text ~= "" then
+				textLbl.Text = btn.Text
+				btn.Text = ""
+			end
+		end)
+		btn:GetPropertyChangedSignal("TextColor3"):Connect(function()
+			textLbl.TextColor3 = btn.TextColor3
+		end)
 	end
 end
 
@@ -83,105 +114,109 @@ local function DrawUITriangle(parent, p1, p2, p3, color, transp, zIndex)
 end
 
 function ProfileTab.Init(parentFrame, tooltipMgr)
-	-- On mobile, tooltipMgr is essentially replaced by the actions overlay, but we keep it for signature compliance.
-	MainFrame = Instance.new("ScrollingFrame", parentFrame)
+	local cachedTooltipMgr = tooltipMgr
+	MainFrame = Instance.new("Frame", parentFrame)
 	MainFrame.Name = "ProfileFrame"; MainFrame.Size = UDim2.new(1, 0, 1, 0); MainFrame.BackgroundTransparency = 1; MainFrame.Visible = false
-	MainFrame.ScrollBarThickness = 0; MainFrame.AutomaticCanvasSize = Enum.AutomaticSize.Y
 
-	local mainLayout = Instance.new("UIListLayout", MainFrame)
-	mainLayout.Padding = UDim.new(0, 15); mainLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center; mainLayout.SortOrder = Enum.SortOrder.LayoutOrder
-	local mainPad = Instance.new("UIPadding", MainFrame)
-	mainPad.PaddingTop = UDim.new(0, 15); mainPad.PaddingBottom = UDim.new(0, 30)
+	local LeftPanel = Instance.new("ScrollingFrame", MainFrame)
+	LeftPanel.Size = UDim2.new(0.48, 0, 1, 0); LeftPanel.BackgroundColor3 = Color3.fromRGB(20, 20, 25)
+	LeftPanel.ScrollBarThickness = 0; LeftPanel.AutomaticCanvasSize = Enum.AutomaticSize.Y
+	Instance.new("UICorner", LeftPanel).CornerRadius = UDim.new(0, 8); Instance.new("UIStroke", LeftPanel).Color = Color3.fromRGB(80, 80, 90)
 
-	-- [[ MOBILE: Centralized Avatar & Name ]]
-	local TopHeader = Instance.new("Frame", MainFrame)
-	TopHeader.Size = UDim2.new(1, 0, 0, 150); TopHeader.BackgroundTransparency = 1; TopHeader.LayoutOrder = 1
+	local leftLayout = Instance.new("UIListLayout", LeftPanel)
+	leftLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center; leftLayout.SortOrder = Enum.SortOrder.LayoutOrder; leftLayout.Padding = UDim.new(0, 10)
+	local leftPad = Instance.new("UIPadding", LeftPanel); leftPad.PaddingTop = UDim.new(0, 20); leftPad.PaddingBottom = UDim.new(0, 20)
+
+	local TopHeader = Instance.new("Frame", LeftPanel)
+	TopHeader.Size = UDim2.new(1, 0, 0, 100); TopHeader.BackgroundTransparency = 1; TopHeader.LayoutOrder = 1
 
 	AvatarBox = Instance.new("ImageLabel", TopHeader)
-	AvatarBox.Size = UDim2.new(0, 100, 0, 100); AvatarBox.Position = UDim2.new(0.5, 0, 0, 10); AvatarBox.AnchorPoint = Vector2.new(0.5, 0); AvatarBox.BackgroundColor3 = Color3.fromRGB(10, 10, 15)
+	AvatarBox.Size = UDim2.new(0, 100, 0, 100); AvatarBox.Position = UDim2.new(0.5, 0, 0.5, 0); AvatarBox.AnchorPoint = Vector2.new(0.5, 0.5); AvatarBox.BackgroundColor3 = Color3.fromRGB(10, 10, 15)
 	AvatarBox.Image = "rbxthumb://type=AvatarHeadShot&id=" .. player.UserId .. "&w=150&h=150"
 	Instance.new("UICorner", AvatarBox).CornerRadius = UDim.new(0, 50); Instance.new("UIStroke", AvatarBox).Color = Color3.fromRGB(120, 100, 60)
 
 	regIcon = Instance.new("ImageLabel", TopHeader)
-	regIcon.Size = UDim2.new(0, 50, 0, 50); regIcon.Position = UDim2.new(0.5, 40, 0, 60); regIcon.AnchorPoint = Vector2.new(0, 0); regIcon.BackgroundTransparency = 1; regIcon.ZIndex = 2
+	regIcon.Size = UDim2.new(0, 70, 0, 70); regIcon.Position = UDim2.new(0.5, 55, 0.5, 0); regIcon.AnchorPoint = Vector2.new(0, 0.5); regIcon.BackgroundTransparency = 1
 
-	local NameLabel = Instance.new("TextLabel", TopHeader)
-	NameLabel.Size = UDim2.new(1, 0, 0, 30); NameLabel.Position = UDim2.new(0, 0, 0, 120); NameLabel.BackgroundTransparency = 1
-	NameLabel.Font = Enum.Font.GothamBlack; NameLabel.TextColor3 = Color3.fromRGB(255, 255, 255); NameLabel.TextSize = 22; NameLabel.TextXAlignment = Enum.TextXAlignment.Center
+	local NameLabel = Instance.new("TextLabel", LeftPanel)
+	NameLabel.Size = UDim2.new(1, 0, 0, 35); NameLabel.BackgroundTransparency = 1; NameLabel.LayoutOrder = 2
+	NameLabel.Font = Enum.Font.GothamBlack; NameLabel.TextColor3 = Color3.fromRGB(255, 255, 255); NameLabel.TextSize = 28; NameLabel.TextXAlignment = Enum.TextXAlignment.Center
 	NameLabel.Text = player.Name
 	ApplyGradient(NameLabel, Color3.fromRGB(255, 215, 100), Color3.fromRGB(255, 150, 50))
 
-	-- [[ MOBILE: Radar Chart ]]
-	RadarContainer = Instance.new("Frame", MainFrame)
-	RadarContainer.Size = UDim2.new(0.8, 0, 0, 0); RadarContainer.BackgroundTransparency = 1; RadarContainer.LayoutOrder = 2
+	RadarContainer = Instance.new("Frame", LeftPanel)
+	RadarContainer.Size = UDim2.new(0.7, 0, 0, 240); RadarContainer.BackgroundTransparency = 1; RadarContainer.LayoutOrder = 3
 	Instance.new("UIAspectRatioConstraint", RadarContainer).AspectRatio = 1
 
-	-- [[ MOBILE: Stats List ]]
-	local StatsRect = Instance.new("Frame", MainFrame)
-	StatsRect.Size = UDim2.new(0.95, 0, 0, 0); StatsRect.AutomaticSize = Enum.AutomaticSize.Y; StatsRect.BackgroundTransparency = 1; StatsRect.LayoutOrder = 3
+	local StatsRect = Instance.new("Frame", LeftPanel)
+	StatsRect.Size = UDim2.new(0.9, 0, 0, 0); StatsRect.AutomaticSize = Enum.AutomaticSize.Y; StatsRect.BackgroundTransparency = 1; StatsRect.LayoutOrder = 4
 	local statsLayout = Instance.new("UIListLayout", StatsRect); statsLayout.Padding = UDim.new(0, 6); statsLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
 
 	local function CreateInfoLabel(parent)
-		local l = Instance.new("TextLabel", parent); l.Size = UDim2.new(1, 0, 0, 32); l.BackgroundColor3 = Color3.fromRGB(20, 20, 25)
+		local l = Instance.new("TextLabel", parent); l.Size = UDim2.new(0.95, 0, 0, 28); l.BackgroundColor3 = Color3.fromRGB(15, 15, 20)
 		l.Font = Enum.Font.GothamBold; l.TextColor3 = Color3.fromRGB(200, 200, 200); l.TextSize = 13; l.TextXAlignment = Enum.TextXAlignment.Left
-		local pad = Instance.new("UIPadding", l); pad.PaddingLeft = UDim.new(0, 15); pad.PaddingRight = UDim.new(0, 15); Instance.new("UICorner", l).CornerRadius = UDim.new(0, 4)
-		Instance.new("UIStroke", l).Color = Color3.fromRGB(60, 60, 70); l.TextScaled = true; Instance.new("UITextSizeConstraint", l).MaxTextSize = 13
+		local pad = Instance.new("UIPadding", l); pad.PaddingLeft = UDim.new(0, 15); Instance.new("UICorner", l).CornerRadius = UDim.new(0, 4)
+		Instance.new("UIStroke", l).Color = Color3.fromRGB(60, 60, 70)
 		return l
 	end
 
-	local titanRow = Instance.new("Frame", StatsRect); titanRow.Size = UDim2.new(1, 0, 0, 32); titanRow.BackgroundTransparency = 1
+	local titanRow = Instance.new("Frame", StatsRect); titanRow.Size = UDim2.new(0.95, 0, 0, 28); titanRow.BackgroundTransparency = 1
 	titanLabel = CreateInfoLabel(titanRow); titanLabel.Size = UDim2.new(1, 0, 1, 0)
-	titanAwakenBtn = Instance.new("TextButton", titanRow); titanAwakenBtn.Size = UDim2.new(0.3, 0, 0.8, 0); titanAwakenBtn.AnchorPoint = Vector2.new(1, 0.5); titanAwakenBtn.Position = UDim2.new(1, -5, 0.5, 0)
-	titanAwakenBtn.Font = Enum.Font.GothamBlack; titanAwakenBtn.TextColor3 = Color3.fromRGB(255, 255, 255); titanAwakenBtn.TextSize = 11; titanAwakenBtn.Text = "AWAKEN"
-	ApplyButtonGradient(titanAwakenBtn, Color3.fromRGB(150, 40, 40), Color3.fromRGB(80, 20, 20), Color3.fromRGB(200, 60, 60)); titanAwakenBtn.Visible = false
+	titanAwakenBtn = Instance.new("TextButton", titanRow); titanAwakenBtn.Size = UDim2.new(0.3, 0, 0.8, 0); titanAwakenBtn.Position = UDim2.new(0.68, 0, 0.1, 0)
+	titanAwakenBtn.Font = Enum.Font.GothamBold; titanAwakenBtn.TextColor3 = Color3.fromRGB(255, 255, 255); titanAwakenBtn.TextSize = 10; titanAwakenBtn.Text = "AWAKEN"
+	ApplyButtonGradient(titanAwakenBtn, Color3.fromRGB(200, 60, 60), Color3.fromRGB(120, 30, 30), Color3.fromRGB(80, 20, 20)); titanAwakenBtn.Visible = false
 
 	regimentLabel = CreateInfoLabel(StatsRect)
 
-	local clanRow = Instance.new("Frame", StatsRect); clanRow.Size = UDim2.new(1, 0, 0, 32); clanRow.BackgroundTransparency = 1
+	local clanRow = Instance.new("Frame", StatsRect); clanRow.Size = UDim2.new(0.95, 0, 0, 28); clanRow.BackgroundTransparency = 1
 	clanLabel = CreateInfoLabel(clanRow); clanLabel.Size = UDim2.new(1, 0, 1, 0)
-	clanAwakenBtn = Instance.new("TextButton", clanRow); clanAwakenBtn.Size = UDim2.new(0.3, 0, 0.8, 0); clanAwakenBtn.AnchorPoint = Vector2.new(1, 0.5); clanAwakenBtn.Position = UDim2.new(1, -5, 0.5, 0)
-	clanAwakenBtn.Font = Enum.Font.GothamBlack; clanAwakenBtn.TextColor3 = Color3.fromRGB(255, 255, 255); clanAwakenBtn.TextSize = 11; clanAwakenBtn.Text = "AWAKEN"
-	ApplyButtonGradient(clanAwakenBtn, Color3.fromRGB(150, 40, 40), Color3.fromRGB(80, 20, 20), Color3.fromRGB(200, 60, 60)); clanAwakenBtn.Visible = false
+	clanAwakenBtn = Instance.new("TextButton", clanRow); clanAwakenBtn.Size = UDim2.new(0.3, 0, 0.8, 0); clanAwakenBtn.Position = UDim2.new(0.68, 0, 0.1, 0)
+	clanAwakenBtn.Font = Enum.Font.GothamBold; clanAwakenBtn.TextColor3 = Color3.fromRGB(255, 255, 255); clanAwakenBtn.TextSize = 10; clanAwakenBtn.Text = "AWAKEN"
+	ApplyButtonGradient(clanAwakenBtn, Color3.fromRGB(200, 60, 60), Color3.fromRGB(120, 30, 30), Color3.fromRGB(80, 20, 20)); clanAwakenBtn.Visible = false
 
 	wpnLabel = CreateInfoLabel(StatsRect)
 	accLabel = CreateInfoLabel(StatsRect)
 
-	prestigeBtn = Instance.new("TextButton", MainFrame)
-	prestigeBtn.Size = UDim2.new(0.95, 0, 0, 40); prestigeBtn.LayoutOrder = 4
-	prestigeBtn.Font = Enum.Font.GothamBlack; prestigeBtn.TextColor3 = Color3.fromRGB(255, 215, 100); prestigeBtn.TextSize = 13; prestigeBtn.Text = "PRESTIGE (RESET CAMPAIGN)"
-	ApplyButtonGradient(prestigeBtn, Color3.fromRGB(80, 60, 20), Color3.fromRGB(40, 30, 10), Color3.fromRGB(180, 150, 40)); prestigeBtn.Visible = false
+	prestigeBtn = Instance.new("TextButton", LeftPanel)
+	prestigeBtn.Size = UDim2.new(0.85, 0, 0, 30); prestigeBtn.LayoutOrder = 5
+	prestigeBtn.Font = Enum.Font.GothamBlack; prestigeBtn.TextColor3 = Color3.fromRGB(255, 255, 255); prestigeBtn.TextSize = 12; prestigeBtn.Text = "PRESTIGE (RESET CAMPAIGN)"
+	ApplyButtonGradient(prestigeBtn, Color3.fromRGB(220, 180, 50), Color3.fromRGB(140, 100, 20), Color3.fromRGB(255, 215, 100)); prestigeBtn.Visible = false
 
-	toggleStatsBtn = Instance.new("TextButton", MainFrame)
-	toggleStatsBtn.Size = UDim2.new(0.95, 0, 0, 40); toggleStatsBtn.LayoutOrder = 5
-	toggleStatsBtn.Font = Enum.Font.GothamBlack; toggleStatsBtn.TextColor3 = Color3.fromRGB(200, 200, 255); toggleStatsBtn.TextSize = 14; toggleStatsBtn.Text = "VIEW TITAN STATS"
-	ApplyButtonGradient(toggleStatsBtn, Color3.fromRGB(30, 30, 40), Color3.fromRGB(15, 15, 20), Color3.fromRGB(100, 100, 150))
+	toggleStatsBtn = Instance.new("TextButton", LeftPanel)
+	toggleStatsBtn.Size = UDim2.new(0.8, 0, 0, 35); toggleStatsBtn.LayoutOrder = 6
+	toggleStatsBtn.Font = Enum.Font.GothamBold; toggleStatsBtn.TextColor3 = Color3.fromRGB(200, 200, 255); toggleStatsBtn.TextSize = 13; toggleStatsBtn.Text = "VIEW TITAN STATS"
+	ApplyButtonGradient(toggleStatsBtn, Color3.fromRGB(60, 60, 80), Color3.fromRGB(30, 30, 40), Color3.fromRGB(100, 100, 150))
 
-	InvTitle = Instance.new("TextLabel", MainFrame)
-	InvTitle.Size = UDim2.new(0.95, 0, 0, 40); InvTitle.BackgroundTransparency = 1; InvTitle.LayoutOrder = 6
-	InvTitle.Font = Enum.Font.GothamBlack; InvTitle.TextColor3 = Color3.fromRGB(255, 215, 100); InvTitle.TextSize = 18; InvTitle.Text = "INVENTORY (0/0)"
+	local RightPanel = Instance.new("Frame", MainFrame)
+	RightPanel.Size = UDim2.new(0.48, 0, 1, 0); RightPanel.Position = UDim2.new(0.52, 0, 0, 0); RightPanel.BackgroundColor3 = Color3.fromRGB(20, 20, 25)
+	Instance.new("UICorner", RightPanel).CornerRadius = UDim.new(0, 8); Instance.new("UIStroke", RightPanel).Color = Color3.fromRGB(80, 80, 90)
+
+	InvTitle = Instance.new("TextLabel", RightPanel)
+	InvTitle.Size = UDim2.new(1, 0, 0, 40); InvTitle.BackgroundTransparency = 1; InvTitle.Font = Enum.Font.GothamBlack; InvTitle.TextColor3 = Color3.fromRGB(255, 215, 100); InvTitle.TextSize = 20; InvTitle.Text = "INVENTORY (0/50)"
 	ApplyGradient(InvTitle, Color3.fromRGB(255, 215, 100), Color3.fromRGB(255, 150, 50))
 
-	local AutoSellFrame = Instance.new("Frame", MainFrame)
-	AutoSellFrame.Size = UDim2.new(0.95, 0, 0, 35); AutoSellFrame.BackgroundTransparency = 1; AutoSellFrame.LayoutOrder = 7
-	local asLayout = Instance.new("UIListLayout", AutoSellFrame); asLayout.FillDirection = Enum.FillDirection.Horizontal; asLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center; asLayout.Padding = UDim.new(0, 8)
+	local AutoSellFrame = Instance.new("Frame", RightPanel)
+	AutoSellFrame.Size = UDim2.new(1, 0, 0, 30); AutoSellFrame.Position = UDim2.new(0, 0, 0, 40); AutoSellFrame.BackgroundTransparency = 1
+	local asLayout = Instance.new("UIListLayout", AutoSellFrame); asLayout.FillDirection = Enum.FillDirection.Horizontal; asLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center; asLayout.Padding = UDim.new(0, 5)
 
 	local asLabel = Instance.new("TextLabel", AutoSellFrame)
-	asLabel.Size = UDim2.new(0, 60, 1, 0); asLabel.BackgroundTransparency = 1; asLabel.Font = Enum.Font.GothamBlack; asLabel.TextColor3 = Color3.fromRGB(180, 180, 180); asLabel.TextSize = 11; asLabel.TextXAlignment = Enum.TextXAlignment.Right; asLabel.Text = "Auto-Sell:"
+	asLabel.Size = UDim2.new(0, 80, 1, 0); asLabel.BackgroundTransparency = 1; asLabel.Font = Enum.Font.GothamBold; asLabel.TextColor3 = Color3.fromRGB(180, 180, 180); asLabel.TextSize = 12; asLabel.TextXAlignment = Enum.TextXAlignment.Right; asLabel.Text = "Auto-Sell:"
 
 	local autoSellStates = {Common = false, Uncommon = false, Rare = false}
 	local function CreateAutoSell(rarity, color)
 		local asBtn = Instance.new("TextButton", AutoSellFrame)
-		asBtn.Size = UDim2.new(0, 70, 1, 0); asBtn.Font = Enum.Font.GothamBlack; asBtn.TextColor3 = color; asBtn.TextSize = 10; asBtn.Text = "All " .. rarity
-		ApplyButtonGradient(asBtn, Color3.fromRGB(30, 30, 35), Color3.fromRGB(15, 15, 20), Color3.fromRGB(60, 60, 70))
+		asBtn.Size = UDim2.new(0, 80, 1, 0)
+		asBtn.Font = Enum.Font.GothamBold; asBtn.TextColor3 = color; asBtn.TextSize = 12; asBtn.Text = "All " .. rarity
+		ApplyButtonGradient(asBtn, Color3.fromRGB(50, 50, 55), Color3.fromRGB(25, 25, 30), Color3.fromRGB(60, 60, 70))
 
 		asBtn.MouseButton1Click:Connect(function()
 			autoSellStates[rarity] = not autoSellStates[rarity]
 			if autoSellStates[rarity] then
-				ApplyButtonGradient(asBtn, Color3.fromRGB(40, 80, 40), Color3.fromRGB(20, 40, 20), Color3.fromRGB(60, 120, 60))
+				ApplyButtonGradient(asBtn, Color3.fromRGB(80, 180, 80), Color3.fromRGB(40, 100, 40), Color3.fromRGB(60, 120, 60))
 				Network.AutoSell:FireServer(rarity)
 				if NotificationManager then NotificationManager.Show("Auto-Sell " .. rarity .. " ENABLED", "Info") end
 			else
-				ApplyButtonGradient(asBtn, Color3.fromRGB(30, 30, 35), Color3.fromRGB(15, 15, 20), Color3.fromRGB(60, 60, 70))
+				ApplyButtonGradient(asBtn, Color3.fromRGB(50, 50, 55), Color3.fromRGB(25, 25, 30), Color3.fromRGB(60, 60, 70))
 				if NotificationManager then NotificationManager.Show("Auto-Sell " .. rarity .. " DISABLED", "Info") end
 			end
 		end)
@@ -190,11 +225,11 @@ function ProfileTab.Init(parentFrame, tooltipMgr)
 	CreateAutoSell("Uncommon", Color3.fromRGB(100, 255, 100))
 	CreateAutoSell("Rare", Color3.fromRGB(100, 100, 255))
 
-	InvGrid = Instance.new("Frame", MainFrame)
-	InvGrid.Size = UDim2.new(0.95, 0, 0, 0); InvGrid.BackgroundTransparency = 1; InvGrid.BorderSizePixel = 0; InvGrid.LayoutOrder = 8
+	InvGrid = Instance.new("ScrollingFrame", RightPanel)
+	InvGrid.Size = UDim2.new(1, -20, 1, -90); InvGrid.Position = UDim2.new(0, 10, 0, 80); InvGrid.BackgroundTransparency = 1; InvGrid.BorderSizePixel = 0; InvGrid.ScrollBarThickness = 4
 	local gl = Instance.new("UIGridLayout", InvGrid)
-	gl.CellSize = UDim2.new(0.22, 0, 0, 80) -- 4 columns for mobile
-	gl.CellPadding = UDim2.new(0.04, 0, 0, 10)
+	gl.CellSize = UDim2.new(0, 80, 0, 80) 
+	gl.CellPadding = UDim2.new(0, 10, 0, 10)
 	gl.HorizontalAlignment = Enum.HorizontalAlignment.Center
 	gl.SortOrder = Enum.SortOrder.LayoutOrder
 
@@ -215,7 +250,7 @@ function ProfileTab.Init(parentFrame, tooltipMgr)
 		for i = 1, 6 do 
 			local rad = math.rad(angles[i]); local px = centerX + maxRadius * math.cos(rad); local py = centerY + maxRadius * math.sin(rad)
 			DrawLineScale(RadarContainer, centerX, centerY, px, py, Color3.fromRGB(60, 60, 70), 1, 1)
-			local lbl = Instance.new("TextLabel", RadarContainer); lbl.Size = UDim2.new(0, 40, 0, 20); lbl.BackgroundTransparency = 1; lbl.Position = UDim2.new(0, centerX + (maxRadius + 15) * math.cos(rad), 0, centerY + (maxRadius + 15) * math.sin(rad)); lbl.AnchorPoint = Vector2.new(0.5, 0.5); lbl.Font = Enum.Font.GothamBold; lbl.TextColor3 = Color3.fromRGB(200, 200, 200); lbl.TextSize = 10; lbl.Text = stats[i].Name .. "\n" .. stats[i].Val
+			local lbl = Instance.new("TextLabel", RadarContainer); lbl.Size = UDim2.new(0, 40, 0, 20); lbl.BackgroundTransparency = 1; lbl.Position = UDim2.new(0, centerX + (maxRadius + 20) * math.cos(rad), 0, centerY + (maxRadius + 20) * math.sin(rad)); lbl.AnchorPoint = Vector2.new(0.5, 0.5); lbl.Font = Enum.Font.GothamBold; lbl.TextColor3 = Color3.fromRGB(200, 200, 200); lbl.TextSize = 11; lbl.Text = stats[i].Name .. "\n" .. stats[i].Val
 		end
 		local statColor = isShowingTitanStats and Color3.fromRGB(255, 100, 100) or Color3.fromRGB(100, 255, 100)
 		local pts = {}
@@ -223,12 +258,15 @@ function ProfileTab.Init(parentFrame, tooltipMgr)
 		for i = 1, 6 do local nextI = i % 6 + 1; DrawLineScale(RadarContainer, pts[i].X, pts[i].Y, pts[nextI].X, pts[nextI].Y, statColor, 3, 5); DrawUITriangle(RadarContainer, Vector2.new(centerX, centerY), pts[i], pts[nextI], statColor, 0.5, 3) end
 	end
 	RadarContainer:GetPropertyChangedSignal("AbsoluteSize"):Connect(RenderRadarChart)
+	toggleStatsBtn.MouseButton1Click:Connect(function() isShowingTitanStats = not isShowingTitanStats; RenderRadarChart() end)
 
 	local function RefreshProfile()
 		local tName = player:GetAttribute("Titan") or "None"; local cName = player:GetAttribute("Clan") or "None"; local cPart = player:GetAttribute("CurrentPart") or 1
 		local regName = player:GetAttribute("Regiment") or "Cadet Corps"
 		local hasRegData, regDataModule = pcall(function() return require(game.ReplicatedStorage:WaitForChild("RegimentData")) end)
-		if hasRegData and regDataModule and regDataModule.Regiments[regName] then regIcon.Image = regDataModule.Regiments[regName].Icon end
+		if hasRegData and regDataModule and regDataModule.Regiments[regName] then 
+			regIcon.Image = regDataModule.Regiments[regName].Icon 
+		end
 
 		if cName == "Ackerman" or cName == "Awakened Ackerman" then titanLabel.Text = "Titan: <font color='#FF5555'>(Titan Disabled)</font>" else titanLabel.Text = "Titan: <font color='#FF5555'>" .. tName .. "</font>" end
 		titanLabel.RichText = true; clanLabel.Text = "Clan: <font color='#55FF55'>" .. cName .. "</font>"; clanLabel.RichText = true
@@ -241,7 +279,10 @@ function ProfileTab.Init(parentFrame, tooltipMgr)
 
 		RenderRadarChart()
 
-		for _, child in ipairs(InvGrid:GetChildren()) do if child.Name == "ItemCard" then child:Destroy() end end
+		for _, child in ipairs(InvGrid:GetChildren()) do 
+			if child.Name == "ItemCard" then child:Destroy() end 
+		end
+
 		local inventoryItems = {}
 		local currentSlotsUsed = 0
 
@@ -250,70 +291,248 @@ function ProfileTab.Init(parentFrame, tooltipMgr)
 		table.sort(inventoryItems, function(a, b) local rA = RarityOrder[a.Data.Rarity or "Common"] or 7; local rB = RarityOrder[b.Data.Rarity or "Common"] or 7; if rA == rB then return a.Name < b.Name else return rA < rB end end)
 
 		local layoutOrderCounter = 1
+
 		for _, item in ipairs(inventoryItems) do
-			local itemName = item.Name; local itemInfo = item.Data; local safeNameBase = itemName:gsub("[^%w]", "")
+			local itemName = item.Name; local itemInfo = item.Data; 
+			local safeNameBase = itemName:gsub("[^%w]", "")
 			local count = player:GetAttribute(safeNameBase .. "Count") or 0
 
 			if count > 0 then
 				currentSlotsUsed += 1
 
 				local card = Instance.new("TextButton", InvGrid)
-				card.Name = "ItemCard"; card.Size = UDim2.new(1, 0, 1, 0); card.BackgroundColor3 = Color3.fromRGB(22, 22, 28); card.Text = ""; card.LayoutOrder = layoutOrderCounter; card.ClipsDescendants = true; layoutOrderCounter += 1
+				card.Name = "ItemCard"
+				card.Size = UDim2.new(1, 0, 1, 0)
+				card.BackgroundColor3 = Color3.fromRGB(25, 25, 30)
+				card.Text = ""
+				card.LayoutOrder = layoutOrderCounter
+				layoutOrderCounter += 1
 				Instance.new("UICorner", card).CornerRadius = UDim.new(0, 6)
+				card.ClipsDescendants = true
 
 				local rarityKey = itemInfo.Rarity or "Common"
 				local awakenedStats = player:GetAttribute(safeNameBase .. "_Awakened")
 				if awakenedStats then rarityKey = "Transcendent" end
 
-				local cColor = RarityColors[rarityKey] or "#FFFFFF"; local rarityRGB = Color3.fromHex(cColor:gsub("#", ""))
-				local cStroke = Instance.new("UIStroke", card); cStroke.Color = rarityRGB; cStroke.Thickness = 1; cStroke.Transparency = 0.55; cStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
-				local accentBar = Instance.new("Frame", card); accentBar.Size = UDim2.new(1, 0, 0, 3); accentBar.BackgroundColor3 = rarityRGB; accentBar.BorderSizePixel = 0; accentBar.ZIndex = 2
-				local bgGlow = Instance.new("Frame", card); bgGlow.Size = UDim2.new(1, 0, 0.5, 0); bgGlow.Position = UDim2.new(0, 0, 0.5, 0); bgGlow.BackgroundColor3 = rarityRGB; bgGlow.BackgroundTransparency = 0.92; bgGlow.BorderSizePixel = 0; bgGlow.ZIndex = 1
+				local cColor = RarityColors[rarityKey] or "#FFFFFF"
+				local rarityRGB = Color3.fromHex(cColor:gsub("#", ""))
 
-				local countBadge = Instance.new("Frame", card); countBadge.Size = UDim2.new(0, 20, 0, 12); countBadge.AnchorPoint = Vector2.new(1, 0); countBadge.Position = UDim2.new(1, -3, 0, 6); countBadge.BackgroundColor3 = Color3.fromRGB(12, 12, 16); countBadge.BorderSizePixel = 0; countBadge.ZIndex = 3; Instance.new("UICorner", countBadge).CornerRadius = UDim.new(0, 3)
-				local countTag = Instance.new("TextLabel", countBadge); countTag.Size = UDim2.new(1, 0, 1, 0); countTag.BackgroundTransparency = 1; countTag.Font = Enum.Font.GothamBlack; countTag.TextColor3 = Color3.fromRGB(210, 210, 210); countTag.TextSize = 8; countTag.Text = "x" .. count; countTag.ZIndex = 4
+				local cStroke = Instance.new("UIStroke", card)
+				cStroke.Color = rarityRGB
+				cStroke.Thickness = 1
+				cStroke.Transparency = 0.55
+				cStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
 
-				local nameLbl = Instance.new("TextLabel", card); nameLbl.Size = UDim2.new(0.88, 0, 0.5, 0); nameLbl.Position = UDim2.new(0.5, 0, 0.5, 2); nameLbl.AnchorPoint = Vector2.new(0.5, 0.5); nameLbl.BackgroundTransparency = 1; nameLbl.Font = Enum.Font.GothamBold; nameLbl.TextColor3 = Color3.fromRGB(235, 235, 235); nameLbl.TextScaled = true; nameLbl.TextWrapped = true; nameLbl.Text = itemName; nameLbl.ZIndex = 3
-				local tConstraint = Instance.new("UITextSizeConstraint", nameLbl); tConstraint.MaxTextSize = 10; tConstraint.MinTextSize = 6
+				local accentBar = Instance.new("Frame", card)
+				accentBar.Size = UDim2.new(1, 0, 0, 3)
+				accentBar.Position = UDim2.new(0, 0, 0, 0)
+				accentBar.BackgroundColor3 = rarityRGB
+				accentBar.BorderSizePixel = 0
+				accentBar.ZIndex = 2
 
-				local rarityTag = Instance.new("TextLabel", card); rarityTag.Size = UDim2.new(0, 14, 0, 14); rarityTag.Position = UDim2.new(0, 4, 1, -18); rarityTag.BackgroundTransparency = 1; rarityTag.Font = Enum.Font.GothamBlack; rarityTag.TextColor3 = rarityRGB; rarityTag.TextTransparency = 0.3; rarityTag.TextSize = 9; rarityTag.Text = string.sub(rarityKey, 1, 1); rarityTag.ZIndex = 3
+				local bgGlow = Instance.new("Frame", card)
+				bgGlow.Size = UDim2.new(1, 0, 0.5, 0)
+				bgGlow.Position = UDim2.new(0, 0, 0.5, 0)
+				bgGlow.BackgroundColor3 = rarityRGB
+				bgGlow.BackgroundTransparency = 0.92
+				bgGlow.BorderSizePixel = 0
+				bgGlow.ZIndex = 1
+
+				local countBadge = Instance.new("Frame", card)
+				countBadge.Size = UDim2.new(0, 24, 0, 14)
+				countBadge.AnchorPoint = Vector2.new(1, 0)
+				countBadge.Position = UDim2.new(1, -4, 0, 7)
+				countBadge.BackgroundColor3 = Color3.fromRGB(12, 12, 16)
+				countBadge.BorderSizePixel = 0
+				countBadge.ZIndex = 3
+				Instance.new("UICorner", countBadge).CornerRadius = UDim.new(0, 3)
+
+				local countTag = Instance.new("TextLabel", countBadge)
+				countTag.Size = UDim2.new(1, 0, 1, 0)
+				countTag.BackgroundTransparency = 1
+				countTag.Font = Enum.Font.GothamBlack
+				countTag.TextColor3 = Color3.fromRGB(210, 210, 210)
+				countTag.TextSize = 9
+				countTag.Text = "x" .. count
+				countTag.ZIndex = 4
+
+				local nameLbl = Instance.new("TextLabel", card)
+				nameLbl.Size = UDim2.new(0.88, 0, 0.5, 0)
+				nameLbl.Position = UDim2.new(0.5, 0, 0.5, 2)
+				nameLbl.AnchorPoint = Vector2.new(0.5, 0.5)
+				nameLbl.BackgroundTransparency = 1
+				nameLbl.Font = Enum.Font.GothamBold
+				nameLbl.TextColor3 = Color3.fromRGB(235, 235, 235)
+				nameLbl.TextScaled = true
+				nameLbl.TextWrapped = true
+				nameLbl.Text = itemName
+				nameLbl.ZIndex = 3
+				local tConstraint = Instance.new("UITextSizeConstraint", nameLbl)
+				tConstraint.MaxTextSize = 11
+				tConstraint.MinTextSize = 7
+
+				local rarityTag = Instance.new("TextLabel", card)
+				rarityTag.Size = UDim2.new(0, 16, 0, 16)
+				rarityTag.Position = UDim2.new(0, 4, 1, -20)
+				rarityTag.BackgroundTransparency = 1
+				rarityTag.Font = Enum.Font.GothamBlack
+				rarityTag.TextColor3 = rarityRGB
+				rarityTag.TextTransparency = 0.3
+				rarityTag.TextSize = 10
+				rarityTag.Text = string.sub(rarityKey, 1, 1)
+				rarityTag.ZIndex = 3
+
+				local tTipStr = "<font color='" .. cColor .. "'>[" .. rarityKey .. "]</font> <b>" .. itemName .. "</b>"
+				if itemInfo.Bonus then 
+					local bList = {}; for k, v in pairs(itemInfo.Bonus) do table.insert(bList, "+" .. v .. " " .. string.sub(k, 1, 3):upper()) end; 
+					tTipStr = tTipStr .. "\n<font color='#55FF55'>" .. table.concat(bList, "\n") .. "</font>" 
+				elseif itemInfo.Desc then 
+					local desc = itemInfo.Desc
+					local wrapped = ""
+					local lineLen = 0
+					for word in desc:gmatch("%S+") do
+						if lineLen + #word + 1 > 28 and lineLen > 0 then
+							wrapped = wrapped .. "\n" .. word
+							lineLen = #word
+						else
+							wrapped = wrapped .. (lineLen > 0 and " " or "") .. word
+							lineLen = lineLen + #word + (lineLen > 0 and 1 or 0)
+						end
+					end
+					tTipStr = tTipStr .. "\n<font color='#AAAAAA'>" .. wrapped .. "</font>" 
+				end
+				if awakenedStats then tTipStr = tTipStr .. "\n<font color='#AA55FF'>[Awakened]:\n" .. awakenedStats .. "</font>" end
+
+				local btnCover = Instance.new("TextButton", card)
+				btnCover.Size = UDim2.new(1,0,1,0)
+				btnCover.BackgroundTransparency = 1
+				btnCover.Text = ""
+				btnCover.ZIndex = 5
+				btnCover.MouseEnter:Connect(function() if cachedTooltipMgr then cachedTooltipMgr.Show(tTipStr) end end)
+				btnCover.MouseLeave:Connect(function() if cachedTooltipMgr then cachedTooltipMgr.Hide() end end)
 
 				if itemInfo.IsGift then
-					local giftTag = Instance.new("TextLabel", card); giftTag.Size = UDim2.new(1, 0, 0, 14); giftTag.Position = UDim2.new(0, 0, 1, -16); giftTag.BackgroundTransparency = 1; giftTag.Font = Enum.Font.GothamBlack; giftTag.TextColor3 = Color3.fromRGB(255, 210, 80); giftTag.TextTransparency = 0.2; giftTag.TextSize = 8; giftTag.Text = "GIFT"; giftTag.ZIndex = 3
+					local giftTag = Instance.new("TextLabel", card)
+					giftTag.Size = UDim2.new(1, 0, 0, 14)
+					giftTag.Position = UDim2.new(0, 0, 1, -18)
+					giftTag.BackgroundTransparency = 1
+					giftTag.Font = Enum.Font.GothamBold
+					giftTag.TextColor3 = Color3.fromRGB(255, 210, 80)
+					giftTag.TextTransparency = 0.2
+					giftTag.TextSize = 8
+					giftTag.Text = "GIFT"
+					giftTag.ZIndex = 3
 				else
-					local ActionsOverlay = Instance.new("Frame", card); ActionsOverlay.Name = "ActionsOverlay"; ActionsOverlay.Size = UDim2.new(1, 0, 1, 0); ActionsOverlay.BackgroundColor3 = Color3.fromRGB(10, 10, 14); ActionsOverlay.BackgroundTransparency = 0.05; ActionsOverlay.Visible = false; ActionsOverlay.ZIndex = 5; Instance.new("UICorner", ActionsOverlay).CornerRadius = UDim.new(0, 6)
-					local actLayout = Instance.new("UIListLayout", ActionsOverlay); actLayout.Padding = UDim.new(0, 4); actLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center; actLayout.VerticalAlignment = Enum.VerticalAlignment.Center
+					local ActionsOverlay = Instance.new("Frame", card)
+					ActionsOverlay.Name = "ActionsOverlay"
+					ActionsOverlay.Size = UDim2.new(1, 0, 1, 0)
+					ActionsOverlay.BackgroundColor3 = Color3.fromRGB(10, 10, 14)
+					ActionsOverlay.BackgroundTransparency = 0.05
+					ActionsOverlay.Visible = false
+					ActionsOverlay.ZIndex = 10 -- FIX: Bump to ensure it covers btnCover entirely
+					ActionsOverlay.Active = true -- FIX: Force the overlay to sink clicks 
+					Instance.new("UICorner", ActionsOverlay).CornerRadius = UDim.new(0, 6)
+
+					local actLayout = Instance.new("UIListLayout", ActionsOverlay)
+					actLayout.Padding = UDim.new(0, 4)
+					actLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
+					actLayout.VerticalAlignment = Enum.VerticalAlignment.Center
 
 					local buttonConsumed = false
-					local function MakeOverlayBtn(text, topC, botC, strC)
-						local btn = Instance.new("TextButton", ActionsOverlay); btn.Size = UDim2.new(0.85, 0, 0, 24); btn.Font = Enum.Font.GothamBlack; btn.TextColor3 = Color3.fromRGB(255, 255, 255); btn.TextSize = 9; btn.Text = text; btn.ZIndex = 6
-						ApplyButtonGradient(btn, topC, botC, strC)
+					local function MakeOverlayBtn(text, bgColor)
+						local btn = Instance.new("TextButton", ActionsOverlay)
+						btn.Size = UDim2.new(0.82, 0, 0, 22)
+						btn.BackgroundColor3 = bgColor
+						btn.Font = Enum.Font.GothamBold
+						btn.TextColor3 = Color3.fromRGB(255, 255, 255)
+						btn.TextSize = 9
+						btn.Text = text
+						btn.ZIndex = 11 -- FIX: Put buttons safely on top
+						Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 4)
 						return btn
 					end
 
-					local equipBtn = MakeOverlayBtn("EQUIP", Color3.fromRGB(80, 160, 80), Color3.fromRGB(40, 90, 40), Color3.fromRGB(20, 60, 20))
-					local sellBtn = MakeOverlayBtn("SELL", Color3.fromRGB(160, 60, 60), Color3.fromRGB(90, 30, 30), Color3.fromRGB(60, 20, 20))
+					local equipBtn = MakeOverlayBtn("EQUIP", Color3.fromRGB(40, 80, 40))
+					local sellBtn = MakeOverlayBtn("SELL", Color3.fromRGB(80, 35, 35))
 
 					if itemInfo.Type ~= nil then 
 						local isEq = (player:GetAttribute("EquippedWeapon") == itemName) or (player:GetAttribute("EquippedAccessory") == itemName)
-						if isEq then ApplyButtonGradient(equipBtn, Color3.fromRGB(200, 80, 80), Color3.fromRGB(120, 40, 40), Color3.fromRGB(80, 20, 20)); equipBtn.Text = "UNEQUIP" else ApplyButtonGradient(equipBtn, Color3.fromRGB(80, 160, 80), Color3.fromRGB(40, 90, 40), Color3.fromRGB(20, 60, 20)); equipBtn.Text = "EQUIP" end
-						equipBtn.MouseButton1Click:Connect(function() buttonConsumed = true; if isEq then Network.EquipItem:FireServer("Unequip_" .. itemInfo.Type) else Network.EquipItem:FireServer(itemName) end; ActionsOverlay.Visible = false end)
-					elseif itemInfo.Action ~= nil then 
-						ApplyButtonGradient(equipBtn, Color3.fromRGB(140, 80, 200), Color3.fromRGB(80, 40, 140), Color3.fromRGB(60, 20, 100)); equipBtn.Text = "USE"
-						if itemInfo.Buff == "Gamepass" and player:GetAttribute("Has" .. (itemInfo.Unlock or "")) then equipBtn.Visible = false else equipBtn.MouseButton1Click:Connect(function() buttonConsumed = true; if itemInfo.Action == "AwakenTitan" then Network.AwakenAction:FireServer("Titan") elseif itemInfo.Action == "AwakenClan" then Network.AwakenAction:FireServer("Clan") elseif itemInfo.Action == "Consume" then Network.ConsumeItem:FireServer(itemName) end; ActionsOverlay.Visible = false end) end
-					else equipBtn.Visible = false end
+						if isEq then 
+							ApplyButtonGradient(equipBtn, Color3.fromRGB(200, 80, 80), Color3.fromRGB(120, 40, 40), Color3.fromRGB(80, 20, 20))
+							equipBtn.Text = "UNEQUIP" 
+						else 
+							ApplyButtonGradient(equipBtn, Color3.fromRGB(80, 160, 80), Color3.fromRGB(40, 90, 40), Color3.fromRGB(20, 60, 20))
+							equipBtn.Text = "EQUIP" 
+						end
 
-					sellBtn.MouseButton1Click:Connect(function() buttonConsumed = true; Network.SellItem:FireServer(itemName); ActionsOverlay.Visible = false end)
-					card.MouseButton1Click:Connect(function() if buttonConsumed then buttonConsumed = false return end if ActionsOverlay.Visible then ActionsOverlay.Visible = false else for _, c in ipairs(InvGrid:GetChildren()) do if c.Name == "ItemCard" and c:FindFirstChild("ActionsOverlay") then c.ActionsOverlay.Visible = false end end ActionsOverlay.Visible = true end end)
+						equipBtn.MouseButton1Click:Connect(function() 
+							buttonConsumed = true
+							if isEq then
+								Network.EquipItem:FireServer("Unequip_" .. itemInfo.Type)
+								if NotificationManager then NotificationManager.Show("Unequipped " .. itemName .. ".", "Info") end
+							else
+								Network.EquipItem:FireServer(itemName)
+								if NotificationManager then NotificationManager.Show("Equipped " .. itemName .. "!", "Success") end
+							end
+							ActionsOverlay.Visible = false
+						end)
+					elseif itemInfo.Action ~= nil then 
+						ApplyButtonGradient(equipBtn, Color3.fromRGB(140, 80, 200), Color3.fromRGB(80, 40, 140), Color3.fromRGB(60, 20, 100))
+						equipBtn.Text = "USE"
+
+						if itemInfo.Buff == "Gamepass" and player:GetAttribute("Has" .. (itemInfo.Unlock or "")) then
+							equipBtn.Visible = false
+						else
+							equipBtn.MouseButton1Click:Connect(function() 
+								buttonConsumed = true
+								if itemInfo.Action == "AwakenTitan" then Network.AwakenAction:FireServer("Titan") 
+								elseif itemInfo.Action == "AwakenClan" then Network.AwakenAction:FireServer("Clan") 
+								elseif itemInfo.Action == "Consume" then Network.ConsumeItem:FireServer(itemName); if NotificationManager then NotificationManager.Show("Used " .. itemName .. "!", "Success") end
+								end 
+								ActionsOverlay.Visible = false
+							end)
+						end
+					else 
+						equipBtn.Visible = false
+					end
+
+					local sellVal = SellValues[rarityKey] or 10
+					sellBtn.MouseButton1Click:Connect(function() 
+						buttonConsumed = true
+						Network.SellItem:FireServer(itemName)
+						if NotificationManager then NotificationManager.Show("Sold " .. itemName .. " for " .. sellVal .. " Dews.", "Success") end
+						ActionsOverlay.Visible = false
+					end)
+
+					local function CloseAllOverlays()
+						for _, c in ipairs(InvGrid:GetChildren()) do
+							if c.Name == "ItemCard" then
+								local ov = c:FindFirstChild("ActionsOverlay")
+								if ov then ov.Visible = false end
+							end
+						end
+					end
+
+					btnCover.MouseButton1Click:Connect(function()
+						if buttonConsumed then
+							buttonConsumed = false
+							return
+						end
+						if ActionsOverlay.Visible then
+							ActionsOverlay.Visible = false
+						else
+							CloseAllOverlays()
+							ActionsOverlay.Visible = true
+						end
+					end)
 				end
 			end
 		end
 
-		-- [[ THE FIX: Dynamically fetch max inventory capacity instead of using hardcoded constant! ]]
-		local maxInv = GameData.GetMaxInventory(player)
-		InvTitle.Text = "INVENTORY (" .. currentSlotsUsed .. "/" .. maxInv .. ")"
-		if currentSlotsUsed >= maxInv then InvTitle.TextColor3 = Color3.fromRGB(255, 100, 100) else InvTitle.TextColor3 = Color3.fromRGB(255, 215, 100) end
-		gl:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function() InvGrid.Size = UDim2.new(0.95, 0, 0, gl.AbsoluteContentSize.Y + 20) end)
+		InvTitle.Text = "INVENTORY (" .. currentSlotsUsed .. "/" .. MAX_INVENTORY_CAPACITY .. ")"
+		if currentSlotsUsed >= MAX_INVENTORY_CAPACITY then InvTitle.TextColor3 = Color3.fromRGB(255, 100, 100) else InvTitle.TextColor3 = Color3.fromRGB(255, 215, 100) end
+
+		task.delay(0.05, function() InvGrid.CanvasSize = UDim2.new(0, 0, 0, math.ceil(layoutOrderCounter / 4) * 90) end)
 	end
 	player.AttributeChanged:Connect(RefreshProfile); RefreshProfile()
 end
