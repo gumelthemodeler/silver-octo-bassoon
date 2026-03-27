@@ -5,8 +5,8 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Players = game:GetService("Players")
 local DataStoreService = game:GetService("DataStoreService")
 local ItemData = require(ReplicatedStorage:WaitForChild("ItemData"))
-local GameData = require(ReplicatedStorage:WaitForChild("GameData")) -- Needed for Inventory check
-local GameDataStore = DataStoreService:GetDataStore("AoT_Data_V3") -- Needed for Forced Saves
+local GameData = require(ReplicatedStorage:WaitForChild("GameData")) 
+local GameDataStore = DataStoreService:GetDataStore("AoT_Data_V3") 
 
 local Network = ReplicatedStorage:WaitForChild("Network")
 local GetShopData = Network:WaitForChild("GetShopData")
@@ -66,7 +66,6 @@ local function GenerateShopItems(seed)
 end
 
 GetShopData.OnServerInvoke = function(player, requestType)
-	-- [[ THE FIX: Provide Path Node Data if requested ]]
 	if requestType == "PathsShop" then
 		local pData = {}
 		for nodeName, nodeData in pairs(PathNodes) do
@@ -104,27 +103,29 @@ GetShopData.OnServerInvoke = function(player, requestType)
 end
 
 BuyAction.OnServerEvent:Connect(function(player, actionType, itemName)
-	-- [[ THE FIX: Handling Path Dust Purchases ]]
+	-- [[ THE FIX: Safely route standard items if the client sends them as 'actionType' instead of 'itemName' ]]
+	local targetPurchase = itemName
+	if not itemName and actionType ~= "BuyPathNode" and actionType ~= "ClosePathsShop" then
+		targetPurchase = actionType
+	end
+
 	if actionType == "BuyPathNode" then
-		local nodeData = PathNodes[itemName]
+		local nodeData = PathNodes[targetPurchase]
 		if not nodeData then return end
 
-		local currentLvl = player:GetAttribute("PathNode_" .. itemName) or 0
+		local currentLvl = player:GetAttribute("PathNode_" .. targetPurchase) or 0
 		if currentLvl >= nodeData.MaxLevel then return end
 
 		local dust = player:GetAttribute("PathDust") or 0
 		if dust >= nodeData.Cost then
 			player:SetAttribute("PathDust", dust - nodeData.Cost)
-			player:SetAttribute("PathNode_" .. itemName, currentLvl + 1)
+			player:SetAttribute("PathNode_" .. targetPurchase, currentLvl + 1)
 
-			-- Update the permanent Path Awakened string
 			local currentString = player:GetAttribute("PathsAwakened") or ""
-			-- Clean out the old value for this stat if it exists to rewrite it
 			local newString = ""
 			for stat in string.gmatch(currentString, "[^|]+") do
 				if not string.find(stat, nodeData.Stat) then newString = newString .. stat .. "|" end
 			end
-			-- Append the newly calculated total stat
 			local totalStatValue = (currentLvl + 1) * nodeData.Increment
 			newString = newString .. " +" .. totalStatValue .. " " .. nodeData.Stat .. "|"
 			player:SetAttribute("PathsAwakened", newString)
@@ -135,20 +136,18 @@ BuyAction.OnServerEvent:Connect(function(player, actionType, itemName)
 		end
 		return
 	elseif actionType == "ClosePathsShop" then
-		-- As requested, closing the shop wipes remaining dust permanently.
 		player:SetAttribute("PathDust", 0)
 		NotificationEvent:FireClient(player, "Path Dust has scattered to the wind.", "Error")
 		return
 	end
 
-	-- Standard Dews Shop Processing
 	local globalSeed = math.floor(os.time() / 600)
 	local activeSeed = player:GetAttribute("PersonalShopSeed") or globalSeed
 	local availableItems = GenerateShopItems(activeSeed)
 
 	local targetItem = nil
 	for _, item in ipairs(availableItems) do
-		if item.Name == itemName then targetItem = item; break end
+		if item.Name == targetPurchase then targetItem = item; break end
 	end
 
 	if targetItem then
@@ -162,10 +161,10 @@ BuyAction.OnServerEvent:Connect(function(player, actionType, itemName)
 
 		if player.leaderstats.Dews.Value >= targetItem.Cost then
 			player.leaderstats.Dews.Value -= targetItem.Cost
-			local attrName = itemName:gsub("[^%w]", "") .. "Count"
+			local attrName = targetItem.Name:gsub("[^%w]", "") .. "Count"
 			player:SetAttribute(attrName, (player:GetAttribute(attrName) or 0) + 1)
 			player:SetAttribute("ShopPurchases_Data", boughtStr .. "[" .. targetItem.Name .. "]")
-			NotificationEvent:FireClient(player, "Purchased " .. itemName .. "!", "Success")
+			NotificationEvent:FireClient(player, "Purchased " .. targetItem.Name .. "!", "Success")
 		else
 			NotificationEvent:FireClient(player, "Not enough Dews!", "Error")
 		end
@@ -192,7 +191,6 @@ MarketplaceService.ProcessReceipt = function(receiptInfo)
 				NotificationEvent:FireClient(player, "Purchased " .. prod.ItemName .. "!", "Success")
 			end
 
-			-- [[ THE FIX: Immediately force save the data so they don't lose Robux purchases on crash ]]
 			task.spawn(function()
 				local d = { Prestige = player.leaderstats.Prestige.Value, Dews = player.leaderstats.Dews.Value, Elo = player.leaderstats.Elo.Value }
 				for k, v in pairs(player:GetAttributes()) do if k ~= "DataLoaded" then d[k] = v end end
