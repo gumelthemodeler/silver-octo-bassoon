@@ -272,6 +272,8 @@ end
 local function ProcessEnemyDeath(player, battle)
 	if not player or not player:FindFirstChild("leaderstats") then return end
 
+	local turnDelay = player:GetAttribute("HasDoubleSpeed") and 0.75 or 1.5
+
 	if battle.Context.StoredBoss then
 		local b = battle.Context.StoredBoss
 		battle.Enemy.Name = b.Name; battle.Enemy.HP = b.HP; battle.Enemy.MaxHP = b.MaxHP
@@ -283,7 +285,7 @@ local function ProcessEnemyDeath(player, battle)
 		battle.Context.TurnCount = 0 
 
 		CombatUpdate:FireClient(player, "TurnStrike", {Battle = battle, LogMsg = "<font color='#55FF55'>The Summoned Titan falls! The Founder is exposed!</font>", DidHit = false, ShakeType = "Heavy"})
-		task.wait(1.5)
+		task.wait(turnDelay)
 		battle.IsProcessing = false
 		CombatUpdate:FireClient(player, "Update", {Battle = battle})
 		return
@@ -347,12 +349,16 @@ local function ProcessEnemyDeath(player, battle)
 				local attrName = itemName:gsub("[^%w]", "") .. "Count"
 				local currentAmt = player:GetAttribute(attrName) or 0
 
+				-- [[ THE FIX: Check for DoubleDrops Gamepass ]]
+				local dropMultiplier = player:GetAttribute("HasDoubleDrops") and 2 or 1
+
 				if currentAmt == 0 and currentSlots >= MAX_INVENTORY_CAPACITY then
 					-- INVENTORY FULL: Auto sell the new item
-					autoSoldDews += (SellValues[rarity] or 10)
+					autoSoldDews += (SellValues[rarity] or 10) * dropMultiplier
 				else
-					table.insert(droppedItems, itemName)
-					player:SetAttribute(attrName, currentAmt + 1)
+					local nameTag = (dropMultiplier > 1) and (itemName .. " (x" .. dropMultiplier .. ")") or itemName
+					table.insert(droppedItems, nameTag)
+					player:SetAttribute(attrName, currentAmt + dropMultiplier)
 					if currentAmt == 0 then currentSlots += 1 end
 				end
 			end
@@ -370,13 +376,15 @@ local function ProcessEnemyDeath(player, battle)
 				local pItem = pool[math.random(1, #pool)]
 				local attrName = pItem:gsub("[^%w]", "") .. "Count"
 				local currentAmt = player:GetAttribute(attrName) or 0
+				local dropMultiplier = player:GetAttribute("HasDoubleDrops") and 2 or 1
 
 				if currentAmt == 0 and currentSlots >= MAX_INVENTORY_CAPACITY then
 					local iData = ItemData.Equipment[pItem] or ItemData.Consumables[pItem]
-					autoSoldDews += (SellValues[iData and iData.Rarity or "Common"] or 10)
+					autoSoldDews += (SellValues[iData and iData.Rarity or "Common"] or 10) * dropMultiplier
 				else
-					table.insert(droppedItems, pItem)
-					player:SetAttribute(attrName, currentAmt + 1)
+					local nameTag = (dropMultiplier > 1) and (pItem .. " (x" .. dropMultiplier .. ")") or pItem
+					table.insert(droppedItems, nameTag)
+					player:SetAttribute(attrName, currentAmt + dropMultiplier)
 					if currentAmt == 0 then currentSlots += 1 end
 				end
 			end
@@ -464,7 +472,6 @@ local function ProcessEnemyDeath(player, battle)
 		battle.Player.Statuses = {} 
 		battle.Player.HP = battle.Player.MaxHP; battle.Player.Gas = battle.Player.MaxGas; battle.Player.TitanEnergy = math.min(100, (battle.Player.TitanEnergy or 0) + 30); battle.Player.LastSkill = "None"
 
-		-- [[ THE FIX: Added conditional routing for Minigames here ]]
 		if nextEnemyTemplate.IsMinigame then
 			CombatUpdate:FireClient(player, "StartMinigame", {Battle = battle, LogMsg = logFlavor .. "\n" .. rewardStr .. killMsg, MinigameType = nextEnemyTemplate.IsMinigame})
 		else
@@ -605,6 +612,7 @@ CombatAction.OnServerEvent:Connect(function(player, actionType, actionData)
 	end
 
 	battle.IsProcessing = true
+	local turnDelay = player:GetAttribute("HasDoubleSpeed") and 0.75 or 1.5
 
 	if skillName == "Maneuver" then UpdateBountyProgress(player, "Maneuver", 1) end
 	if skillName == "Transform" then UpdateBountyProgress(player, "Transform", 1) end
@@ -619,7 +627,9 @@ CombatAction.OnServerEvent:Connect(function(player, actionType, actionData)
 				msg = "<font color='#AAAAAA'>You missed the " .. defender.Name .. "!</font>"
 			end
 			CombatUpdate:FireClient(player, "TurnStrike", {Battle = battle, LogMsg = msg, DidHit = didHit, ShakeType = shakeType, SkillUsed = strikeSkill, IsPlayerAttacking = attacker.IsPlayer})
-			task.wait(1.5) 
+
+			-- [[ THE FIX: Dynamic 2x Speed Check ]]
+			task.wait(turnDelay) 
 		else 
 			CombatUpdate:FireClient(player, "TurnStrike", {Battle = battle, LogMsg = "<font color='#FF0000'>SERVER LOGIC ERROR: " .. tostring(msg) .. "</font>", DidHit = false, ShakeType = "None"}) 
 		end
@@ -691,14 +701,14 @@ CombatAction.OnServerEvent:Connect(function(player, actionType, actionData)
 			combatant.HP -= dotDamage
 			local targetName = combatant.IsPlayer and "You" or combatant.Name
 			CombatUpdate:FireClient(player, "TurnStrike", {Battle = battle, LogMsg = targetName .. " took damage from status effects!" .. dotLog, DidHit = false, ShakeType = "None"})
-			task.wait(1.5)
+			task.wait(turnDelay)
 			if combatant.HP < 1 then continue end 
 		end
 
 		if combatant.Statuses and (combatant.Statuses["Blinded"] or combatant.Statuses["TrueBlind"] or combatant.Statuses["Stun"]) then
 			local denyMsg = combatant.IsPlayer and "<font color='#555555'>You are INCAPACITATED and lost your turn!</font>" or "<font color='#555555'>" .. combatant.Name .. " is INCAPACITATED and lost their turn!</font>"
 			CombatUpdate:FireClient(player, "TurnStrike", {Battle = battle, LogMsg = denyMsg, DidHit = false, ShakeType = "None"})
-			task.wait(1.5)
+			task.wait(turnDelay)
 
 			if combatant.Cooldowns then for sName, cd in pairs(combatant.Cooldowns) do if cd > 0 then combatant.Cooldowns[sName] = cd - 1 end end end
 			if combatant.GateType == "Steam" and combatant.GateHP and combatant.GateHP > 0 then combatant.GateHP = math.max(0, combatant.GateHP - 1) end
@@ -732,23 +742,23 @@ CombatAction.OnServerEvent:Connect(function(player, actionType, actionData)
 					else
 						CombatUpdate:FireClient(player, "TurnStrike", {Battle = battle, LogMsg = "<font color='#AAAAAA'>You maneuvered closer... (" .. battle.Context.GapCloses .. "/3)</font>", DidHit = false, ShakeType = "None"})
 					end
-					task.wait(1.5)
+					task.wait(turnDelay)
 					continue
 				elseif skill.Effect == "Rest" or skillName == "Recover" then
 					local healAmount = (combatant.MaxHP or 100) * 0.30
 					combatant.HP = math.min(combatant.MaxHP, combatant.HP + healAmount)
 					combatant.Gas = math.min(combatant.MaxGas, combatant.Gas + (combatant.MaxGas * 0.40))
 					CombatUpdate:FireClient(player, "TurnStrike", {Battle = battle, LogMsg = "<font color='#55FF55'>You recovered HP and Gas.</font>", DidHit = false, ShakeType = "None"})
-					task.wait(1.5)
+					task.wait(turnDelay)
 					continue
 				elseif skill.Effect == "Transform" then
 					combatant.Statuses["Transformed"] = 999; combatant.HP = combatant.MaxHP; combatant.TitanEnergy = combatant.MaxTitanEnergy or 100
 					CombatUpdate:FireClient(player, "TurnStrike", {Battle = battle, LogMsg = "<font color='#55FF55'>Lightning strikes! You transformed, but you still need to close the gap!</font>", DidHit = false, ShakeType = "Heavy"})
-					task.wait(1.5)
+					task.wait(turnDelay)
 					continue
 				else
 					CombatUpdate:FireClient(player, "TurnStrike", {Battle = battle, LogMsg = "<font color='#FF5555'>You are at LONG RANGE! You must use Maneuver to close the gap!</font>", DidHit = false, ShakeType = "None"})
-					task.wait(1.5)
+					task.wait(turnDelay)
 					continue
 				end
 			end
@@ -763,7 +773,8 @@ CombatAction.OnServerEvent:Connect(function(player, actionType, actionData)
 		else
 			if string.find(combatant.Name, "Dummy") then
 				CombatUpdate:FireClient(player, "TurnStrike", {Battle = battle, LogMsg = combatant.Name .. " stands completely still.", DidHit = false, ShakeType = "None"})
-				task.wait(1.0)
+				local dummyDelay = player:GetAttribute("HasDoubleSpeed") and 0.5 or 1.0
+				task.wait(dummyDelay)
 				continue
 			end
 
@@ -835,7 +846,7 @@ CombatAction.OnServerEvent:Connect(function(player, actionType, actionData)
 				battle.Enemy.Cooldowns = {}
 
 				CombatUpdate:FireClient(player, "TurnStrike", {Battle = battle, LogMsg = "<font color='#FF5555'>The Founding Titan summoned a Pure Titan to protect itself!</font>", DidHit = false, ShakeType = "Heavy"})
-				task.wait(1.5)
+				task.wait(turnDelay)
 			end
 		end
 
