@@ -20,7 +20,7 @@ local RadarContainer, regIcon, AvatarBox
 local toggleStatsBtn
 local InvTitle 
 local isShowingTitanStats = false
-local MAX_INVENTORY_CAPACITY = 25
+-- [[ THE FIX: Removed hardcoded MAX_INVENTORY_CAPACITY ]]
 
 local RarityColors = { ["Common"] = "#AAAAAA", ["Uncommon"] = "#55FF55", ["Rare"] = "#5588FF", ["Epic"] = "#CC44FF", ["Legendary"] = "#FFD700", ["Mythical"] = "#FF3333", ["Transcendent"] = "#FF55FF" }
 local RarityOrder = { Transcendent = 0, Mythical = 1, Legendary = 2, Epic = 3, Rare = 4, Uncommon = 5, Common = 6 }
@@ -158,7 +158,7 @@ function ProfileTab.Init(parentFrame, tooltipMgr)
 
 	InvTitle = Instance.new("TextLabel", MainFrame)
 	InvTitle.Size = UDim2.new(0.95, 0, 0, 40); InvTitle.BackgroundTransparency = 1; InvTitle.LayoutOrder = 6
-	InvTitle.Font = Enum.Font.GothamBlack; InvTitle.TextColor3 = Color3.fromRGB(255, 215, 100); InvTitle.TextSize = 18; InvTitle.Text = "INVENTORY (0/50)"
+	InvTitle.Font = Enum.Font.GothamBlack; InvTitle.TextColor3 = Color3.fromRGB(255, 215, 100); InvTitle.TextSize = 18; InvTitle.Text = "INVENTORY (0/0)"
 	ApplyGradient(InvTitle, Color3.fromRGB(255, 215, 100), Color3.fromRGB(255, 150, 50))
 
 	local AutoSellFrame = Instance.new("Frame", MainFrame)
@@ -309,8 +309,10 @@ function ProfileTab.Init(parentFrame, tooltipMgr)
 			end
 		end
 
-		InvTitle.Text = "INVENTORY (" .. currentSlotsUsed .. "/" .. MAX_INVENTORY_CAPACITY .. ")"
-		if currentSlotsUsed >= MAX_INVENTORY_CAPACITY then InvTitle.TextColor3 = Color3.fromRGB(255, 100, 100) else InvTitle.TextColor3 = Color3.fromRGB(255, 215, 100) end
+		-- [[ THE FIX: Dynamically fetch max inventory capacity instead of using hardcoded constant! ]]
+		local maxInv = GameData.GetMaxInventory(player)
+		InvTitle.Text = "INVENTORY (" .. currentSlotsUsed .. "/" .. maxInv .. ")"
+		if currentSlotsUsed >= maxInv then InvTitle.TextColor3 = Color3.fromRGB(255, 100, 100) else InvTitle.TextColor3 = Color3.fromRGB(255, 215, 100) end
 		gl:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function() InvGrid.Size = UDim2.new(0.95, 0, 0, gl.AbsoluteContentSize.Y + 20) end)
 	end
 	player.AttributeChanged:Connect(RefreshProfile); RefreshProfile()
