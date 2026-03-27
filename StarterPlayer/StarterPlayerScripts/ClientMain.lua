@@ -9,7 +9,10 @@ local UserInputService = game:GetService("UserInputService")
 local player = Players.LocalPlayer
 local playerGui = player:WaitForChild("PlayerGui")
 
-pcall(function() StarterGui:SetCoreGuiEnabled(Enum.CoreGuiType.All, false) end)
+pcall(function() 
+	StarterGui:SetCoreGuiEnabled(Enum.CoreGuiType.All, false) 
+	StarterGui:SetCoreGuiEnabled(Enum.CoreGuiType.Chat, true)
+end)
 
 local isMobile = UserInputService.TouchEnabled and not UserInputService.MouseEnabled
 
