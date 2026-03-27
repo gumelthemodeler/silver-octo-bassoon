@@ -8,12 +8,12 @@ SkillData.Skills = {
 	["Maneuver"] = { Requirement = "None", Range = "Any", Type = "Basic", Mult = 0, EnergyCost = 0, GasCost = 15, Effect = "Block", Cooldown = 2, Order = 2, SFX = "Dash", VFX = "BlockMark", Description = "Burn gas to rapidly dodge. Grants a 100% chance to evade the next attack." },
 	["Recover"] = { Requirement = "None", Range = "Any", Type = "Basic", Mult = 0, EnergyCost = 0, GasCost = 0, Effect = "Rest", Cooldown = 3, Order = 3, SFX = "Heal", VFX = "HealMark", Description = "Skip your turn to recover HP and replenish Gas." },
 	["Retreat"] = { Requirement = "None", Range = "Any", Type = "Basic", Mult = 0, EnergyCost = 0, GasCost = 50, Effect = "Flee", Order = 4, SFX = "Flee", VFX = "BlockMark", Description = "Fire a smoke signal and escape." },
-	
+
 	-- [[ LONG RANGE STAGE SKILLS ]]
 	["Advance Maneuver"] = { Requirement = "None", Range = "Long", Type = "Basic", Mult = 0, EnergyCost = 0, GasCost = 20, Effect = "CloseGap", Cooldown = 0, Order = 1, SFX = "Dash", VFX = "BlockMark", Description = "Burn heavy gas to close the distance. (Requires 3 uses to reach melee range)." },
 	["Flare Gun"] = { Requirement = "None", Range = "Long", Type = "Basic", Mult = 0.5, Effect = "Blinded", Duration = 1, EnergyCost = 0, GasCost = 0, Cooldown = 3, Order = 2, SFX = "Gun", VFX = "ExplosionMark", Description = "Fire a flare to temporarily blind the enemy from afar." },
 	["Anti-Titan Rifle"] = { Requirement = "None", Range = "Long", Type = "Basic", Mult = 1.5, Effect = "Bleed", Duration = 2, EnergyCost = 0, GasCost = 0, Cooldown = 2, Order = 3, SFX = "Sniper", VFX = "ExplosionMark", Description = "Take a steady shot with an anti-titan rifle." },
-	
+
 	-- [[ TITAN SHIFTER UNIVERSAL MOVES ]]
 	["Transform"] = { Requirement = "AnyTitan", Range = "Any", Type = "Transform", Mult = 0, EnergyCost = 0, GasCost = 0, Effect = "Transform", Cooldown = 10, Order = 5, SFX = "Transform", VFX = "ExplosionMark", Description = "Bite your hand and trigger a Titan transformation." },
 	["Eject"] = { Requirement = "Transformed", Range = "Any", Type = "Transform", Mult = 0, EnergyCost = 0, GasCost = 0, Effect = "Eject", Cooldown = 0, Order = 1, SFX = "Dash", VFX = "SlashMark", Description = "Cut yourself out of the nape, returning to human form." },
@@ -54,10 +54,12 @@ SkillData.Skills = {
 	["Hardened Punch"] = { Requirement = "AnyTitan", Type = "Titan", Mult = 3.5, Effect = "Debuff_Defense", Duration = 2, EnergyCost = 30, Cooldown = 4, Order = 11, SFX = "HeavyPunch", VFX = "ExplosionMark", Description = "Focus crystal hardening into your knuckles to shatter enemy armor." },
 	["Nape Guard"] = { Requirement = "AnyTitan", Type = "Titan", Mult = 0, Effect = "NapeGuard", Duration = 2, EnergyCost = 40, Cooldown = 6, Order = 12, SFX = "Block", VFX = "BlockMark", Description = "Harden the nape of your neck, reducing incoming Nape damage to 1." },
 
-	["Armored Tackle"] = { Requirement = "Armored Titan", Type = "Titan", Mult = 4.0, Effect = "Stun", Duration = 1, EnergyCost = 40, Cooldown = 5, Order = 13, SFX = "HeavyPunch", VFX = "ExplosionMark", Description = "A devastating, unstoppable charge that stuns the target." },
+	-- [[ THE FIX: Added "Telegraphed = true" to massive Boss abilities! ]]
+	["Armored Tackle"] = { Requirement = "Armored Titan", Type = "Titan", Mult = 4.0, Effect = "Stun", Duration = 1, EnergyCost = 40, Cooldown = 5, Telegraphed = true, Order = 13, SFX = "HeavyPunch", VFX = "ExplosionMark", Description = "A devastating, unstoppable charge that stuns the target." },
 	["War Hammer Spike"] = { Requirement = "War Hammer Titan", Type = "Titan", Mult = 4.5, Effect = "Bleed", Duration = 4, EnergyCost = 45, Cooldown = 5, Order = 13, ComboReq = "Hardened Punch", ComboMult = 1.4, SFX = "Spike", VFX = "SlashMark", Description = "Manifest a massive crystal spike to impale the enemy." },
-	["Colossal Steam"] = { Requirement = "Colossal Titan", Type = "Titan", Mult = 2.5, Hits = 2, Effect = "Burn", Duration = 3, EnergyCost = 50, Cooldown = 7, Order = 13, SFX = "Steam", VFX = "ExplosionMark", Description = "Emit waves of scorching steam, burning anyone nearby." },
-	["Coordinate Command"] = { Requirement = "Founding Titan", Type = "Titan", Mult = 6.0, Effect = "Stun", Duration = 3, EnergyCost = 80, Cooldown = 8, Order = 13, SFX = "Roar", VFX = "ClawMark", Description = "Command pure titans to swarm and crush the enemy completely." },
+	["Colossal Steam"] = { Requirement = "Colossal Titan", Type = "Titan", Mult = 2.5, Hits = 2, Effect = "Burn", Duration = 3, EnergyCost = 50, Cooldown = 7, Telegraphed = true, Order = 13, SFX = "Steam", VFX = "ExplosionMark", Description = "Emit waves of scorching steam, burning anyone nearby." },
+	["Coordinate Command"] = { Requirement = "Founding Titan", Type = "Titan", Mult = 6.0, Effect = "Stun", Duration = 3, EnergyCost = 80, Cooldown = 8, Telegraphed = true, Order = 13, SFX = "Roar", VFX = "ClawMark", Description = "Command pure titans to swarm and crush the enemy completely." },
+
 	["Coordinate Crystal Strike"] = { Requirement = "Founding Female Titan", Type = "Titan", Mult = 6.0, Effect = "Stun", Duration = 3, EnergyCost = 60, Cooldown = 6, Order = 11, SFX = "Spike", VFX = "ClawMark", Description = "Summon pure titans encased in hardening to obliterate the target." },
 	["Armored Berserk"] = { Requirement = "Armored Attack Titan", Type = "Titan", Mult = 5.0, Effect = "Debuff_Defense", Duration = 3, EnergyCost = 50, Cooldown = 5, Order = 11, SFX = "HeavyPunch", VFX = "ExplosionMark", Description = "A relentless, armored barrage that shreds defense." },
 	["War Hammer Onslaught"] = { Requirement = "War Hammer Attack Titan", Type = "Titan", Mult = 5.5, Effect = "Bleed", Duration = 4, EnergyCost = 55, Cooldown = 5, Order = 11, SFX = "Spike", VFX = "SlashMark", Description = "Creates weapons from the earth, striking with immense power." },
@@ -69,13 +71,16 @@ SkillData.Skills = {
 	["Brutal Swipe"] = { Requirement = "Enemy", Type = "Titan", Mult = 1.0, SFX = "HeavyPunch", VFX = "SlashMark", Description = "A heavy, sweeping arm strike." },
 	["Frenzied Thrash"] = { Requirement = "Enemy", Type = "Titan", Mult = 0.5, Hits = 3, Cooldown = 3, SFX = "Punch", VFX = "ExplosionMark", Description = "An unpredictable, flailing attack." },
 	["Stomp"] = { Requirement = "Enemy", Type = "Titan", Mult = 2.0, Effect = "Stun", Duration = 1, Cooldown = 4, SFX = "Stomp", VFX = "ExplosionMark", Description = "A devastating stomp that crushes the target." },
-	["Crushed Boulders"] = { Requirement = "Enemy", Type = "Titan", Mult = 1.8, Effect = "GasDrain", Duration = 0, Cooldown = 1, SFX = "Explosion", VFX = "ExplosionMark", Description = "Throws a massive spread of crushed rocks." },
+
+	-- [[ THE FIX: Added "Telegraphed = true" to massive Enemy abilities! ]]
+	["Crushed Boulders"] = { Requirement = "Enemy", Type = "Titan", Mult = 1.8, Effect = "GasDrain", Duration = 0, Cooldown = 1, Telegraphed = true, SFX = "Explosion", VFX = "ExplosionMark", Description = "Throws a massive spread of crushed rocks." },
+	["Anti-Titan Round"] = { Requirement = "Enemy", Type = "Basic", Mult = 2.5, Effect = "Bleed", Duration = 3, Cooldown = 4, Telegraphed = true, SFX = "Sniper", VFX = "ExplosionMark", Description = "Fires a massive armor-piercing shell." },
+
 	["Heavy Slash"] = { Requirement = "Enemy", Type = "Basic", Mult = 1.8, Cooldown = 2, SFX = "HeavySlash", VFX = "SlashMark", Description = "A powerful, slow swing." },
 	["Block"] = { Requirement = "Enemy", Type = "Basic", Mult = 0, Effect = "Block", Cooldown = 2, SFX = "Block", VFX = "BlockMark", Description = "Defends against incoming damage." },
 	["Evasive Maneuver"] = { Requirement = "Enemy", Type = "Basic", Mult = 0, Effect = "Block", Cooldown = 5, SFX = "Dash", VFX = "BlockMark", Description = "Dodges incoming attacks." },
 	["Smoke Screen"] = { Requirement = "Enemy", Type = "Basic", Mult = 0, Effect = "Block", Cooldown = 5, SFX = "Steam", VFX = "BlockMark", Description = "Creates a smoke screen to evade attacks." },
 	["Regroup"] = { Requirement = "Enemy", Type = "Basic", Mult = 0, Effect = "Rest", Cooldown = 4, SFX = "Heal", VFX = "HealMark", Description = "Steps back to heal." },
-	["Anti-Titan Round"] = { Requirement = "Enemy", Type = "Basic", Mult = 2.5, Effect = "Bleed", Duration = 3, Cooldown = 4, SFX = "Sniper", VFX = "ExplosionMark", Description = "Fires a massive armor-piercing shell." },
 }
 
 return SkillData
