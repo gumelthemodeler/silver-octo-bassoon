@@ -36,23 +36,26 @@ ItemData.Consumables = {
 	["Spinal Fluid Syringe"] = { Rarity = "Legendary", Cost = 25000, Desc = "Premium item. Guarantees a Legendary or Mythical Titan." },
 	["Clan Blood Vial"] = { Rarity = "Epic", Cost = 10000, Desc = "Used to roll for Clan Lineages." },
 
-	-- [[ AWAKENING ITEMS ]]
 	["Ancestral Awakening Serum"] = { Rarity = "Mythical", Cost = 150000, Action = "AwakenClan", Desc = "Awakens the true power of your current lineage. Only works on major clans." },
 	["Ymir's Clay Fragment"] = { Rarity = "Mythical", Cost = 150000, Action = "AwakenTitan", Desc = "Allows the Attack Titan to reach the Coordinate." },
 
-	-- [[ WEAPON AWAKENING MATERIAL ]]
 	["Titan Hardening Extract"] = { Rarity = "Legendary", Cost = 75000, Desc = "Used in the Forge to Awaken max-tier weapons with random Substats." },
 
 	["Iron Bamboo Extract"] = { Rarity = "Epic", Cost = 8000, Action = "Consume", Buff = "Damage", Duration = 900, Desc = "Increases all damage dealt by 50% for 15 minutes." },
 	["Titan Research Notes"] = { Rarity = "Rare", Cost = 5000, Action = "Consume", Buff = "XP", Duration = 900, Desc = "Doubles all XP gained from combat and training for 15 minutes." },
 	["Garrison Supply Crate"] = { Rarity = "Uncommon", Cost = 15000, Action = "Consume", Buff = "Dews", MinAmount = 5000, MaxAmount = 20000, Desc = "Instantly grants between 5,000 and 20,000 Dews when opened." },
 
-	-- [[ GIFTS ]]
+	-- [[ GIFTS & GAMEPASSES ]]
 	["Auto Train (Gift)"] = { Rarity = "Transcendent", Cost = 0, IsGift = true, Action = "Consume", Buff = "Gamepass", Unlock = "AutoTrain", Desc = "Permanently unlocks Auto Train. Cannot be sold." },
 	["2x XP & Funds (Gift)"] = { Rarity = "Transcendent", Cost = 0, IsGift = true, Action = "Consume", Buff = "Gamepass", Unlock = "DoubleXP", Desc = "Permanently unlocks 2x XP & Dews. Cannot be sold." },
 	["Titan Vault Expansion (Gift)"] = { Rarity = "Transcendent", Cost = 0, IsGift = true, Action = "Consume", Buff = "Gamepass", Unlock = "TitanVault", Desc = "Unlocks Titan Vault slots 4-6. Cannot be sold." },
 	["Clan Vault Expansion (Gift)"] = { Rarity = "Transcendent", Cost = 0, IsGift = true, Action = "Consume", Buff = "Gamepass", Unlock = "ClanVault", Desc = "Unlocks Clan Vault slots 4-6. Cannot be sold." },
-	["VIP Pass (Gift)"] = { Rarity = "Transcendent", Cost = 0, IsGift = true, Action = "Consume", Buff = "Gamepass", Unlock = "VIP", Desc = "Permanently unlocks VIP status. Cannot be sold." }
+	["VIP Pass (Gift)"] = { Rarity = "Transcendent", Cost = 0, IsGift = true, Action = "Consume", Buff = "Gamepass", Unlock = "VIP", Desc = "Permanently unlocks VIP status. Cannot be sold." },
+	["2x Item Drops (Gift)"] = { Rarity = "Transcendent", Cost = 0, IsGift = true, Action = "Consume", Buff = "Gamepass", Unlock = "DoubleDrops", Desc = "Permanently unlocks 2x Item Drops from combat. Cannot be sold." },
+	["2x Battle Speed (Gift)"] = { Rarity = "Transcendent", Cost = 0, IsGift = true, Action = "Consume", Buff = "Gamepass", Unlock = "DoubleSpeed", Desc = "Permanently doubles the speed of combat turns. Cannot be sold." },
+
+	-- [[ THE FIX: Added Backpack Expansion Gift ]]
+	["Backpack Expansion (Gift)"] = { Rarity = "Transcendent", Cost = 0, IsGift = true, Action = "Consume", Buff = "Gamepass", Unlock = "BackpackExpansion", Desc = "Permanently adds +50 slots to your Max Inventory capacity. Cannot be sold." }
 }
 
 ItemData.ForgeRecipes = {
@@ -72,20 +75,22 @@ ItemData.ForgeRecipes = {
 	["Standard Titan Serum"] = { Result = "Spinal Fluid Syringe", ReqAmt = 10, DewCost = 50000 },
 	["Spinal Fluid Syringe"] = { Result = "Ymir's Clay Fragment", ReqAmt = 10, DewCost = 1000000 },
 
-	-- Perfect 1-to-1 linear progression through the Forge!
 	["Clan Blood Vial"] = { Result = "Titan Hardening Extract", ReqAmt = 5, DewCost = 100000 },
 	["Titan Hardening Extract"] = { Result = "Ancestral Awakening Serum", ReqAmt = 5, DewCost = 1000000 }
 }
 
 ItemData.Gamepasses = {
-	-- [[ THE FIX: Added GiftID mappings so the ShopTab knows which Developer Product to prompt! ]]
 	{ ID = 1749846514, GiftID = 3562817556, Name = "Auto Train", Desc = "Passively generates Training XP in the background.", Key = "AutoTrain" },
 	{ ID = 1748534838, GiftID = 3562817710, Name = "2x XP & Funds", Desc = "Doubles all XP and Dews gained from combat and training.", Key = "DoubleXP" },
 	{ ID = 1748263337, GiftID = 3562817821, Name = "Titan Vault Expansion", Desc = "Unlocks slots 4, 5, and 6 in the Titan vault.", Key = "TitanVault" },
 	{ ID = 1760797262, GiftID = 3562817914, Name = "Clan Vault Expansion", Desc = "Unlocks slots 4, 5, and 6 in the Clan vault.", Key = "ClanVault" },
-	{ ID = 1747847881, GiftID = 3562817987, Name = "VIP Pass", Desc = "Exclusive Golden Chat Tag, 1 Free Shop Reroll, +25% Auto-Train Synergy!", Key = "VIP" }
-}
+	{ ID = 1747847881, GiftID = 3562817987, Name = "VIP Pass", Desc = "Exclusive Golden Chat Tag, 1 Free Shop Reroll, +25% Auto-Train Synergy!", Key = "VIP" },
 
+	-- [[ THE FIX: Added Backpack Expansion Gamepass ]]
+	{ ID = 1772364456, GiftID = 3564165877, Name = "2x Item Drops", Desc = "Doubles the amount of items dropped from bosses and enemies.", Key = "DoubleDrops" },
+	{ ID = 1772394444, GiftID = 3564165946, Name = "2x Battle Speed", Desc = "Doubles the animation speed and turn resolution in combat.", Key = "DoubleSpeed" },
+	{ ID = 1772982444, GiftID = 3564166063, Name = "Backpack Expansion", Desc = "Permanently adds +50 slots to your Max Inventory capacity.", Key = "BackpackExpansion" }
+}
 
 ItemData.Products = {
 	{ ID = 3557925572, Name = "Shop Reroll", Desc = "Instantly restocks the Military Supply with new items.", IsReroll = true },
@@ -97,12 +102,16 @@ ItemData.Products = {
 	{ ID = 3557938597, Name = "1x Clan Vial", Desc = "Grants one Clan Blood Vial.", Reward = "Item", ItemName = "Clan Blood Vial", Amount = 1 },
 	{ ID = 3557938636, Name = "5x Clan Vials", Desc = "Grants five Clan Blood Vials.", Reward = "Item", ItemName = "Clan Blood Vial", Amount = 5 },
 
-	-- Note: Match these IDs to the GiftID parameters in the Gamepasses table above!
 	{ ID = 3562817556, Name = "Gift: Auto Train", Desc = "Grants a tradable Auto Train pass.", Reward = "Item", ItemName = "Auto Train (Gift)", Amount = 1 },
 	{ ID = 3562817710, Name = "Gift: 2x XP & Funds", Desc = "Grants a tradable 2x XP pass.", Reward = "Item", ItemName = "2x XP & Funds (Gift)", Amount = 1 },
 	{ ID = 3562817821, Name = "Gift: Titan Vault", Desc = "Grants a tradable Titan Vault Expansion.", Reward = "Item", ItemName = "Titan Vault Expansion (Gift)", Amount = 1 },
 	{ ID = 3562817914, Name = "Gift: Clan Vault", Desc = "Grants a tradable Clan Vault Expansion.", Reward = "Item", ItemName = "Clan Vault Expansion (Gift)", Amount = 1 },
-	{ ID = 3562817987, Name = "Gift: VIP Pass", Desc = "Grants a tradable VIP Pass.", Reward = "Item", ItemName = "VIP Pass (Gift)", Amount = 1 }
+	{ ID = 3562817987, Name = "Gift: VIP Pass", Desc = "Grants a tradable VIP Pass.", Reward = "Item", ItemName = "VIP Pass (Gift)", Amount = 1 },
+
+	-- [[ THE FIX: Added Backpack Expansion Gift Product ]]
+	{ ID = 3564165877, Name = "Gift: 2x Item Drops", Desc = "Grants a tradable 2x Drops pass.", Reward = "Item", ItemName = "2x Item Drops (Gift)", Amount = 1 },
+	{ ID = 3564165946, Name = "Gift: 2x Battle Speed", Desc = "Grants a tradable 2x Battle Speed pass.", Reward = "Item", ItemName = "2x Battle Speed (Gift)", Amount = 1 },
+	{ ID = 3564166063, Name = "Gift: Backpack Expansion", Desc = "Grants a tradable Backpack Expansion pass.", Reward = "Item", ItemName = "Backpack Expansion (Gift)", Amount = 1 }
 }
 
 return ItemData
