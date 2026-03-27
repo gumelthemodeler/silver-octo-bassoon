@@ -13,7 +13,6 @@ local GameDataStore = DataStoreService:GetDataStore("AoT_Data_V3")
 local BackupDataStore = DataStoreService:GetDataStore("AoT_Backups_V1") 
 local RegimentStore = DataStoreService:GetDataStore("RegimentWars_V1")
 
--- [[ LEADERBOARD DATA STORES ]]
 local PrestigeLB = DataStoreService:GetOrderedDataStore("Global_Prestige_LB_V1")
 local EloLB = DataStoreService:GetOrderedDataStore("Global_Elo_LB_V1")
 local LBCache = { Prestige = {}, Elo = {} }
@@ -38,11 +37,15 @@ if not RemotesFolder:FindFirstChild("GetShopData") then
 	local rf = Instance.new("RemoteFunction"); rf.Name = "GetShopData"; rf.Parent = RemotesFolder
 end
 
--- [[ THE FIX: LIVE-SPLICING LEADERBOARD REMOTE ]]
-if not RemotesFolder:FindFirstChild("GetLeaderboardData") then
-	local rf = Instance.new("RemoteFunction"); rf.Name = "GetLeaderboardData"; rf.Parent = RemotesFolder
+-- [[ THE FIX: Bulletproof creation and reference. ]]
+local lbRf = RemotesFolder:FindFirstChild("GetLeaderboardData")
+if not lbRf then
+	lbRf = Instance.new("RemoteFunction")
+	lbRf.Name = "GetLeaderboardData"
+	lbRf.Parent = RemotesFolder
 end
-RemotesFolder.GetLeaderboardData.OnServerInvoke = function(player, lbType)
+
+lbRf.OnServerInvoke = function(player, lbType)
 	local cache = LBCache[lbType] or {}
 	local dynamicList = {}
 
@@ -80,7 +83,6 @@ RemotesFolder.GetLeaderboardData.OnServerInvoke = function(player, lbType)
 			table.insert(finalList, {Rank = i, Name = dynamicList[i].Name, Value = dynamicList[i].Value})
 		end
 	end
-
 	return finalList
 end
 
@@ -107,7 +109,6 @@ vpEvent.Event:Connect(function(player, amount)
 	if CurrentVP[reg] then CurrentVP[reg] += amount end
 end)
 
--- [[ GLOBAL LEADERBOARD CACHING LOOP ]]
 task.spawn(function()
 	while true do
 		local currentWeek = math.floor(os.time() / 604800)
@@ -142,8 +143,7 @@ task.spawn(function()
 			end
 			LBCache.Elo = newCache
 		end)
-
-		task.wait(60) 
+		task.wait(60)
 	end
 end)
 
@@ -168,7 +168,6 @@ RemotesFolder.ClaimBounty.OnServerEvent:Connect(function(player, bType)
 	end
 end)
 
--- [[ THE FIX: Regiment Swap Cost & Security ]]
 RemotesFolder.JoinRegiment.OnServerEvent:Connect(function(player, regName)
 	local currentReg = player:GetAttribute("Regiment") or "Cadet Corps"
 	if currentReg ~= "Cadet Corps" and currentReg ~= regName then
@@ -196,7 +195,6 @@ pcall(function()
 	end)
 end)
 
--- [[ THE FIX: Updated Admin Commands (Wipe, MaxStats, SetTitle) ]]
 RemotesFolder.AdminCommand.OnServerEvent:Connect(function(player, command, targetName, args)
 	if player.UserId ~= 4068160397 and player.Name ~= "girthbender1209" then player:Kick("Unauthorized Admin Access"); return end
 
@@ -229,8 +227,7 @@ RemotesFolder.AdminCommand.OnServerEvent:Connect(function(player, command, targe
 	elseif command == "GiveItem" then local safeName = args.Item:gsub("[^%w]", "") .. "Count"; targetPlayer:SetAttribute(safeName, (targetPlayer:GetAttribute(safeName) or 0) + (tonumber(args.Amount) or 1))
 	elseif command == "MaxPrestige" then 
 		targetPlayer.leaderstats.Prestige.Value = 10
-		task.spawn(function() PrestigeLB:SetAsync(tostring(targetPlayer.UserId), 10) end) -- INSTANT UPDATE
-
+		task.spawn(function() PrestigeLB:SetAsync(tostring(targetPlayer.UserId), 10) end) 
 	elseif command == "SetTitan" then targetPlayer:SetAttribute("Titan", tostring(args))
 	elseif command == "SetClan" then targetPlayer:SetAttribute("Clan", tostring(args))
 	elseif command == "SetTitle" then targetPlayer:SetAttribute("CustomTitle", tostring(args))
@@ -253,7 +250,6 @@ RemotesFolder.AdminCommand.OnServerEvent:Connect(function(player, command, targe
 		for k, v in pairs(DefaultData) do if k ~= "Prestige" and k ~= "Dews" and k ~= "Elo" then targetPlayer:SetAttribute(k, v) end end
 		for k, v in pairs(savedGamepasses) do targetPlayer:SetAttribute(k, v) end
 
-		-- INSTANT UPDATE FOR WIPES
 		task.spawn(function() 
 			PrestigeLB:SetAsync(tostring(targetPlayer.UserId), 0)
 			EloLB:SetAsync(tostring(targetPlayer.UserId), 1000)
