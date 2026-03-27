@@ -14,6 +14,14 @@ local BuyAction = Network:FindFirstChild("ShopAction") or Instance.new("RemoteEv
 BuyAction.Name = "ShopAction"
 local NotificationEvent = Network:WaitForChild("NotificationEvent")
 
+local PathNodes = {
+	["Path of the Striker"] = { Stat = "DMG", Cost = 5, Increment = 5, MaxLevel = 10, Desc = "+5% Base Damage" },
+	["Path of the Phantom"] = { Stat = "DODGE", Cost = 8, Increment = 2, MaxLevel = 10, Desc = "+2% Dodge Chance" },
+	["Path of the Juggernaut"] = { Stat = "MAX HP", Cost = 5, Increment = 50, MaxLevel = 10, Desc = "+50 Max HP" },
+	["Path of the Executioner"] = { Stat = "CRIT", Cost = 10, Increment = 2, MaxLevel = 10, Desc = "+2% Crit Chance" },
+	["Path of the Breaker"] = { Stat = "IGNORE", Cost = 15, Increment = 5, MaxLevel = 5, Desc = "+5% Armor Penetration" }
+}
+
 local itemPool = {}
 for name, data in pairs(ItemData.Equipment) do table.insert(itemPool, {Name = name, Data = data}) end
 for name, data in pairs(ItemData.Consumables) do table.insert(itemPool, {Name = name, Data = data}) end
@@ -57,7 +65,21 @@ local function GenerateShopItems(seed)
 	return shopItems
 end
 
-GetShopData.OnServerInvoke = function(player)
+GetShopData.OnServerInvoke = function(player, requestType)
+	-- [[ THE FIX: Provide Path Node Data if requested ]]
+	if requestType == "PathsShop" then
+		local pData = {}
+		for nodeName, nodeData in pairs(PathNodes) do
+			local currentLvl = player:GetAttribute("PathNode_" .. nodeName) or 0
+			table.insert(pData, {
+				Name = nodeName, Desc = nodeData.Desc, 
+				CurrentLevel = currentLvl, MaxLevel = nodeData.MaxLevel, 
+				Cost = currentLvl < nodeData.MaxLevel and nodeData.Cost or "MAX"
+			})
+		end
+		return { Nodes = pData, Dust = player:GetAttribute("PathDust") or 0 }
+	end
+
 	local globalSeed = math.floor(os.time() / 600)
 	local personalSeed = player:GetAttribute("PersonalShopSeed") or 0
 
@@ -81,7 +103,45 @@ GetShopData.OnServerInvoke = function(player)
 	return { Items = items, TimeLeft = timeRemaining }
 end
 
-BuyAction.OnServerEvent:Connect(function(player, itemName)
+BuyAction.OnServerEvent:Connect(function(player, actionType, itemName)
+	-- [[ THE FIX: Handling Path Dust Purchases ]]
+	if actionType == "BuyPathNode" then
+		local nodeData = PathNodes[itemName]
+		if not nodeData then return end
+
+		local currentLvl = player:GetAttribute("PathNode_" .. itemName) or 0
+		if currentLvl >= nodeData.MaxLevel then return end
+
+		local dust = player:GetAttribute("PathDust") or 0
+		if dust >= nodeData.Cost then
+			player:SetAttribute("PathDust", dust - nodeData.Cost)
+			player:SetAttribute("PathNode_" .. itemName, currentLvl + 1)
+
+			-- Update the permanent Path Awakened string
+			local currentString = player:GetAttribute("PathsAwakened") or ""
+			-- Clean out the old value for this stat if it exists to rewrite it
+			local newString = ""
+			for stat in string.gmatch(currentString, "[^|]+") do
+				if not string.find(stat, nodeData.Stat) then newString = newString .. stat .. "|" end
+			end
+			-- Append the newly calculated total stat
+			local totalStatValue = (currentLvl + 1) * nodeData.Increment
+			newString = newString .. " +" .. totalStatValue .. " " .. nodeData.Stat .. "|"
+			player:SetAttribute("PathsAwakened", newString)
+
+			NotificationEvent:FireClient(player, "Coordinate Memory Unlocked!", "Success")
+		else
+			NotificationEvent:FireClient(player, "Not enough Path Dust!", "Error")
+		end
+		return
+	elseif actionType == "ClosePathsShop" then
+		-- As requested, closing the shop wipes remaining dust permanently.
+		player:SetAttribute("PathDust", 0)
+		NotificationEvent:FireClient(player, "Path Dust has scattered to the wind.", "Error")
+		return
+	end
+
+	-- Standard Dews Shop Processing
 	local globalSeed = math.floor(os.time() / 600)
 	local activeSeed = player:GetAttribute("PersonalShopSeed") or globalSeed
 	local availableItems = GenerateShopItems(activeSeed)
@@ -95,7 +155,6 @@ BuyAction.OnServerEvent:Connect(function(player, itemName)
 		local boughtStr = player:GetAttribute("ShopPurchases_Data") or ""
 		if string.find(boughtStr, "%[" .. targetItem.Name .. "%]") then return end 
 
-		-- [[ THE FIX: Inventory Cap Protection ]]
 		if GameData.GetInventoryCount(player) >= GameData.GetMaxInventory(player) then
 			NotificationEvent:FireClient(player, "Your inventory is full! Sell items at the Forge.", "Error")
 			return
