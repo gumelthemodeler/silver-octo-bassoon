@@ -110,12 +110,12 @@ local function RenderStatuses(container, combatant)
 	end
 
 	if combatant.Statuses then
-		if combatant.Statuses.Dodge and combatant.Statuses.Dodge > 0 then addIcon("DGE", Color3.fromRGB(30, 60, 120), Color3.fromRGB(60, 100, 200), "Dodge Active: Evades Next Attack") end
-		if combatant.Statuses.Transformed and combatant.Statuses.Transformed > 0 then addIcon("TTN", Color3.fromRGB(150, 40, 40), Color3.fromRGB(200, 60, 60), "Titan Form Active") end
+		if type(combatant.Statuses.Dodge) == "number" and combatant.Statuses.Dodge > 0 then addIcon("DGE", Color3.fromRGB(30, 60, 120), Color3.fromRGB(60, 100, 200), "Dodge Active: Evades Next Attack") end
+		if type(combatant.Statuses.Transformed) == "number" and combatant.Statuses.Transformed > 0 then addIcon("TTN", Color3.fromRGB(150, 40, 40), Color3.fromRGB(200, 60, 60), "Titan Form Active") end
 
-		-- FIX: Dynamic debuff rendering including DOTs, immunities, and guards for MOBILE
+		-- [[ THE FIX: Ignore the string-based 'Telegraphing' tag ]]
 		for sName, duration in pairs(combatant.Statuses) do
-			if duration > 0 then
+			if type(duration) == "number" and duration > 0 then
 				if sName == "Crippled" then addIcon("CRP", Color3.fromRGB(80, 80, 80), Color3.fromRGB(120, 120, 120), "Crippled: Speed & Dodge Halved (" .. duration .. " turns)")
 				elseif sName == "Immobilized" then addIcon("IMB", Color3.fromRGB(40, 120, 40), Color3.fromRGB(80, 200, 80), "Immobilized: 0 Speed & 0 Dodge (" .. duration .. " turns)")
 				elseif sName == "Weakened" then addIcon("WEK", Color3.fromRGB(120, 80, 40), Color3.fromRGB(200, 120, 60), "Weakened: Damage Halved (" .. duration .. " turns)")
@@ -336,7 +336,6 @@ function CombatTab.Init(parentFrame, tooltipMgr, switchTabFunc)
 	LeaveBtn = Instance.new("TextButton", BottomArea); LeaveBtn.Size = UDim2.new(0.6, 0, 0, 40); LeaveBtn.BackgroundColor3 = Color3.fromRGB(80, 160, 80); LeaveBtn.Font = Enum.Font.GothamBlack; LeaveBtn.TextColor3 = Color3.fromRGB(25, 25, 30); LeaveBtn.TextSize = 16; LeaveBtn.Text = "RETURN TO BASE"; LeaveBtn.Visible = false; LeaveBtn.AnchorPoint = Vector2.new(0.5, 0.5); LeaveBtn.Position = UDim2.new(0.5, 0, 0.5, 0)
 	Instance.new("UICorner", LeaveBtn).CornerRadius = UDim.new(0, 6)
 
-	-- [[ THE FIX: Makes ContentFrame (parentFrame) and NavWrapper visible again so tabs actually show up! ]]
 	LeaveBtn.MouseButton1Click:Connect(function()
 		EffectsManager.PlaySFX("Click")
 		MainFrame.Visible = false; isBattleActive = false
@@ -345,8 +344,6 @@ function CombatTab.Init(parentFrame, tooltipMgr, switchTabFunc)
 		if topGui then
 			if topGui:FindFirstChild("TopBar") then topGui.TopBar.Visible = true end
 			if topGui:FindFirstChild("NavWrapper") then topGui.NavWrapper.Visible = true end
-
-			-- Force the Battle tab to re-open so it doesn't stay completely blank
 			for _, c in ipairs(parentFrame:GetChildren()) do
 				if c.Name == "BattleFrame" then c.Visible = true end
 			end
@@ -364,6 +361,7 @@ function CombatTab.Init(parentFrame, tooltipMgr, switchTabFunc)
 
 	local function UpdateActionGrid(battleState)
 		inputLocked = false
+		ActionGrid.Visible = true
 		for _, child in ipairs(ActionGrid:GetChildren()) do if child:IsA("TextButton") then child:Destroy() end end
 
 		local p = battleState.Player
@@ -376,6 +374,13 @@ function CombatTab.Init(parentFrame, tooltipMgr, switchTabFunc)
 		local function CreateBtn(sName, color, order)
 			local sData = SkillData.Skills[sName]
 			if not sData then return end
+
+			local sRange = sData.Range or "Any"
+			if battleState.Context.Range == "Long" then
+				if sRange == "Close" then return end 
+			elseif battleState.Context.Range == "Close" then
+				if sRange == "Long" then return end 
+			end
 
 			if sName == "Transform" and (pClan == "Ackerman" or pClan == "Awakened Ackerman") then return end
 
@@ -409,7 +414,7 @@ function CombatTab.Init(parentFrame, tooltipMgr, switchTabFunc)
 
 			btn.MouseButton1Click:Connect(function()
 				if isBattleActive and not inputLocked and isReady then
-					if sName == "Retreat" or sData.Effect == "Rest" or sData.Effect == "TitanRest" or sData.Effect == "Eject" or sData.Effect == "Transform" or sData.Effect == "Block" or sData.Effect == "Flee" then
+					if sName == "Advance Maneuver" or sName == "Retreat" or sData.Effect == "Rest" or sData.Effect == "TitanRest" or sData.Effect == "Eject" or sData.Effect == "Transform" or sData.Effect == "Block" or sData.Effect == "Flee" then
 						if cachedTooltipMgr then cachedTooltipMgr.Hide() end
 						LockGrid()
 						Network:WaitForChild("CombatAction"):FireServer("Attack", {SkillName = sName})
@@ -425,14 +430,16 @@ function CombatTab.Init(parentFrame, tooltipMgr, switchTabFunc)
 			btn.MouseEnter:Connect(function() if cachedTooltipMgr then cachedTooltipMgr.Show(sData.Description or sName) end end)
 			btn.MouseLeave:Connect(function() if cachedTooltipMgr then cachedTooltipMgr.Hide() end end)
 		end
-
+		
+		local orderIndex = 0
+		
 		if isTransformed then
 			CreateBtn("Titan Recover", Color3.fromRGB(40, 140, 80), 1)
 			CreateBtn("Titan Punch", Color3.fromRGB(120, 40, 40), 2)
 			CreateBtn("Titan Kick", Color3.fromRGB(140, 60, 40), 3)
 			CreateBtn("Eject", Color3.fromRGB(140, 40, 40), 4)
 
-			local orderIndex = 5
+			orderIndex = 5
 			for sName, sData in pairs(SkillData.Skills) do
 				if sName == "Titan Recover" or sName == "Eject" or sName == "Titan Punch" or sName == "Titan Kick" or sName == "Transform" then continue end
 				if sData.Requirement == pTitan or sData.Requirement == "AnyTitan" or sData.Requirement == "Transformed" then
@@ -443,6 +450,7 @@ function CombatTab.Init(parentFrame, tooltipMgr, switchTabFunc)
 		else
 			CreateBtn("Basic Slash", Color3.fromRGB(120, 40, 40), 1)
 			CreateBtn("Maneuver", Color3.fromRGB(40, 80, 140), 2)
+			CreateBtn("Advance Maneuver", Color3.fromRGB(40, 80, 140), 2)
 			CreateBtn("Recover", Color3.fromRGB(40, 140, 80), 3)
 			CreateBtn("Retreat", Color3.fromRGB(60, 60, 70), 4)
 
@@ -450,9 +458,9 @@ function CombatTab.Init(parentFrame, tooltipMgr, switchTabFunc)
 				CreateBtn("Transform", Color3.fromRGB(200, 150, 50), 5)
 			end
 
-			local orderIndex = 6
+			orderIndex = 6
 			for sName, sData in pairs(SkillData.Skills) do
-				if sName == "Basic Slash" or sName == "Maneuver" or sName == "Recover" or sName == "Retreat" or sName == "Transform" then continue end
+				if sName == "Basic Slash" or sName == "Maneuver" or sName == "Advance Maneuver" or sName == "Recover" or sName == "Retreat" or sName == "Transform" then continue end
 				local req = sData.Requirement
 				if req == pStyle or req == pClan or (req == "Ackerman" and pClan == "Awakened Ackerman") or (req == "ODM" and isODM) then
 					CreateBtn(sName, Color3.fromRGB(45, 40, 60), sData.Order or orderIndex)
@@ -461,25 +469,23 @@ function CombatTab.Init(parentFrame, tooltipMgr, switchTabFunc)
 			end
 		end
 
-		task.delay(0.05, function() ActionGrid.CanvasSize = UDim2.new(0, 0, 0, gridLayout.AbsoluteContentSize.Y + 20) end)
+		task.delay(0.05, function() ActionGrid.CanvasSize = UDim2.new(0, 0, 0, math.ceil(orderIndex / 4) * 55) end)
 	end
 
 	local function SyncBars(battleState)
 		local p = battleState.Player
 		local e = battleState.Enemy
-		local tInfo = TweenInfo.new(0.4, Enum.EasingStyle.Cubic, Enum.EasingDirection.Out)
-
-		TweenService:Create(PlayerHPBar, tInfo, {Size = UDim2.new(math.clamp(p.HP / p.MaxHP, 0, 1), 0, 1, 0)}):Play()
+		local tInfo = TweenService:Create(PlayerHPBar, TweenInfo.new(0.4, Enum.EasingStyle.Cubic, Enum.EasingDirection.Out), {Size = UDim2.new(math.clamp(p.HP / p.MaxHP, 0, 1), 0, 1, 0)}):Play()
 		PlayerHPText.Text = "HP: " .. math.floor(p.HP) .. " / " .. math.floor(p.MaxHP)
 		PlayerNameText.Text = player.Name
 
-		TweenService:Create(PlayerGasBar, tInfo, {Size = UDim2.new(math.clamp(p.Gas / p.MaxGas, 0, 1), 0, 1, 0)}):Play()
+		TweenService:Create(PlayerGasBar, TweenInfo.new(0.4, Enum.EasingStyle.Cubic, Enum.EasingDirection.Out), {Size = UDim2.new(math.clamp(p.Gas / p.MaxGas, 0, 1), 0, 1, 0)}):Play()
 		PlayerGasText.Text = "GAS: " .. math.floor(p.Gas) .. " / " .. math.floor(p.MaxGas)
 
 		if p.Titan and p.Titan ~= "None" and p.Clan ~= "Ackerman" and p.Clan ~= "Awakened Ackerman" then
 			PlayerNrgContainer.Visible = true
 			local pNrg = p.TitanEnergy or 0
-			TweenService:Create(PlayerNrgBar, tInfo, {Size = UDim2.new(math.clamp(pNrg / 100, 0, 1), 0, 1, 0)}):Play()
+			TweenService:Create(PlayerNrgBar, TweenInfo.new(0.4, Enum.EasingStyle.Cubic, Enum.EasingDirection.Out), {Size = UDim2.new(math.clamp(pNrg / 100, 0, 1), 0, 1, 0)}):Play()
 			PlayerNrgText.Text = "HEAT: " .. math.floor(pNrg) .. " / 100"
 		else
 			PlayerNrgContainer.Visible = false
@@ -489,7 +495,7 @@ function CombatTab.Init(parentFrame, tooltipMgr, switchTabFunc)
 
 		if e.MaxGateHP and e.MaxGateHP > 0 then
 			EnemyShieldBar.Visible = true
-			TweenService:Create(EnemyShieldBar, tInfo, {Size = UDim2.new(math.clamp(e.GateHP / e.MaxGateHP, 0, 1), 0, 1, 0)}):Play()
+			TweenService:Create(EnemyShieldBar, TweenInfo.new(0.4, Enum.EasingStyle.Cubic, Enum.EasingDirection.Out), {Size = UDim2.new(math.clamp(e.GateHP / e.MaxGateHP, 0, 1), 0, 1, 0)}):Play()
 			if e.GateHP > 0 then
 				if e.GateType == "Steam" then EnemyHPText.Text = e.GateType:upper() .. ": " .. math.floor(e.GateHP) .. " TURNS LEFT"
 				else EnemyHPText.Text = e.GateType:upper() .. ": " .. math.floor(e.GateHP) .. " / " .. math.floor(e.MaxGateHP) end
@@ -499,15 +505,124 @@ function CombatTab.Init(parentFrame, tooltipMgr, switchTabFunc)
 			EnemyHPText.Text = "HP: " .. math.floor(e.HP) .. " / " .. math.floor(e.MaxHP)
 		end
 
-		TweenService:Create(EnemyHPBar, tInfo, {Size = UDim2.new(math.clamp(e.HP / e.MaxHP, 0, 1), 0, 1, 0)}):Play()
+		TweenService:Create(EnemyHPBar, TweenInfo.new(0.4, Enum.EasingStyle.Cubic, Enum.EasingDirection.Out), {Size = UDim2.new(math.clamp(e.HP / e.MaxHP, 0, 1), 0, 1, 0)}):Play()
 
-		RenderStatuses(PlayerStatusBox, p)
-		RenderStatuses(EnemyStatusBox, e)
+		RenderStatuses(PlayerStatusBox, p, false)
+		RenderStatuses(EnemyStatusBox, e, true)
 
 		if battleState.Context.IsStoryMission then WaveLabel.Text = "WAVE " .. battleState.Context.CurrentWave .. " / " .. battleState.Context.TotalWaves
 		elseif battleState.Context.IsPaths then WaveLabel.Text = "MEMORY " .. (player:GetAttribute("PathsFloor") or 1)
 		else WaveLabel.Text = "RANDOM ENCOUNTER" end
 	end
+
+	-- [[ THE FIX: PATHS SHOP UI OVERLAY ]]
+	local PathsShopFrame = Instance.new("Frame", parentFrame.Parent)
+	PathsShopFrame.Name = "PathsShopOverlay"
+	PathsShopFrame.Size = UDim2.new(0.95, 0, 0.8, 0)
+	PathsShopFrame.Position = UDim2.new(0.5, 0, 0.5, 0)
+	PathsShopFrame.AnchorPoint = Vector2.new(0.5, 0.5)
+	PathsShopFrame.BackgroundColor3 = Color3.fromRGB(15, 15, 20)
+	PathsShopFrame.Visible = false
+	PathsShopFrame.ZIndex = 300
+	Instance.new("UICorner", PathsShopFrame).CornerRadius = UDim.new(0, 8)
+	local pStroke = Instance.new("UIStroke", PathsShopFrame); pStroke.Color = Color3.fromRGB(80, 200, 255); pStroke.Thickness = 2
+
+	local PathsTitle = Instance.new("TextLabel", PathsShopFrame)
+	PathsTitle.Size = UDim2.new(1, 0, 0, 40)
+	PathsTitle.BackgroundTransparency = 1
+	PathsTitle.Font = Enum.Font.GothamBlack
+	PathsTitle.TextColor3 = Color3.fromRGB(200, 240, 255)
+	PathsTitle.TextSize = 24
+	PathsTitle.Text = "THE COORDINATE"
+	ApplyGradient(PathsTitle, Color3.fromRGB(150, 220, 255), Color3.fromRGB(50, 150, 255))
+
+	local DustLabel = Instance.new("TextLabel", PathsShopFrame)
+	DustLabel.Size = UDim2.new(1, 0, 0, 30)
+	DustLabel.Position = UDim2.new(0, 0, 0, 40)
+	DustLabel.BackgroundTransparency = 1
+	DustLabel.Font = Enum.Font.GothamBold
+	DustLabel.TextColor3 = Color3.fromRGB(200, 200, 200)
+	DustLabel.TextSize = 16
+	DustLabel.Text = "PATH DUST: 0"
+
+	local NodesGrid = Instance.new("ScrollingFrame", PathsShopFrame)
+	NodesGrid.Size = UDim2.new(1, -20, 1, -140)
+	NodesGrid.Position = UDim2.new(0, 10, 0, 80)
+	NodesGrid.BackgroundTransparency = 1
+	NodesGrid.ScrollBarThickness = 4
+	NodesGrid.BorderSizePixel = 0
+	local ngLayout = Instance.new("UIGridLayout", NodesGrid)
+	ngLayout.CellSize = UDim2.new(0.48, 0, 0, 80)
+	ngLayout.CellPadding = UDim2.new(0.02, 0, 0, 10)
+	ngLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
+
+	local LeavePathsBtn = Instance.new("TextButton", PathsShopFrame)
+	LeavePathsBtn.Size = UDim2.new(0.6, 0, 0, 40)
+	LeavePathsBtn.Position = UDim2.new(0.2, 0, 1, -50)
+	LeavePathsBtn.Font = Enum.Font.GothamBlack
+	LeavePathsBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+	LeavePathsBtn.TextSize = 12
+	LeavePathsBtn.Text = "LEAVE PATHS (LOSE DUST)"
+	ApplyButtonGradient(LeavePathsBtn, Color3.fromRGB(150, 40, 40), Color3.fromRGB(80, 20, 20), Color3.fromRGB(200, 60, 60))
+
+	local function RefreshPathsShop()
+		for _, c in ipairs(NodesGrid:GetChildren()) do if c:IsA("Frame") then c:Destroy() end end
+		local shopData = Network:WaitForChild("GetShopData"):InvokeServer("PathsShop")
+		DustLabel.Text = "PATH DUST: <font color='#55FFFF'>" .. (shopData.Dust or 0) .. "</font>"
+		DustLabel.RichText = true
+
+		for _, node in ipairs(shopData.Nodes) do
+			local card = Instance.new("Frame", NodesGrid)
+			card.BackgroundColor3 = Color3.fromRGB(25, 25, 30)
+			Instance.new("UICorner", card).CornerRadius = UDim.new(0, 6)
+			Instance.new("UIStroke", card).Color = Color3.fromRGB(60, 100, 150)
+
+			local nTitle = Instance.new("TextLabel", card)
+			nTitle.Size = UDim2.new(1, -10, 0, 20); nTitle.Position = UDim2.new(0, 5, 0, 5); nTitle.BackgroundTransparency = 1
+			nTitle.Font = Enum.Font.GothamBold; nTitle.TextColor3 = Color3.fromRGB(255, 255, 255); nTitle.TextSize = 12
+			nTitle.TextXAlignment = Enum.TextXAlignment.Left
+			nTitle.Text = node.Name .. " (" .. node.CurrentLevel .. "/" .. node.MaxLevel .. ")"
+
+			local nDesc = Instance.new("TextLabel", card)
+			nDesc.Size = UDim2.new(1, -10, 0, 20); nDesc.Position = UDim2.new(0, 5, 0, 25); nDesc.BackgroundTransparency = 1
+			nDesc.Font = Enum.Font.GothamMedium; nDesc.TextColor3 = Color3.fromRGB(180, 180, 180); nDesc.TextSize = 11
+			nDesc.TextXAlignment = Enum.TextXAlignment.Left; nDesc.Text = node.Desc
+
+			local buyBtn = Instance.new("TextButton", card)
+			buyBtn.Size = UDim2.new(1, -10, 0, 25); buyBtn.Position = UDim2.new(0, 5, 1, -30)
+			buyBtn.Font = Enum.Font.GothamBold; buyBtn.TextSize = 12
+
+			if type(node.Cost) == "number" then
+				buyBtn.Text = "UNLOCK (" .. node.Cost .. " DUST)"
+				ApplyButtonGradient(buyBtn, Color3.fromRGB(40, 120, 160), Color3.fromRGB(20, 60, 80), Color3.fromRGB(60, 150, 200))
+				buyBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+				buyBtn.MouseButton1Click:Connect(function()
+					Network:WaitForChild("ShopAction"):FireServer("BuyPathNode", node.Name)
+					task.wait(0.2) 
+					RefreshPathsShop()
+				end)
+			else
+				buyBtn.Text = "MAXED"
+				ApplyButtonGradient(buyBtn, Color3.fromRGB(40, 40, 45), Color3.fromRGB(20, 20, 25), Color3.fromRGB(60, 60, 70))
+				buyBtn.TextColor3 = Color3.fromRGB(120, 120, 120)
+			end
+		end
+
+		task.delay(0.05, function()
+			NodesGrid.CanvasSize = UDim2.new(0, 0, 0, math.ceil(#shopData.Nodes / 2) * 90)
+		end)
+	end
+
+	LeavePathsBtn.MouseButton1Click:Connect(function()
+		Network:WaitForChild("ShopAction"):FireServer("ClosePathsShop")
+		PathsShopFrame.Visible = false
+		parentFrame.Visible = true
+		local topGui = parentFrame:FindFirstAncestorOfClass("ScreenGui")
+		if topGui then
+			if topGui:FindFirstChild("TopBar") then topGui.TopBar.Visible = true end
+			if topGui:FindFirstChild("NavWrapper") then topGui.NavWrapper.Visible = true end
+		end
+	end)
 
 	Network:WaitForChild("CombatUpdate").OnClientEvent:Connect(function(action, data)
 		if action == "Start" then
@@ -517,13 +632,30 @@ function CombatTab.Init(parentFrame, tooltipMgr, switchTabFunc)
 			local topGui = parentFrame:FindFirstAncestorOfClass("ScreenGui")
 			if topGui then
 				if topGui:FindFirstChild("TopBar") then topGui.TopBar.Visible = false end
-				if topGui:FindFirstChild("NavWrapper") then topGui.NavWrapper.Visible = false end
+				if topGui:FindFirstChild("NavBar") then topGui.NavBar.Visible = false end
 			end
 			isBattleActive = true
 
 			if data.Battle and data.Battle.Context.IsPaths then StartPathsAmbient() end
 
 			SyncBars(data.Battle); UpdateActionGrid(data.Battle); AddLogMessage(data.LogMsg, false)
+
+		elseif action == "StartMinigame" then
+			MainFrame.Visible = true; parentFrame.Visible = false 
+			TargetMenu.Visible = false; ActionGrid.Visible = false; LeaveBtn.Visible = false
+			isBattleActive = true
+			SyncBars(data.Battle); AddLogMessage(data.LogMsg, false)
+
+			local MinigameHandler = require(script.Parent.Parent:WaitForChild("MinigameHandler"))
+			MinigameHandler.Start(data.MinigameType, MainFrame, data.Battle, function(resultData)
+				Network:WaitForChild("CombatAction"):FireServer("MinigameResult", resultData)
+				ActionGrid.Visible = true
+			end)
+
+		elseif action == "PathsDeath" then
+			MainFrame.Visible = false; isBattleActive = false
+			PathsShopFrame.Visible = true
+			RefreshPathsShop()
 
 		elseif action == "TurnStrike" then
 			ShakeUI(data.ShakeType); SyncBars(data.Battle); AddLogMessage(data.LogMsg, true)
