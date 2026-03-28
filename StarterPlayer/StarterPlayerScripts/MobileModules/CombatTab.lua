@@ -1,5 +1,6 @@
 -- @ScriptType: ModuleScript
 -- @ScriptType: ModuleScript
+-- @ScriptType: ModuleScript
 local CombatTab = {}
 
 local Players = game:GetService("Players")
@@ -215,103 +216,77 @@ function CombatTab.Init(parentFrame, tooltipMgr, switchTabFunc)
 	local pLayout = Instance.new("UIListLayout", pStatsArea); pLayout.SortOrder = Enum.SortOrder.LayoutOrder; pLayout.Padding = UDim.new(0.05, 0); pLayout.VerticalAlignment = Enum.VerticalAlignment.Center
 
 	PlayerNameText = Instance.new("TextLabel", pStatsArea)
-	PlayerNameText.Size = UDim2.new(1, 0, 0.25, 0); PlayerNameText.BackgroundTransparency = 1; PlayerNameText.Font = Enum.Font.GothamBlack; PlayerNameText.TextColor3 = Color3.fromRGB(255, 255, 255); PlayerNameText.TextSize = 14; PlayerNameText.TextXAlignment = Enum.TextXAlignment.Left; PlayerNameText.TextScaled = true; PlayerNameText.Text = player.Name
+	PlayerNameText.Size = UDim2.new(1, 0, 0, 15); PlayerNameText.BackgroundTransparency = 1; PlayerNameText.Font = Enum.Font.GothamBlack; PlayerNameText.TextColor3 = Color3.fromRGB(200, 220, 255); PlayerNameText.TextSize = 14; PlayerNameText.TextXAlignment = Enum.TextXAlignment.Left; PlayerNameText.TextScaled = true; PlayerNameText.Text = player.Name
 
-	PlayerHPBar, PlayerHPText = CreateBar(pStatsArea, Color3.fromRGB(220, 40, 40), Color3.fromRGB(120, 20, 20), UDim2.new(1, 0, 0.25, 0), "HP: 100", false)
-	PlayerGasBar, PlayerGasText = CreateBar(pStatsArea, Color3.fromRGB(150, 220, 255), Color3.fromRGB(60, 140, 200), UDim2.new(1, 0, 0.2, 0), "GAS: 100", false)
-	PlayerNrgBar, PlayerNrgText, PlayerNrgContainer = CreateBar(pStatsArea, Color3.fromRGB(255, 150, 50), Color3.fromRGB(180, 80, 20), UDim2.new(1, 0, 0.2, 0), "HEAT: 0", false); PlayerNrgContainer.Visible = false
+	PlayerHPBar, PlayerHPText = CreateBar(pStatsArea, Color3.fromRGB(220, 60, 60), Color3.fromRGB(140, 30, 30), UDim2.new(1, 0, 0, 14), "HP: 100", false)
+	PlayerGasBar, PlayerGasText = CreateBar(pStatsArea, Color3.fromRGB(150, 220, 255), Color3.fromRGB(60, 140, 200), UDim2.new(1, 0, 0, 12), "GAS: 100", false)
+	PlayerNrgBar, PlayerNrgText, PlayerNrgContainer = CreateBar(pStatsArea, Color3.fromRGB(255, 150, 50), Color3.fromRGB(180, 80, 20), UDim2.new(1, 0, 0, 12), "HEAT: 0", false); PlayerNrgContainer.Visible = false
 
 	PlayerStatusBox = Instance.new("Frame", pStatsArea)
-	PlayerStatusBox.Size = UDim2.new(1, 0, 0.2, 0); PlayerStatusBox.BackgroundTransparency = 1
-	local pStatusLayout = Instance.new("UIListLayout", PlayerStatusBox); pStatusLayout.FillDirection = Enum.FillDirection.Horizontal; pStatusLayout.Padding = UDim.new(0, 2)
+	PlayerStatusBox.Size = UDim2.new(1, 0, 0, 20); PlayerStatusBox.BackgroundTransparency = 1
+	local pStatusLayout = Instance.new("UIListLayout", PlayerStatusBox); pStatusLayout.FillDirection = Enum.FillDirection.Horizontal; pStatusLayout.Padding = UDim.new(0, 4)
 
-	-- VS Label
 	local vsLbl = Instance.new("TextLabel", CombatantsFrame)
 	vsLbl.Size = UDim2.new(0.1, 0, 1, 0); vsLbl.Position = UDim2.new(0.45, 0, 0, 0); vsLbl.BackgroundTransparency = 1
 	vsLbl.Font = Enum.Font.GothamBlack; vsLbl.TextColor3 = Color3.fromRGB(100, 100, 110); vsLbl.TextSize = 24; vsLbl.Text = "VS"
 
-	-- Enemy Side
 	local EnemyPanel = Instance.new("Frame", CombatantsFrame)
 	EnemyPanel.Size = UDim2.new(0.45, 0, 1, 0); EnemyPanel.Position = UDim2.new(0.55, 0, 0, 0); EnemyPanel.BackgroundTransparency = 1
 
 	eAvatarBox = Instance.new("Frame", EnemyPanel)
 	eAvatarBox.Size = UDim2.new(0.25, 0, 1, 0); eAvatarBox.Position = UDim2.new(1, 0, 0, 0); eAvatarBox.AnchorPoint = Vector2.new(1, 0); eAvatarBox.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
 	Instance.new("UIAspectRatioConstraint", eAvatarBox).AspectRatio = 1
-	Instance.new("UIStroke", eAvatarBox).Color = Color3.fromRGB(255, 255, 255); Instance.new("UIStroke", eAvatarBox).Thickness = 2
-	local eAvatarIcon = Instance.new("TextLabel", eAvatarBox); eAvatarIcon.Size = UDim2.new(1, 0, 1, 0); eAvatarIcon.BackgroundTransparency = 1; eAvatarIcon.Font = Enum.Font.GothamBlack; eAvatarIcon.TextColor3 = Color3.fromRGB(255, 0, 0); eAvatarIcon.TextScaled = true; eAvatarIcon.Text = "?"
+	Instance.new("UIStroke", eAvatarBox).Color = Color3.fromRGB(255, 100, 100); Instance.new("UIStroke", eAvatarBox).Thickness = 2
+	local eAvatarIcon = Instance.new("TextLabel", eAvatarBox); eAvatarIcon.Size = UDim2.new(1, 0, 1, 0); eAvatarIcon.BackgroundTransparency = 1; eAvatarIcon.Font = Enum.Font.GothamBlack; eAvatarIcon.TextColor3 = Color3.fromRGB(200, 50, 50); eAvatarIcon.TextScaled = true; eAvatarIcon.Text = "?"
 
 	local eStatsArea = Instance.new("Frame", EnemyPanel)
 	eStatsArea.Size = UDim2.new(0.7, 0, 1, 0); eStatsArea.Position = UDim2.new(0, 0, 0, 0); eStatsArea.BackgroundTransparency = 1
 	local eStatsLayout = Instance.new("UIListLayout", eStatsArea); eStatsLayout.SortOrder = Enum.SortOrder.LayoutOrder; eStatsLayout.Padding = UDim.new(0.05, 0); eStatsLayout.VerticalAlignment = Enum.VerticalAlignment.Center; eStatsLayout.HorizontalAlignment = Enum.HorizontalAlignment.Right
 
 	EnemyNameText = Instance.new("TextLabel", eStatsArea)
-	EnemyNameText.Size = UDim2.new(1, 0, 0.25, 0); EnemyNameText.BackgroundTransparency = 1; EnemyNameText.Font = Enum.Font.GothamBlack; EnemyNameText.TextColor3 = Color3.fromRGB(255, 80, 80); EnemyNameText.TextSize = 14; EnemyNameText.TextScaled = true; EnemyNameText.TextXAlignment = Enum.TextXAlignment.Right
+	EnemyNameText.Size = UDim2.new(1, 0, 0, 15); EnemyNameText.BackgroundTransparency = 1; EnemyNameText.Font = Enum.Font.GothamBlack; EnemyNameText.TextColor3 = Color3.fromRGB(255, 120, 120); EnemyNameText.TextSize = 14; EnemyNameText.TextScaled = true; EnemyNameText.TextXAlignment = Enum.TextXAlignment.Right
 
 	local eHpCont
-	EnemyHPBar, EnemyHPText, eHpCont = CreateBar(eStatsArea, Color3.fromRGB(220, 40, 40), Color3.fromRGB(120, 20, 20), UDim2.new(1, 0, 0.25, 0), "HP: 100", true)
+	EnemyHPBar, EnemyHPText, eHpCont = CreateBar(eStatsArea, Color3.fromRGB(220, 60, 60), Color3.fromRGB(140, 30, 30), UDim2.new(1, 0, 0, 14), "HP: 100", true)
 	EnemyShieldBar = Instance.new("Frame", eHpCont); EnemyShieldBar.Size = UDim2.new(0, 0, 1, 0); EnemyShieldBar.AnchorPoint = Vector2.new(1,0); EnemyShieldBar.Position = UDim2.new(1,0,0,0); EnemyShieldBar.BackgroundColor3 = Color3.fromRGB(220, 230, 240); Instance.new("UICorner", EnemyShieldBar).CornerRadius = UDim.new(0, 4); EnemyShieldBar.ZIndex = 5; EnemyHPText.ZIndex = 6
 
 	EnemyStatusBox = Instance.new("Frame", eStatsArea)
-	EnemyStatusBox.Size = UDim2.new(1, 0, 0.2, 0); EnemyStatusBox.BackgroundTransparency = 1
-	local eStatusLayout = Instance.new("UIListLayout", EnemyStatusBox); eStatusLayout.FillDirection = Enum.FillDirection.Horizontal; eStatusLayout.HorizontalAlignment = Enum.HorizontalAlignment.Right; eStatusLayout.Padding = UDim.new(0, 2)
+	EnemyStatusBox.Size = UDim2.new(1, 0, 0, 20); EnemyStatusBox.BackgroundTransparency = 1
+	local eStatusLayout = Instance.new("UIListLayout", EnemyStatusBox); eStatusLayout.FillDirection = Enum.FillDirection.Horizontal; eStatusLayout.HorizontalAlignment = Enum.HorizontalAlignment.Right; eStatusLayout.Padding = UDim.new(0, 4)
 
 	local FeedBox = Instance.new("Frame", MainFrame)
-	FeedBox.Size = UDim2.new(0.96, 0, 0.2, 0); FeedBox.BackgroundColor3 = Color3.fromRGB(20, 20, 25); FeedBox.ClipsDescendants = true; FeedBox.LayoutOrder = 3
-	Instance.new("UICorner", FeedBox).CornerRadius = UDim.new(0, 4); Instance.new("UIStroke", FeedBox).Color = Color3.fromRGB(0, 0, 0); Instance.new("UIStroke", FeedBox).Thickness = 2
+	FeedBox.Size = UDim2.new(0.96, 0, 0.25, 0); FeedBox.BackgroundColor3 = Color3.fromRGB(22, 22, 26); FeedBox.ClipsDescendants = true; FeedBox.LayoutOrder = 3
+	Instance.new("UICorner", FeedBox).CornerRadius = UDim.new(0, 6); local fbStroke = Instance.new("UIStroke", FeedBox); fbStroke.Color = Color3.fromRGB(60, 60, 70); fbStroke.Thickness = 1
 
 	LogText = Instance.new("TextLabel", FeedBox)
-	LogText.Size = UDim2.new(1, -10, 1, -10); LogText.Position = UDim2.new(0, 5, 0, 5); LogText.BackgroundTransparency = 1; LogText.Font = Enum.Font.GothamMedium; LogText.TextColor3 = Color3.fromRGB(230, 230, 230); LogText.TextSize = 12; LogText.TextXAlignment = Enum.TextXAlignment.Left; LogText.TextYAlignment = Enum.TextYAlignment.Bottom; LogText.TextWrapped = true; LogText.RichText = true; LogText.Text = ""
+	LogText.Size = UDim2.new(1, -20, 1, -10); LogText.Position = UDim2.new(0, 10, 0, 5); LogText.BackgroundTransparency = 1; LogText.Font = Enum.Font.GothamMedium; LogText.TextColor3 = Color3.fromRGB(230, 230, 230); LogText.TextSize = 13; LogText.TextXAlignment = Enum.TextXAlignment.Left; LogText.TextYAlignment = Enum.TextYAlignment.Bottom; LogText.TextWrapped = true; LogText.RichText = true; LogText.Text = ""
 
 	local BottomArea = Instance.new("Frame", MainFrame)
-	BottomArea.Size = UDim2.new(0.96, 0, 0.45, 0); BottomArea.BackgroundColor3 = Color3.fromRGB(20, 20, 25); BottomArea.LayoutOrder = 4
-	Instance.new("UICorner", BottomArea).CornerRadius = UDim.new(0, 4); Instance.new("UIStroke", BottomArea).Color = Color3.fromRGB(0, 0, 0); Instance.new("UIStroke", BottomArea).Thickness = 2
+	BottomArea.Size = UDim2.new(0.96, 0, 0.35, 0); BottomArea.BackgroundTransparency = 1; BottomArea.LayoutOrder = 4
 
 	ActionGrid = Instance.new("ScrollingFrame", BottomArea)
-	ActionGrid.Size = UDim2.new(1, -10, 1, -10); ActionGrid.Position = UDim2.new(0, 5, 0, 5); ActionGrid.BackgroundTransparency = 1; ActionGrid.ScrollBarThickness = 4; ActionGrid.BorderSizePixel = 0; ActionGrid.AutomaticCanvasSize = Enum.AutomaticSize.Y; ActionGrid.CanvasSize = UDim2.new(0,0,0,0)
+	ActionGrid.Size = UDim2.new(1, 0, 1, 0); ActionGrid.BackgroundTransparency = 1; ActionGrid.ScrollBarThickness = 0; ActionGrid.BorderSizePixel = 0
 	local gridLayout = Instance.new("UIGridLayout", ActionGrid)
-	gridLayout.CellSize = UDim2.new(0.24, 0, 0, 45); gridLayout.CellPadding = UDim2.new(0.013, 0, 0, 10); gridLayout.SortOrder = Enum.SortOrder.LayoutOrder; gridLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
+	gridLayout.CellSize = UDim2.new(0.48, 0, 0.45, 0); gridLayout.CellPadding = UDim2.new(0.04, 0, 0.1, 0); gridLayout.SortOrder = Enum.SortOrder.LayoutOrder; gridLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
 
 	TargetMenu = Instance.new("Frame", BottomArea)
 	TargetMenu.Size = UDim2.new(1, 0, 1, 0); TargetMenu.BackgroundColor3 = Color3.fromRGB(20, 20, 25); TargetMenu.Visible = false
-	Instance.new("UICorner", TargetMenu).CornerRadius = UDim.new(0, 4)
+	Instance.new("UICorner", TargetMenu).CornerRadius = UDim.new(0, 6); Instance.new("UIStroke", TargetMenu).Color = Color3.fromRGB(80, 80, 90)
 
-	local InfoPanel = Instance.new("Frame", TargetMenu)
-	InfoPanel.Size = UDim2.new(0.45, 0, 1, 0); InfoPanel.BackgroundTransparency = 1
-
-	local tHoverTitle = Instance.new("TextLabel", InfoPanel)
-	tHoverTitle.Size = UDim2.new(1, -20, 0, 30); tHoverTitle.Position = UDim2.new(0, 10, 0, 10); tHoverTitle.BackgroundTransparency = 1; tHoverTitle.Font = Enum.Font.GothamBlack; tHoverTitle.TextColor3 = Color3.fromRGB(255, 215, 100); tHoverTitle.TextSize = 16; tHoverTitle.TextXAlignment = Enum.TextXAlignment.Left; tHoverTitle.Text = "SELECT TARGET"
+	local tHoverTitle = Instance.new("TextLabel", TargetMenu)
+	tHoverTitle.Size = UDim2.new(1, 0, 0, 25); tHoverTitle.Position = UDim2.new(0, 0, 0, 5); tHoverTitle.BackgroundTransparency = 1; tHoverTitle.Font = Enum.Font.GothamBlack; tHoverTitle.TextColor3 = Color3.fromRGB(255, 215, 100); tHoverTitle.TextSize = 18; tHoverTitle.TextXAlignment = Enum.TextXAlignment.Center; tHoverTitle.Text = "SELECT TARGET"
 	ApplyGradient(tHoverTitle, Color3.fromRGB(255, 215, 100), Color3.fromRGB(255, 150, 50))
 
-	local tHoverDesc = Instance.new("TextLabel", InfoPanel)
-	tHoverDesc.Size = UDim2.new(1, -20, 0, 100); tHoverDesc.Position = UDim2.new(0, 10, 0, 40); tHoverDesc.BackgroundTransparency = 1; tHoverDesc.Font = Enum.Font.GothamMedium; tHoverDesc.TextColor3 = Color3.fromRGB(200, 200, 200); tHoverDesc.TextSize = 12; tHoverDesc.TextXAlignment = Enum.TextXAlignment.Left; tHoverDesc.TextYAlignment = Enum.TextYAlignment.Top; tHoverDesc.TextWrapped = true; tHoverDesc.Text = "Hover over a limb to see its tactical advantage."
-
-	local CancelBtn = Instance.new("TextButton", InfoPanel)
-	CancelBtn.Size = UDim2.new(0.8, 0, 0, 40); CancelBtn.Position = UDim2.new(0.1, 0, 1, -50); CancelBtn.BackgroundColor3 = Color3.fromRGB(60, 40, 40); CancelBtn.Font = Enum.Font.GothamBlack; CancelBtn.TextColor3 = Color3.fromRGB(255, 150, 150); CancelBtn.TextSize = 14; CancelBtn.Text = "CANCEL"
-	Instance.new("UICorner", CancelBtn).CornerRadius = UDim.new(0, 6)
-	ApplyButtonGradient(CancelBtn, Color3.fromRGB(160, 60, 60), Color3.fromRGB(100, 30, 30), Color3.fromRGB(60, 20, 20))
-	CancelBtn.MouseButton1Click:Connect(function() TargetMenu.Visible = false; ActionGrid.Visible = true; pendingSkillName = nil end)
-
 	local BodyContainer = Instance.new("Frame", TargetMenu)
-	BodyContainer.Size = UDim2.new(0.5, 0, 1, 0); BodyContainer.Position = UDim2.new(0.5, 0, 0, 0); BodyContainer.BackgroundTransparency = 1
+	BodyContainer.Size = UDim2.new(1, 0, 0.65, 0); BodyContainer.Position = UDim2.new(0, 0, 0.15, 0); BodyContainer.BackgroundTransparency = 1
 
-	local function CreateLimb(name, size, pos, hoverText, color)
+	local function CreateLimb(name, size, pos, hoverText, baseColor)
 		local limb = Instance.new("TextButton", BodyContainer)
-		limb.Size = size; limb.Position = pos; limb.BackgroundColor3 = color; limb.BackgroundTransparency = 0.6; limb.Text = name:upper(); limb.Font = Enum.Font.GothamBlack; limb.TextColor3 = Color3.fromRGB(255, 255, 255); limb.TextSize = 12
-		Instance.new("UICorner", limb).CornerRadius = UDim.new(0, 12); Instance.new("UIStroke", limb).Color = color; limb.UIStroke.Thickness = 2
-		local mTop = Color3.new(math.clamp(color.R * 0.6, 0, 1), math.clamp(color.G * 0.6, 0, 1), math.clamp(color.B * 0.6, 0, 1))
-		local mBot = Color3.new(math.clamp(color.R * 0.3, 0, 1), math.clamp(color.G * 0.3, 0, 1), math.clamp(color.B * 0.3, 0, 1))
-		ApplyButtonGradient(limb, mTop, mBot, color)
+		limb.Size = size; limb.Position = pos; limb.Text = name:upper(); limb.Font = Enum.Font.GothamBlack; limb.TextColor3 = Color3.fromRGB(255, 255, 255); limb.TextSize = 12
+		local mTop = Color3.new(math.clamp(baseColor.R * 0.6, 0, 1), math.clamp(baseColor.G * 0.6, 0, 1), math.clamp(baseColor.B * 0.6, 0, 1))
+		local mBot = Color3.new(math.clamp(baseColor.R * 0.3, 0, 1), math.clamp(baseColor.G * 0.3, 0, 1), math.clamp(baseColor.B * 0.3, 0, 1))
+		ApplyButtonGradient(limb, mTop, mBot, baseColor)
 
-		limb.MouseEnter:Connect(function()
-			TweenService:Create(limb, TweenInfo.new(0.1), {BackgroundTransparency = 0.2}):Play()
-			tHoverTitle.Text = name:upper()
-			tHoverDesc.Text = hoverText
-		end)
-		limb.MouseLeave:Connect(function()
-			TweenService:Create(limb, TweenInfo.new(0.1), {BackgroundTransparency = 0.6}):Play()
-			tHoverTitle.Text = "SELECT TARGET"
-			tHoverDesc.Text = "Hover over a limb to see its tactical advantage."
-		end)
 		limb.MouseButton1Click:Connect(function()
 			if pendingSkillName and not inputLocked then
 				inputLocked = true
@@ -322,30 +297,37 @@ function CombatTab.Init(parentFrame, tooltipMgr, switchTabFunc)
 		end)
 	end
 
-	local aspect = Instance.new("UIAspectRatioConstraint", BodyContainer); aspect.AspectRatio = 0.8
-	CreateLimb("Eyes", UDim2.new(0.24, 0, 0.18, 0), UDim2.new(0.5, 0, 0.08, 0), "Deals 20% Damage. Inflicts Blinded.", Color3.fromRGB(100, 100, 150))
-	CreateLimb("Nape", UDim2.new(0.24, 0, 0.06, 0), UDim2.new(0.5, 0, 0.22, 0), "Deals 150% Damage. Low accuracy.", Color3.fromRGB(200, 50, 50))
-	CreateLimb("Body", UDim2.new(0.48, 0, 0.38, 0), UDim2.new(0.5, 0, 0.45, 0), "Deals 100% Damage. Standard accuracy.", Color3.fromRGB(80, 120, 80))
-	CreateLimb("Arms", UDim2.new(0.22, 0, 0.38, 0), UDim2.new(0.14, 0, 0.45, 0), "Deals 50% Damage. Inflicts Weakened.", Color3.fromRGB(150, 120, 50))
-	CreateLimb("Arms", UDim2.new(0.22, 0, 0.38, 0), UDim2.new(0.86, 0, 0.45, 0), "Deals 50% Damage. Inflicts Weakened.", Color3.fromRGB(150, 120, 50))
-	CreateLimb("Legs", UDim2.new(0.23, 0, 0.32, 0), UDim2.new(0.37, 0, 0.81, 0), "Deals 50% Damage. Inflicts Crippled.", Color3.fromRGB(60, 100, 140))
-	CreateLimb("Legs", UDim2.new(0.23, 0, 0.32, 0), UDim2.new(0.63, 0, 0.81, 0), "Deals 50% Damage. Inflicts Crippled.", Color3.fromRGB(60, 100, 140))
+	CreateLimb("Eyes", UDim2.new(0.24, 0, 0.18, 0), UDim2.new(0.5, 0, 0.08, 0), "Deals 20% Damage. Inflicts Blinded.", Color3.fromRGB(120, 120, 180))
+	CreateLimb("Nape", UDim2.new(0.24, 0, 0.06, 0), UDim2.new(0.5, 0, 0.22, 0), "Deals 150% Damage. Low accuracy.", Color3.fromRGB(220, 80, 80))
+	CreateLimb("Body", UDim2.new(0.48, 0, 0.38, 0), UDim2.new(0.5, 0, 0.45, 0), "Deals 100% Damage. Standard accuracy.", Color3.fromRGB(80, 160, 80))
+	CreateLimb("Arms", UDim2.new(0.22, 0, 0.38, 0), UDim2.new(0.14, 0, 0.45, 0), "Deals 50% Damage. Inflicts Weakened.", Color3.fromRGB(180, 140, 60))
+	CreateLimb("Arms", UDim2.new(0.22, 0, 0.38, 0), UDim2.new(0.86, 0, 0.45, 0), "Deals 50% Damage. Inflicts Weakened.", Color3.fromRGB(180, 140, 60))
+	CreateLimb("Legs", UDim2.new(0.23, 0, 0.32, 0), UDim2.new(0.37, 0, 0.81, 0), "Deals 50% Damage. Inflicts Crippled.", Color3.fromRGB(80, 140, 180))
+	CreateLimb("Legs", UDim2.new(0.23, 0, 0.32, 0), UDim2.new(0.63, 0, 0.81, 0), "Deals 50% Damage. Inflicts Crippled.", Color3.fromRGB(80, 140, 180))
 
 	for _, child in ipairs(BodyContainer:GetChildren()) do if child:IsA("TextButton") then child.AnchorPoint = Vector2.new(0.5, 0.5) end end
 
-	LeaveBtn = Instance.new("TextButton", BottomArea); LeaveBtn.Size = UDim2.new(0.6, 0, 0, 40); LeaveBtn.BackgroundColor3 = Color3.fromRGB(80, 160, 80); LeaveBtn.Font = Enum.Font.GothamBlack; LeaveBtn.TextColor3 = Color3.fromRGB(25, 25, 30); LeaveBtn.TextSize = 16; LeaveBtn.Text = "RETURN TO BASE"; LeaveBtn.Visible = false; LeaveBtn.AnchorPoint = Vector2.new(0.5, 0.5); LeaveBtn.Position = UDim2.new(0.5, 0, 0.5, 0)
-	Instance.new("UICorner", LeaveBtn).CornerRadius = UDim.new(0, 6)
+	local CancelBtn = Instance.new("TextButton", TargetMenu)
+	CancelBtn.Size = UDim2.new(0.9, 0, 0, 30); CancelBtn.Position = UDim2.new(0.5, 0, 1, -5); CancelBtn.AnchorPoint = Vector2.new(0.5, 1); CancelBtn.Font = Enum.Font.GothamBlack; CancelBtn.TextColor3 = Color3.fromRGB(255, 255, 255); CancelBtn.TextSize = 14; CancelBtn.Text = "CANCEL"
+	ApplyButtonGradient(CancelBtn, Color3.fromRGB(160, 60, 60), Color3.fromRGB(100, 30, 30), Color3.fromRGB(60, 20, 20))
+	CancelBtn.MouseButton1Click:Connect(function() TargetMenu.Visible = false; ActionGrid.Visible = true; pendingSkillName = nil end)
+
+	-- [[ THE FIX: LeaveBtn safely added to MainFrame layout ]]
+	LeaveBtn = Instance.new("TextButton", MainFrame)
+	LeaveBtn.Size = UDim2.new(0.9, 0, 0.1, 0); LeaveBtn.LayoutOrder = 5; LeaveBtn.Font = Enum.Font.GothamBlack; LeaveBtn.TextColor3 = Color3.fromRGB(255, 255, 255); LeaveBtn.TextSize = 16; LeaveBtn.Text = "RETURN TO BASE"; LeaveBtn.Visible = false
+	ApplyButtonGradient(LeaveBtn, Color3.fromRGB(80, 180, 80), Color3.fromRGB(40, 100, 40), Color3.fromRGB(20, 80, 20))
 
 	LeaveBtn.MouseButton1Click:Connect(function()
 		EffectsManager.PlaySFX("Click")
-		MainFrame.Visible = false; isBattleActive = false
-		parentFrame.Visible = true 
+		MainFrame.Visible = false; isBattleActive = false; parentFrame.Visible = true 
 		local topGui = parentFrame:FindFirstAncestorOfClass("ScreenGui")
 		if topGui then
 			if topGui:FindFirstChild("TopBar") then topGui.TopBar.Visible = true end
 			if topGui:FindFirstChild("NavWrapper") then topGui.NavWrapper.Visible = true end
-			for _, c in ipairs(parentFrame:GetChildren()) do
-				if c.Name == "BattleFrame" then c.Visible = true end
+			if topGui:FindFirstChild("ContentFrame") then
+				for _, c in ipairs(topGui.ContentFrame:GetChildren()) do
+					if c.Name == "BattleFrame" then c.Visible = true end
+				end
 			end
 		end
 	end)
@@ -354,14 +336,14 @@ function CombatTab.Init(parentFrame, tooltipMgr, switchTabFunc)
 		inputLocked = true
 		for _, btn in ipairs(ActionGrid:GetChildren()) do
 			if btn:IsA("TextButton") then
-				ApplyButtonGradient(btn, Color3.fromRGB(25, 20, 30), Color3.fromRGB(15, 10, 20), Color3.fromRGB(40, 30, 50)); btn.TextColor3 = Color3.fromRGB(120, 120, 120)
+				ApplyButtonGradient(btn, Color3.fromRGB(25, 20, 30), Color3.fromRGB(15, 10, 20), Color3.fromRGB(40, 30, 50))
+				btn.TextColor3 = Color3.fromRGB(120, 120, 120)
 			end
 		end
 	end
 
 	local function UpdateActionGrid(battleState)
 		inputLocked = false
-		ActionGrid.Visible = true
 		for _, child in ipairs(ActionGrid:GetChildren()) do if child:IsA("TextButton") then child:Destroy() end end
 
 		local p = battleState.Player
@@ -375,13 +357,6 @@ function CombatTab.Init(parentFrame, tooltipMgr, switchTabFunc)
 			local sData = SkillData.Skills[sName]
 			if not sData then return end
 
-			local sRange = sData.Range or "Any"
-			if battleState.Context.Range == "Long" then
-				if sRange == "Close" then return end 
-			elseif battleState.Context.Range == "Close" then
-				if sRange == "Long" then return end 
-			end
-
 			if sName == "Transform" and (pClan == "Ackerman" or pClan == "Awakened Ackerman") then return end
 
 			local cd = p.Cooldowns and p.Cooldowns[sName] or 0
@@ -393,28 +368,28 @@ function CombatTab.Init(parentFrame, tooltipMgr, switchTabFunc)
 			local isReady = (cd == 0) and hasGas and hasEnergy
 
 			local btn = Instance.new("TextButton", ActionGrid)
-			btn.BackgroundColor3 = isReady and (color or Color3.fromRGB(30, 30, 35)) or Color3.fromRGB(20, 20, 25)
-			btn.Font = Enum.Font.GothamBold; btn.TextColor3 = isReady and Color3.fromRGB(255, 255, 255) or Color3.fromRGB(120, 120, 120); btn.TextSize = 11; btn.LayoutOrder = order or 10
-			Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 4)
-			Instance.new("UIStroke", btn).Color = isReady and Color3.fromRGB(120, 100, 60) or Color3.fromRGB(50, 50, 55)
+			btn.RichText = true 
+			btn.Font = Enum.Font.GothamBold; btn.TextSize = 12; btn.LayoutOrder = order or 10
 
 			local baseColor = color or Color3.fromRGB(60, 60, 70)
 			if isReady then
 				local topC = Color3.new(math.clamp(baseColor.R * 1.2, 0, 1), math.clamp(baseColor.G * 1.2, 0, 1), math.clamp(baseColor.B * 1.2, 0, 1))
 				local botC = Color3.new(math.clamp(baseColor.R * 0.7, 0, 1), math.clamp(baseColor.G * 0.7, 0, 1), math.clamp(baseColor.B * 0.7, 0, 1))
 				ApplyButtonGradient(btn, topC, botC, baseColor)
+				btn.TextColor3 = Color3.fromRGB(255, 255, 255)
 			else
 				ApplyButtonGradient(btn, Color3.fromRGB(25, 20, 30), Color3.fromRGB(15, 10, 20), Color3.fromRGB(40, 30, 50))
+				btn.TextColor3 = Color3.fromRGB(120, 120, 120)
 			end
 
 			local cdStr = isReady and "READY" or "CD: " .. cd
 			if cd == 0 then if not hasGas then cdStr = "NO GAS" elseif not hasEnergy then cdStr = "NO HEAT" end end
 
-			btn.Text = sName:upper() .. "\n<font size='9' color='" .. (isReady and "#AAAAAA" or "#FF5555") .. "'>[" .. cdStr .. "]</font>"; btn.RichText = true
+			btn.Text = sName:upper() .. "\n<font size='9' color='" .. (isReady and "#AAAAAA" or "#FF5555") .. "'>[" .. cdStr .. "]</font>"
 
 			btn.MouseButton1Click:Connect(function()
 				if isBattleActive and not inputLocked and isReady then
-					if sName == "Advance Maneuver" or sName == "Retreat" or sData.Effect == "Rest" or sData.Effect == "TitanRest" or sData.Effect == "Eject" or sData.Effect == "Transform" or sData.Effect == "Block" or sData.Effect == "Flee" then
+					if sName == "Retreat" or sData.Effect == "Rest" or sData.Effect == "TitanRest" or sData.Effect == "Eject" or sData.Effect == "Transform" or sData.Effect == "Block" or sData.Effect == "Flee" then
 						if cachedTooltipMgr then cachedTooltipMgr.Hide() end
 						LockGrid()
 						Network:WaitForChild("CombatAction"):FireServer("Attack", {SkillName = sName})
@@ -426,20 +401,15 @@ function CombatTab.Init(parentFrame, tooltipMgr, switchTabFunc)
 					end
 				end
 			end)
-
-			btn.MouseEnter:Connect(function() if cachedTooltipMgr then cachedTooltipMgr.Show(sData.Description or sName) end end)
-			btn.MouseLeave:Connect(function() if cachedTooltipMgr then cachedTooltipMgr.Hide() end end)
 		end
-		
-		local orderIndex = 0
-		
+
 		if isTransformed then
 			CreateBtn("Titan Recover", Color3.fromRGB(40, 140, 80), 1)
 			CreateBtn("Titan Punch", Color3.fromRGB(120, 40, 40), 2)
 			CreateBtn("Titan Kick", Color3.fromRGB(140, 60, 40), 3)
 			CreateBtn("Eject", Color3.fromRGB(140, 40, 40), 4)
 
-			orderIndex = 5
+			local orderIndex = 5
 			for sName, sData in pairs(SkillData.Skills) do
 				if sName == "Titan Recover" or sName == "Eject" or sName == "Titan Punch" or sName == "Titan Kick" or sName == "Transform" then continue end
 				if sData.Requirement == pTitan or sData.Requirement == "AnyTitan" or sData.Requirement == "Transformed" then
@@ -450,7 +420,6 @@ function CombatTab.Init(parentFrame, tooltipMgr, switchTabFunc)
 		else
 			CreateBtn("Basic Slash", Color3.fromRGB(120, 40, 40), 1)
 			CreateBtn("Maneuver", Color3.fromRGB(40, 80, 140), 2)
-			CreateBtn("Advance Maneuver", Color3.fromRGB(40, 80, 140), 2)
 			CreateBtn("Recover", Color3.fromRGB(40, 140, 80), 3)
 			CreateBtn("Retreat", Color3.fromRGB(60, 60, 70), 4)
 
@@ -458,9 +427,9 @@ function CombatTab.Init(parentFrame, tooltipMgr, switchTabFunc)
 				CreateBtn("Transform", Color3.fromRGB(200, 150, 50), 5)
 			end
 
-			orderIndex = 6
+			local orderIndex = 6
 			for sName, sData in pairs(SkillData.Skills) do
-				if sName == "Basic Slash" or sName == "Maneuver" or sName == "Advance Maneuver" or sName == "Recover" or sName == "Retreat" or sName == "Transform" then continue end
+				if sName == "Basic Slash" or sName == "Maneuver" or sName == "Recover" or sName == "Retreat" or sName == "Transform" then continue end
 				local req = sData.Requirement
 				if req == pStyle or req == pClan or (req == "Ackerman" and pClan == "Awakened Ackerman") or (req == "ODM" and isODM) then
 					CreateBtn(sName, Color3.fromRGB(45, 40, 60), sData.Order or orderIndex)
@@ -468,24 +437,24 @@ function CombatTab.Init(parentFrame, tooltipMgr, switchTabFunc)
 				end
 			end
 		end
-
-		task.delay(0.05, function() ActionGrid.CanvasSize = UDim2.new(0, 0, 0, math.ceil(orderIndex / 4) * 55) end)
 	end
 
 	local function SyncBars(battleState)
 		local p = battleState.Player
 		local e = battleState.Enemy
-		local tInfo = TweenService:Create(PlayerHPBar, TweenInfo.new(0.4, Enum.EasingStyle.Cubic, Enum.EasingDirection.Out), {Size = UDim2.new(math.clamp(p.HP / p.MaxHP, 0, 1), 0, 1, 0)}):Play()
+		local tInfo = TweenInfo.new(0.4, Enum.EasingStyle.Cubic, Enum.EasingDirection.Out)
+
+		TweenService:Create(PlayerHPBar, tInfo, {Size = UDim2.new(math.clamp(p.HP / p.MaxHP, 0, 1), 0, 1, 0)}):Play()
 		PlayerHPText.Text = "HP: " .. math.floor(p.HP) .. " / " .. math.floor(p.MaxHP)
 		PlayerNameText.Text = player.Name
 
-		TweenService:Create(PlayerGasBar, TweenInfo.new(0.4, Enum.EasingStyle.Cubic, Enum.EasingDirection.Out), {Size = UDim2.new(math.clamp(p.Gas / p.MaxGas, 0, 1), 0, 1, 0)}):Play()
+		TweenService:Create(PlayerGasBar, tInfo, {Size = UDim2.new(math.clamp(p.Gas / p.MaxGas, 0, 1), 0, 1, 0)}):Play()
 		PlayerGasText.Text = "GAS: " .. math.floor(p.Gas) .. " / " .. math.floor(p.MaxGas)
 
 		if p.Titan and p.Titan ~= "None" and p.Clan ~= "Ackerman" and p.Clan ~= "Awakened Ackerman" then
 			PlayerNrgContainer.Visible = true
 			local pNrg = p.TitanEnergy or 0
-			TweenService:Create(PlayerNrgBar, TweenInfo.new(0.4, Enum.EasingStyle.Cubic, Enum.EasingDirection.Out), {Size = UDim2.new(math.clamp(pNrg / 100, 0, 1), 0, 1, 0)}):Play()
+			TweenService:Create(PlayerNrgBar, tInfo, {Size = UDim2.new(math.clamp(pNrg / 100, 0, 1), 0, 1, 0)}):Play()
 			PlayerNrgText.Text = "HEAT: " .. math.floor(pNrg) .. " / 100"
 		else
 			PlayerNrgContainer.Visible = false
@@ -495,7 +464,7 @@ function CombatTab.Init(parentFrame, tooltipMgr, switchTabFunc)
 
 		if e.MaxGateHP and e.MaxGateHP > 0 then
 			EnemyShieldBar.Visible = true
-			TweenService:Create(EnemyShieldBar, TweenInfo.new(0.4, Enum.EasingStyle.Cubic, Enum.EasingDirection.Out), {Size = UDim2.new(math.clamp(e.GateHP / e.MaxGateHP, 0, 1), 0, 1, 0)}):Play()
+			TweenService:Create(EnemyShieldBar, tInfo, {Size = UDim2.new(math.clamp(e.GateHP / e.MaxGateHP, 0, 1), 0, 1, 0)}):Play()
 			if e.GateHP > 0 then
 				if e.GateType == "Steam" then EnemyHPText.Text = e.GateType:upper() .. ": " .. math.floor(e.GateHP) .. " TURNS LEFT"
 				else EnemyHPText.Text = e.GateType:upper() .. ": " .. math.floor(e.GateHP) .. " / " .. math.floor(e.MaxGateHP) end
@@ -505,7 +474,7 @@ function CombatTab.Init(parentFrame, tooltipMgr, switchTabFunc)
 			EnemyHPText.Text = "HP: " .. math.floor(e.HP) .. " / " .. math.floor(e.MaxHP)
 		end
 
-		TweenService:Create(EnemyHPBar, TweenInfo.new(0.4, Enum.EasingStyle.Cubic, Enum.EasingDirection.Out), {Size = UDim2.new(math.clamp(e.HP / e.MaxHP, 0, 1), 0, 1, 0)}):Play()
+		TweenService:Create(EnemyHPBar, tInfo, {Size = UDim2.new(math.clamp(e.HP / e.MaxHP, 0, 1), 0, 1, 0)}):Play()
 
 		RenderStatuses(PlayerStatusBox, p, false)
 		RenderStatuses(EnemyStatusBox, e, true)
@@ -515,147 +484,25 @@ function CombatTab.Init(parentFrame, tooltipMgr, switchTabFunc)
 		else WaveLabel.Text = "RANDOM ENCOUNTER" end
 	end
 
-	-- [[ THE FIX: PATHS SHOP UI OVERLAY ]]
-	local PathsShopFrame = Instance.new("Frame", parentFrame.Parent)
-	PathsShopFrame.Name = "PathsShopOverlay"
-	PathsShopFrame.Size = UDim2.new(0.95, 0, 0.8, 0)
-	PathsShopFrame.Position = UDim2.new(0.5, 0, 0.5, 0)
-	PathsShopFrame.AnchorPoint = Vector2.new(0.5, 0.5)
-	PathsShopFrame.BackgroundColor3 = Color3.fromRGB(15, 15, 20)
-	PathsShopFrame.Visible = false
-	PathsShopFrame.ZIndex = 300
-	Instance.new("UICorner", PathsShopFrame).CornerRadius = UDim.new(0, 8)
-	local pStroke = Instance.new("UIStroke", PathsShopFrame); pStroke.Color = Color3.fromRGB(80, 200, 255); pStroke.Thickness = 2
-
-	local PathsTitle = Instance.new("TextLabel", PathsShopFrame)
-	PathsTitle.Size = UDim2.new(1, 0, 0, 40)
-	PathsTitle.BackgroundTransparency = 1
-	PathsTitle.Font = Enum.Font.GothamBlack
-	PathsTitle.TextColor3 = Color3.fromRGB(200, 240, 255)
-	PathsTitle.TextSize = 24
-	PathsTitle.Text = "THE COORDINATE"
-	ApplyGradient(PathsTitle, Color3.fromRGB(150, 220, 255), Color3.fromRGB(50, 150, 255))
-
-	local DustLabel = Instance.new("TextLabel", PathsShopFrame)
-	DustLabel.Size = UDim2.new(1, 0, 0, 30)
-	DustLabel.Position = UDim2.new(0, 0, 0, 40)
-	DustLabel.BackgroundTransparency = 1
-	DustLabel.Font = Enum.Font.GothamBold
-	DustLabel.TextColor3 = Color3.fromRGB(200, 200, 200)
-	DustLabel.TextSize = 16
-	DustLabel.Text = "PATH DUST: 0"
-
-	local NodesGrid = Instance.new("ScrollingFrame", PathsShopFrame)
-	NodesGrid.Size = UDim2.new(1, -20, 1, -140)
-	NodesGrid.Position = UDim2.new(0, 10, 0, 80)
-	NodesGrid.BackgroundTransparency = 1
-	NodesGrid.ScrollBarThickness = 4
-	NodesGrid.BorderSizePixel = 0
-	local ngLayout = Instance.new("UIGridLayout", NodesGrid)
-	ngLayout.CellSize = UDim2.new(0.48, 0, 0, 80)
-	ngLayout.CellPadding = UDim2.new(0.02, 0, 0, 10)
-	ngLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
-
-	local LeavePathsBtn = Instance.new("TextButton", PathsShopFrame)
-	LeavePathsBtn.Size = UDim2.new(0.6, 0, 0, 40)
-	LeavePathsBtn.Position = UDim2.new(0.2, 0, 1, -50)
-	LeavePathsBtn.Font = Enum.Font.GothamBlack
-	LeavePathsBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
-	LeavePathsBtn.TextSize = 12
-	LeavePathsBtn.Text = "LEAVE PATHS (LOSE DUST)"
-	ApplyButtonGradient(LeavePathsBtn, Color3.fromRGB(150, 40, 40), Color3.fromRGB(80, 20, 20), Color3.fromRGB(200, 60, 60))
-
-	local function RefreshPathsShop()
-		for _, c in ipairs(NodesGrid:GetChildren()) do if c:IsA("Frame") then c:Destroy() end end
-		local shopData = Network:WaitForChild("GetShopData"):InvokeServer("PathsShop")
-		DustLabel.Text = "PATH DUST: <font color='#55FFFF'>" .. (shopData.Dust or 0) .. "</font>"
-		DustLabel.RichText = true
-
-		for _, node in ipairs(shopData.Nodes) do
-			local card = Instance.new("Frame", NodesGrid)
-			card.BackgroundColor3 = Color3.fromRGB(25, 25, 30)
-			Instance.new("UICorner", card).CornerRadius = UDim.new(0, 6)
-			Instance.new("UIStroke", card).Color = Color3.fromRGB(60, 100, 150)
-
-			local nTitle = Instance.new("TextLabel", card)
-			nTitle.Size = UDim2.new(1, -10, 0, 20); nTitle.Position = UDim2.new(0, 5, 0, 5); nTitle.BackgroundTransparency = 1
-			nTitle.Font = Enum.Font.GothamBold; nTitle.TextColor3 = Color3.fromRGB(255, 255, 255); nTitle.TextSize = 12
-			nTitle.TextXAlignment = Enum.TextXAlignment.Left
-			nTitle.Text = node.Name .. " (" .. node.CurrentLevel .. "/" .. node.MaxLevel .. ")"
-
-			local nDesc = Instance.new("TextLabel", card)
-			nDesc.Size = UDim2.new(1, -10, 0, 20); nDesc.Position = UDim2.new(0, 5, 0, 25); nDesc.BackgroundTransparency = 1
-			nDesc.Font = Enum.Font.GothamMedium; nDesc.TextColor3 = Color3.fromRGB(180, 180, 180); nDesc.TextSize = 11
-			nDesc.TextXAlignment = Enum.TextXAlignment.Left; nDesc.Text = node.Desc
-
-			local buyBtn = Instance.new("TextButton", card)
-			buyBtn.Size = UDim2.new(1, -10, 0, 25); buyBtn.Position = UDim2.new(0, 5, 1, -30)
-			buyBtn.Font = Enum.Font.GothamBold; buyBtn.TextSize = 12
-
-			if type(node.Cost) == "number" then
-				buyBtn.Text = "UNLOCK (" .. node.Cost .. " DUST)"
-				ApplyButtonGradient(buyBtn, Color3.fromRGB(40, 120, 160), Color3.fromRGB(20, 60, 80), Color3.fromRGB(60, 150, 200))
-				buyBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
-				buyBtn.MouseButton1Click:Connect(function()
-					Network:WaitForChild("ShopAction"):FireServer("BuyPathNode", node.Name)
-					task.wait(0.2) 
-					RefreshPathsShop()
-				end)
-			else
-				buyBtn.Text = "MAXED"
-				ApplyButtonGradient(buyBtn, Color3.fromRGB(40, 40, 45), Color3.fromRGB(20, 20, 25), Color3.fromRGB(60, 60, 70))
-				buyBtn.TextColor3 = Color3.fromRGB(120, 120, 120)
-			end
-		end
-
-		task.delay(0.05, function()
-			NodesGrid.CanvasSize = UDim2.new(0, 0, 0, math.ceil(#shopData.Nodes / 2) * 90)
-		end)
-	end
-
-	LeavePathsBtn.MouseButton1Click:Connect(function()
-		Network:WaitForChild("ShopAction"):FireServer("ClosePathsShop")
-		PathsShopFrame.Visible = false
-		parentFrame.Visible = true
-		local topGui = parentFrame:FindFirstAncestorOfClass("ScreenGui")
-		if topGui then
-			if topGui:FindFirstChild("TopBar") then topGui.TopBar.Visible = true end
-			if topGui:FindFirstChild("NavWrapper") then topGui.NavWrapper.Visible = true end
-		end
-	end)
-
 	Network:WaitForChild("CombatUpdate").OnClientEvent:Connect(function(action, data)
 		if action == "Start" then
 			MainFrame.Visible = true
 			parentFrame.Visible = false 
-			TargetMenu.Visible = false; ActionGrid.Visible = true; LeaveBtn.Visible = false; pendingSkillName = nil
+			TargetMenu.Visible = false; ActionGrid.Visible = true; pendingSkillName = nil
+
+			-- [[ THE FIX: Explicitly clear input lock on a new start event ]]
+			inputLocked = false
+
 			local topGui = parentFrame:FindFirstAncestorOfClass("ScreenGui")
 			if topGui then
 				if topGui:FindFirstChild("TopBar") then topGui.TopBar.Visible = false end
-				if topGui:FindFirstChild("NavBar") then topGui.NavBar.Visible = false end
+				if topGui:FindFirstChild("NavWrapper") then topGui.NavWrapper.Visible = false end
 			end
-			isBattleActive = true
+			LeaveBtn.Visible = false; BottomArea.Visible = true; isBattleActive = true
 
 			if data.Battle and data.Battle.Context.IsPaths then StartPathsAmbient() end
 
 			SyncBars(data.Battle); UpdateActionGrid(data.Battle); AddLogMessage(data.LogMsg, false)
-
-		elseif action == "StartMinigame" then
-			MainFrame.Visible = true; parentFrame.Visible = false 
-			TargetMenu.Visible = false; ActionGrid.Visible = false; LeaveBtn.Visible = false
-			isBattleActive = true
-			SyncBars(data.Battle); AddLogMessage(data.LogMsg, false)
-
-			local MinigameHandler = require(script.Parent.Parent:WaitForChild("MinigameHandler"))
-			MinigameHandler.Start(data.MinigameType, MainFrame, data.Battle, function(resultData)
-				Network:WaitForChild("CombatAction"):FireServer("MinigameResult", resultData)
-				ActionGrid.Visible = true
-			end)
-
-		elseif action == "PathsDeath" then
-			MainFrame.Visible = false; isBattleActive = false
-			PathsShopFrame.Visible = true
-			RefreshPathsShop()
 
 		elseif action == "TurnStrike" then
 			ShakeUI(data.ShakeType); SyncBars(data.Battle); AddLogMessage(data.LogMsg, true)
@@ -675,22 +522,24 @@ function CombatTab.Init(parentFrame, tooltipMgr, switchTabFunc)
 		elseif action == "Victory" then
 			EffectsManager.PlaySFX("Victory", 1)
 			SyncBars(data.Battle); isBattleActive = false; LockGrid()
-			ActionGrid.Visible = false; TargetMenu.Visible = false; LeaveBtn.Visible = true; LeaveBtn.Text = "VICTORY - RETURN"
-			ApplyButtonGradient(LeaveBtn, Color3.fromRGB(80, 200, 80), Color3.fromRGB(40, 100, 40), Color3.fromRGB(20, 80, 20)); LeaveBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+			BottomArea.Visible = false; LeaveBtn.Visible = true; LeaveBtn.Text = "VICTORY - RETURN"; ApplyButtonGradient(LeaveBtn, Color3.fromRGB(80, 200, 80), Color3.fromRGB(40, 100, 40), Color3.fromRGB(20, 80, 20))
 			AddLogMessage("<b><font color='#55FF55'>ENEMY DEFEATED!</font></b>", false)
+			local xpAmt = data.XP or 0; local dewsAmt = data.Dews or 0
+			local rewardStr = "<font color='#55FF55'>Rewards: +" .. xpAmt .. " XP | +" .. dewsAmt .. " Dews</font>"
+			if data.Items and #data.Items > 0 then rewardStr = rewardStr .. "<br/><font color='#AA55FF'>Drops: " .. table.concat(data.Items, ", ") .. "</font>" end
+			if data.ExtraLog then rewardStr = rewardStr .. "<br/>" .. data.ExtraLog end
+			AddLogMessage(rewardStr, true)
 
 		elseif action == "Defeat" then
 			EffectsManager.PlaySFX("Defeat", 1)
 			SyncBars(data.Battle); isBattleActive = false; LockGrid()
-			ActionGrid.Visible = false; TargetMenu.Visible = false; LeaveBtn.Visible = true; LeaveBtn.Text = "DEFEAT - RETREAT"
-			ApplyButtonGradient(LeaveBtn, Color3.fromRGB(200, 80, 80), Color3.fromRGB(100, 40, 40), Color3.fromRGB(80, 20, 20)); LeaveBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+			BottomArea.Visible = false; LeaveBtn.Visible = true; LeaveBtn.Text = "DEFEAT - RETREAT"; ApplyButtonGradient(LeaveBtn, Color3.fromRGB(200, 80, 80), Color3.fromRGB(100, 40, 40), Color3.fromRGB(80, 20, 20))
 			AddLogMessage("<b><font color='#FF5555'>YOU WERE SLAUGHTERED.</font></b>", false)
 
 		elseif action == "Fled" then
 			EffectsManager.PlaySFX("Flee", 1)
 			isBattleActive = false; LockGrid()
-			ActionGrid.Visible = false; TargetMenu.Visible = false; LeaveBtn.Visible = true; LeaveBtn.Text = "COWARD - RETURN"
-			ApplyButtonGradient(LeaveBtn, Color3.fromRGB(150, 150, 150), Color3.fromRGB(80, 80, 80), Color3.fromRGB(50, 50, 50)); LeaveBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+			BottomArea.Visible = false; LeaveBtn.Visible = true; LeaveBtn.Text = "COWARD - RETURN"; ApplyButtonGradient(LeaveBtn, Color3.fromRGB(150, 150, 150), Color3.fromRGB(80, 80, 80), Color3.fromRGB(50, 50, 50))
 			AddLogMessage("<b><font color='#AAAAAA'>You fired a smoke signal and fled.</font></b>", false)
 		end
 	end)
