@@ -385,7 +385,6 @@ function CombatTab.Init(parentFrame, tooltipMgr)
 		end
 	end
 
-	-- [[ THE FIX: Wrapped in pcall so logic errors don't permanently brick the UI grid ]]
 	local function UpdateActionGrid(battleState)
 		local success, err = pcall(function()
 			inputLocked = false
@@ -411,9 +410,12 @@ function CombatTab.Init(parentFrame, tooltipMgr)
 				local energyCost = sData.EnergyCost or 0
 				local gasCost = sData.GasCost or 0
 
+				local sRange = sData.Range or "Close"
+				local isWrongRange = (sRange ~= "Any" and sRange ~= battleState.Context.Range)
+
 				local hasGas = (p.Gas or 0) >= gasCost
 				local hasEnergy = (p.TitanEnergy or 0) >= energyCost
-				local isReady = (cd == 0) and hasGas and hasEnergy
+				local isReady = (cd == 0) and hasGas and hasEnergy and not isWrongRange
 
 				local btn = Instance.new("TextButton", ActionGrid)
 				btn.RichText = true 
@@ -431,13 +433,18 @@ function CombatTab.Init(parentFrame, tooltipMgr)
 				end
 
 				local cdStr = isReady and "READY" or "CD: " .. cd
-				if cd == 0 then if not hasGas then cdStr = "NO GAS" elseif not hasEnergy then cdStr = "NO HEAT" end end
+				if isWrongRange then cdStr = "OUT OF RANGE"
+				elseif cd == 0 then 
+					if not hasGas then cdStr = "NO GAS" 
+					elseif not hasEnergy then cdStr = "NO HEAT" 
+					end 
+				end
 
 				btn.Text = sName:upper() .. "\n<font size='8' color='" .. (isReady and "#AAAAAA" or "#FF5555") .. "'>[" .. cdStr .. "]</font>"
 
 				btn.MouseButton1Click:Connect(function()
 					if isBattleActive and not inputLocked and isReady then
-						if sName == "Retreat" or sData.Effect == "Rest" or sData.Effect == "TitanRest" or sData.Effect == "Eject" or sData.Effect == "Transform" or sData.Effect == "Block" or sData.Effect == "Flee" then
+						if sName == "Retreat" or sName == "Fall Back" or sName == "Close In" or sData.Effect == "Rest" or sData.Effect == "TitanRest" or sData.Effect == "Eject" or sData.Effect == "Transform" or sData.Effect == "Block" or sData.Effect == "Flee" then
 							if cachedTooltipMgr and type(cachedTooltipMgr.Hide) == "function" then cachedTooltipMgr.Hide() end
 							LockGrid()
 							Network:WaitForChild("CombatAction"):FireServer("Attack", {SkillName = sName})
@@ -471,18 +478,29 @@ function CombatTab.Init(parentFrame, tooltipMgr)
 			else
 				CreateBtn("Basic Slash", Color3.fromRGB(120, 40, 40), 1)
 				CreateBtn("Maneuver", Color3.fromRGB(40, 80, 140), 2)
-				CreateBtn("Recover", Color3.fromRGB(40, 140, 80), 3)
-				CreateBtn("Retreat", Color3.fromRGB(60, 60, 70), 4)
 
-				if pTitan ~= "None" and pClan ~= "Ackerman" and pClan ~= "Awakened Ackerman" then
-					CreateBtn("Transform", Color3.fromRGB(200, 150, 50), 5)
+				if battleState.Context.Range == "Long" then
+					CreateBtn("Close In", Color3.fromRGB(80, 140, 100), 3)
+				else
+					CreateBtn("Fall Back", Color3.fromRGB(80, 100, 140), 3)
 				end
 
-				local orderIndex = 6
+				CreateBtn("Recover", Color3.fromRGB(40, 140, 80), 4)
+				CreateBtn("Retreat", Color3.fromRGB(60, 60, 70), 5)
+
+				if pTitan ~= "None" and pClan ~= "Ackerman" and pClan ~= "Awakened Ackerman" then
+					CreateBtn("Transform", Color3.fromRGB(200, 150, 50), 6)
+				end
+
+				local orderIndex = 7
 				for sName, sData in pairs(SkillData.Skills) do
-					if sName == "Basic Slash" or sName == "Maneuver" or sName == "Recover" or sName == "Retreat" or sName == "Transform" then continue end
+					if sName == "Basic Slash" or sName == "Maneuver" or sName == "Fall Back" or sName == "Close In" or sName == "Recover" or sName == "Retreat" or sName == "Transform" then continue end
+
+					-- [[ THE FIX: Exclude Anti-Titan Rifle from rendering at all unless at Long Range ]]
+					if sName == "Anti-Titan Rifle" and battleState.Context.Range ~= "Long" then continue end
+
 					local req = sData.Requirement
-					if req == pStyle or pClan == "Awakened Ackerman" or (req == "Ackerman" and pClan == "Ackerman") or (req == "ODM" and isODM) then
+					if req == pStyle or req == pClan or (req == "Ackerman" and pClan == "Awakened Ackerman") or (req == "ODM" and isODM) then
 						CreateBtn(sName, Color3.fromRGB(45, 40, 60), sData.Order or orderIndex)
 						orderIndex += 1
 					end
@@ -532,9 +550,10 @@ function CombatTab.Init(parentFrame, tooltipMgr)
 		RenderStatuses(PlayerStatusBox, p, false)
 		RenderStatuses(EnemyStatusBox, e, true)
 
-		if battleState.Context.IsStoryMission then WaveLabel.Text = "WAVE " .. battleState.Context.CurrentWave .. " / " .. battleState.Context.TotalWaves
-		elseif battleState.Context.IsPaths then WaveLabel.Text = "MEMORY " .. (player:GetAttribute("PathsFloor") or 1)
-		else WaveLabel.Text = "RANDOM ENCOUNTER" end
+		local rText = battleState.Context.Range == "Long" and "LONG RANGE" or "MELEE RANGE"
+		if battleState.Context.IsStoryMission then WaveLabel.Text = "WAVE " .. battleState.Context.CurrentWave .. " / " .. battleState.Context.TotalWaves .. " - [" .. rText .. "]"
+		elseif battleState.Context.IsPaths then WaveLabel.Text = "MEMORY " .. (player:GetAttribute("PathsFloor") or 1) .. " - [" .. rText .. "]"
+		else WaveLabel.Text = "RANDOM ENCOUNTER - [" .. rText .. "]" end
 	end
 
 	Network:WaitForChild("CombatUpdate").OnClientEvent:Connect(function(action, data)
