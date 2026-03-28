@@ -21,7 +21,7 @@ local CombatUpdate = GetRemote("CombatUpdate")
 
 local ActiveBattles = {}
 
-local MAX_INVENTORY_CAPACITY = 25
+local MAX_INVENTORY_CAPACITY = 50
 local SellValues = { Common = 10, Uncommon = 25, Rare = 75, Epic = 200, Legendary = 500, Mythical = 1500, Transcendent = 0 }
 
 local function GetUniqueSlotCount(plr)
@@ -475,7 +475,6 @@ local function ProcessEnemyDeath(player, battle)
 		return
 	end
 
-	-- [[ THE FIX: Added Missing Endless Looping Block ]]
 	if battle.Context.IsEndless then
 		battle.Context.CurrentWave += 1
 		local nextWave = battle.Context.CurrentWave
@@ -542,7 +541,14 @@ local function ProcessEnemyDeath(player, battle)
 		if battle.Context.TargetPart == 2 and battle.Context.CurrentWave == battle.Context.TotalWaves then
 			local currentReg = player:GetAttribute("Regiment") or "Cadet Corps"
 			if currentReg ~= "Cadet Corps" then
-				CombatUpdate:FireClient(player, "Victory", {Battle = battle, XP = xpGain, Dews = dewsGain, Items = droppedItems, ExtraLog = killMsg})
+				-- [[ THE FIX: Automatically process the campaign progression since we are skipping the final wave ]]
+				player:SetAttribute("CampaignClear_Part2", true)
+				if (player:GetAttribute("CurrentPart") or 1) == 2 then
+					player:SetAttribute("CurrentPart", 3)
+					player:SetAttribute("CurrentWave", 1) 
+				end
+
+				CombatUpdate:FireClient(player, "Victory", {Battle = battle, XP = xpGain, Dews = dewsGain, Items = droppedItems, ExtraLog = killMsg .. "<br/><font color='#55FFFF'>Skipped Regiment Selection (Already enlisted).</font>"})
 				ActiveBattles[player.UserId] = nil
 				return
 			end
@@ -813,13 +819,14 @@ CombatAction.OnServerEvent:Connect(function(player, actionType, actionData)
 			end
 
 			if battle.Context.Range == "Long" then
-				if skillName == "Advance Maneuver" then
-					combatant.Gas = math.max(0, combatant.Gas - (skill.GasCost or 20))
+				if skillName == "Maneuver" then
+					combatant.Gas = math.max(0, combatant.Gas - (skill.GasCost or 15))
+					battle.IsProcessing = false 
 					CombatUpdate:FireClient(player, "StartMinigame", {Battle = battle, LogMsg = "<font color='#FFAA00'>Incoming projectiles! Evade to close the distance!</font>", MinigameType = "GapClose"})
 					return -- Stop processing turn until minigame finishes
-				elseif skillName == "Maneuver" or skillName == "Evasive Maneuver" then
+				elseif skillName == "Advance Maneuver" or skillName == "Evasive Maneuver" then
 					battle.Context.GapCloses = (battle.Context.GapCloses or 0) + 1
-					combatant.Gas = math.max(0, combatant.Gas - (skill.GasCost or 15))
+					combatant.Gas = math.max(0, combatant.Gas - (skill.GasCost or 20))
 					if battle.Context.GapCloses >= 3 then
 						battle.Context.Range = "Close"
 						CombatUpdate:FireClient(player, "TurnStrike", {Battle = battle, LogMsg = "<font color='#55FF55'>You successfully closed the gap! The Beast Titan is in melee range!</font>", DidHit = false, ShakeType = "Heavy"})
@@ -841,7 +848,7 @@ CombatAction.OnServerEvent:Connect(function(player, actionType, actionData)
 					task.wait(turnDelay)
 					continue
 				else
-					CombatUpdate:FireClient(player, "TurnStrike", {Battle = battle, LogMsg = "<font color='#FF5555'>You are at LONG RANGE! You must use Advance Maneuver to close the gap!</font>", DidHit = false, ShakeType = "None"})
+					CombatUpdate:FireClient(player, "TurnStrike", {Battle = battle, LogMsg = "<font color='#FF5555'>You are at LONG RANGE! You must use Maneuver to close the gap!</font>", DidHit = false, ShakeType = "None"})
 					task.wait(turnDelay)
 					continue
 				end
