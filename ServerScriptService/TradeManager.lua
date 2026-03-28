@@ -119,6 +119,8 @@ local function ExecuteTrade(tradeId)
 end
 
 local function ResetTradeState(trade)
+	trade.P1Ready = false
+	trade.P2Ready = false
 	trade.P1Confirmed = false
 	trade.P2Confirmed = false
 	trade.Countdown = -1
@@ -165,6 +167,7 @@ RemotesFolder:WaitForChild("TradeAction").OnServerEvent:Connect(function(player,
 		ActiveTrades[newTradeId] = {
 			P1 = player, P2 = target, 
 			P1Offer = {Dews = 0, Items = {}}, P2Offer = {Dews = 0, Items = {}}, 
+			P1Ready = false, P2Ready = false, -- [[ THE FIX: Track Ready states ]]
 			P1Confirmed = false, P2Confirmed = false,
 			Countdown = -1, Version = 1
 		}
@@ -221,6 +224,18 @@ RemotesFolder:WaitForChild("TradeAction").OnServerEvent:Connect(function(player,
 				ResetTradeState(trade)
 				SyncTradeUI(trade)
 			end
+
+			-- [[ THE FIX: Added missing ToggleReady handler ]]
+		elseif action == "ToggleReady" then
+			if isP1 then trade.P1Ready = not trade.P1Ready else trade.P2Ready = not trade.P2Ready end
+
+			-- If someone un-readies, we must un-confirm both just in case
+			if not trade.P1Ready then trade.P1Confirmed = false end
+			if not trade.P2Ready then trade.P2Confirmed = false end
+
+			trade.Version += 1
+			trade.Countdown = -1
+			SyncTradeUI(trade)
 
 		elseif action == "ToggleConfirm" then
 			if isP1 then trade.P1Confirmed = not trade.P1Confirmed else trade.P2Confirmed = not trade.P2Confirmed end
