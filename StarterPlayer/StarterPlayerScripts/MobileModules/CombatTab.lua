@@ -104,7 +104,7 @@ local function CreateBar(parent, color1, color2, size, labelText, alignRight)
 	return fill, text, container
 end
 
--- [[ THE FIX: Added ALL CombatCore statuses so they properly render on the UI ]]
+-- [[ THE FIX: Re-added the robust type checking for Telegraphing strings so math ops don't crash ]]
 local function RenderStatuses(container, combatant, isRight)
 	for _, child in ipairs(container:GetChildren()) do if child:IsA("Frame") then child:Destroy() end end
 	local function addIcon(iconTxt, bgColor, strokeColor, tooltipText)
@@ -613,6 +613,42 @@ function CombatTab.Init(parentFrame, tooltipMgr)
 			SyncBars(data.Battle); isBattleActive = false; LockGrid()
 			BottomArea.Visible = false; LeaveBtn.Visible = true; LeaveBtn.Text = "DEFEAT - RETREAT"; ApplyButtonGradient(LeaveBtn, Color3.fromRGB(200, 80, 80), Color3.fromRGB(100, 40, 40), Color3.fromRGB(80, 20, 20))
 			AddLogMessage("<b><font color='#FF5555'>YOU WERE SLAUGHTERED.</font></b>", false)
+
+		elseif action == "PathsDeath" then
+			if EffectsManager and type(EffectsManager.PlaySFX) == "function" then EffectsManager.PlaySFX("Defeat", 1) end
+			isBattleActive = false
+			MainFrame.Visible = false
+			parentFrame.Visible = true 
+			local topGui = parentFrame:FindFirstAncestorOfClass("ScreenGui")
+			if topGui then
+				if topGui:FindFirstChild("TopBar") then topGui.TopBar.Visible = true end
+				if topGui:FindFirstChild("NavBar") then topGui.NavBar.Visible = true end
+				if topGui:FindFirstChild("ContentFrame") then
+					for _, c in ipairs(topGui.ContentFrame:GetChildren()) do
+						if c.Name == "BattleFrame" then c.Visible = true end
+					end
+				end
+			end
+
+			if _G.AOT_OpenCategory and _G.AOT_SwitchTab then
+				_G.AOT_OpenCategory("SUPPLY")
+				_G.AOT_SwitchTab("Shop")
+
+				task.delay(0.1, function()
+					local pathBtn = nil
+					for _, desc in ipairs(parentFrame:GetDescendants()) do
+						if desc:IsA("TextButton") and desc.Text == "THE PATHS" then
+							pathBtn = desc
+							break
+						end
+					end
+					if pathBtn then
+						for _, conn in pairs(getconnections(pathBtn.MouseButton1Click)) do
+							conn.Function()
+						end
+					end
+				end)
+			end
 
 		elseif action == "Fled" then
 			if EffectsManager and type(EffectsManager.PlaySFX) == "function" then EffectsManager.PlaySFX("Flee", 1) end
