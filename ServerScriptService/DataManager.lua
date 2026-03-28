@@ -9,12 +9,12 @@ local MessagingService = game:GetService("MessagingService")
 local BountyData = require(ReplicatedStorage:WaitForChild("BountyData"))
 local ItemData = require(ReplicatedStorage:WaitForChild("ItemData"))
 
-local GameDataStore = DataStoreService:GetDataStore("AoT_Data_V3") 
-local BackupDataStore = DataStoreService:GetDataStore("AoT_Backups_V1") 
-local RegimentStore = DataStoreService:GetDataStore("RegimentWars_V1")
+local GameDataStore = DataStoreService:GetDataStore("AoT_Data_V6") -- Changed to V6
+local BackupDataStore = DataStoreService:GetDataStore("AoT_Backups_V3") -- Changed to V3
+local RegimentStore = DataStoreService:GetDataStore("RegimentWars_V3") -- Changed to V3
 
-local PrestigeLB = DataStoreService:GetOrderedDataStore("Global_Prestige_LB_V1")
-local EloLB = DataStoreService:GetOrderedDataStore("Global_Elo_LB_V1")
+local PrestigeLB = DataStoreService:GetOrderedDataStore("Global_Prestige_LB_V3") -- Changed to V3
+local EloLB = DataStoreService:GetOrderedDataStore("Global_Elo_LB_V3") -- Changed to V3
 local LBCache = { Prestige = {}, Elo = {} }
 
 local RemotesFolder = ReplicatedStorage:FindFirstChild("Network") or Instance.new("Folder", ReplicatedStorage)
@@ -37,7 +37,6 @@ if not RemotesFolder:FindFirstChild("GetShopData") then
 	local rf = Instance.new("RemoteFunction"); rf.Name = "GetShopData"; rf.Parent = RemotesFolder
 end
 
--- [[ THE FIX: Bulletproof creation and reference. ]]
 local lbRf = RemotesFolder:FindFirstChild("GetLeaderboardData")
 if not lbRf then
 	lbRf = Instance.new("RemoteFunction")
@@ -257,15 +256,38 @@ RemotesFolder.AdminCommand.OnServerEvent:Connect(function(player, command, targe
 	end
 end)
 
+-- [[ THE FIX: Forces bounties to load properly even if attributes were wiped ]]
 local function RollBounties(player)
 	local now = os.time(); local currentDay = math.floor(now / 86400); local currentWeek = math.floor(now / 604800)
-	if player:GetAttribute("LastDailyReset") ~= currentDay then
-		player:SetAttribute("LastDailyReset", currentDay); local available = {}
+
+	if player:GetAttribute("LastDailyReset") ~= currentDay or player:GetAttribute("D1_Desc") == nil then
+		player:SetAttribute("LastDailyReset", currentDay)
+		local available = {}
 		for _, v in ipairs(BountyData.Dailies) do table.insert(available, v) end
-		for i = 1, 3 do if #available == 0 then break end local idx = math.random(1, #available); local b = available[idx]; table.remove(available, idx); local target = math.random(b.Min, b.Max); player:SetAttribute("D"..i.."_Task", b.Task); player:SetAttribute("D"..i.."_Desc", string.format(b.Desc, target)); player:SetAttribute("D"..i.."_Prog", 0); player:SetAttribute("D"..i.."_Max", target); player:SetAttribute("D"..i.."_Reward", b.Reward); player:SetAttribute("D"..i.."_Claimed", false) end
+		for i = 1, 3 do 
+			if #available == 0 then break end 
+			local idx = math.random(1, #available); local b = available[idx]; table.remove(available, idx)
+			local target = math.random(b.Min, b.Max)
+			player:SetAttribute("D"..i.."_Task", b.Task)
+			player:SetAttribute("D"..i.."_Desc", string.format(b.Desc, target))
+			player:SetAttribute("D"..i.."_Prog", 0)
+			player:SetAttribute("D"..i.."_Max", target)
+			player:SetAttribute("D"..i.."_Reward", b.Reward)
+			player:SetAttribute("D"..i.."_Claimed", false) 
+		end
 	end
-	if player:GetAttribute("LastWeeklyReset") ~= currentWeek then
-		player:SetAttribute("LastWeeklyReset", currentWeek); local b = BountyData.Weeklies[math.random(1, #BountyData.Weeklies)]; local target = math.random(b.Min, b.Max); player:SetAttribute("W1_Task", b.Task); player:SetAttribute("W1_Desc", string.format(b.Desc, target)); player:SetAttribute("W1_Prog", 0); player:SetAttribute("W1_Max", target); player:SetAttribute("W1_RewardType", b.RewardType); player:SetAttribute("W1_RewardAmt", b.RewardAmt); player:SetAttribute("W1_Claimed", false)
+
+	if player:GetAttribute("LastWeeklyReset") ~= currentWeek or player:GetAttribute("W1_Desc") == nil then
+		player:SetAttribute("LastWeeklyReset", currentWeek)
+		local b = BountyData.Weeklies[math.random(1, #BountyData.Weeklies)]
+		local target = math.random(b.Min, b.Max)
+		player:SetAttribute("W1_Task", b.Task)
+		player:SetAttribute("W1_Desc", string.format(b.Desc, target))
+		player:SetAttribute("W1_Prog", 0)
+		player:SetAttribute("W1_Max", target)
+		player:SetAttribute("W1_RewardType", b.RewardType)
+		player:SetAttribute("W1_RewardAmt", b.RewardAmt)
+		player:SetAttribute("W1_Claimed", false)
 	end
 end
 
