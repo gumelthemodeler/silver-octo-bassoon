@@ -10,7 +10,7 @@ local ItemData = require(ReplicatedStorage:WaitForChild("ItemData"))
 local ActiveTrades = {} 
 local TradeRequests = {} 
 
-local MAX_INVENTORY_CAPACITY = 25
+local MAX_INVENTORY_CAPACITY = 50
 
 local function GetUniqueSlotCount(plr)
 	local count = 0
@@ -26,7 +26,7 @@ end
 local function CancelTrade(tradeId, reason)
 	local trade = ActiveTrades[tradeId]
 	if not trade then return end
-	trade.Version = (trade.Version or 0) + 1 -- Kill any active countdowns
+	trade.Version = (trade.Version or 0) + 1 
 
 	if trade.P1 then RemotesFolder.TradeUpdate:FireClient(trade.P1, "TradeCancelled", reason) end
 	if trade.P2 then RemotesFolder.TradeUpdate:FireClient(trade.P2, "TradeCancelled", reason) end
@@ -167,7 +167,7 @@ RemotesFolder:WaitForChild("TradeAction").OnServerEvent:Connect(function(player,
 		ActiveTrades[newTradeId] = {
 			P1 = player, P2 = target, 
 			P1Offer = {Dews = 0, Items = {}}, P2Offer = {Dews = 0, Items = {}}, 
-			P1Ready = false, P2Ready = false, -- [[ THE FIX: Track Ready states ]]
+			P1Ready = false, P2Ready = false, 
 			P1Confirmed = false, P2Confirmed = false,
 			Countdown = -1, Version = 1
 		}
@@ -200,7 +200,8 @@ RemotesFolder:WaitForChild("TradeAction").OnServerEvent:Connect(function(player,
 			SyncTradeUI(trade)
 
 		elseif action == "AddItem" then
-			local itemName = data.Item
+			-- [[ THE FIX: Extract item name properly depending on whether it was sent as an object or raw string ]]
+			local itemName = type(data) == "table" and data.Item or data
 			local safeName = itemName:gsub("[^%w]", "") .. "Count"
 			local owned = player:GetAttribute(safeName) or 0
 			local currentlyOffered = myOffer.Items[itemName] or 0
@@ -217,7 +218,8 @@ RemotesFolder:WaitForChild("TradeAction").OnServerEvent:Connect(function(player,
 			end
 
 		elseif action == "RemoveItem" then
-			local itemName = data.Item
+			-- [[ THE FIX: Safely parse item removal ]]
+			local itemName = type(data) == "table" and data.Item or data
 			if myOffer.Items[itemName] and myOffer.Items[itemName] > 0 then
 				myOffer.Items[itemName] -= 1
 				if myOffer.Items[itemName] <= 0 then myOffer.Items[itemName] = nil end
@@ -225,11 +227,9 @@ RemotesFolder:WaitForChild("TradeAction").OnServerEvent:Connect(function(player,
 				SyncTradeUI(trade)
 			end
 
-			-- [[ THE FIX: Added missing ToggleReady handler ]]
 		elseif action == "ToggleReady" then
 			if isP1 then trade.P1Ready = not trade.P1Ready else trade.P2Ready = not trade.P2Ready end
 
-			-- If someone un-readies, we must un-confirm both just in case
 			if not trade.P1Ready then trade.P1Confirmed = false end
 			if not trade.P2Ready then trade.P2Confirmed = false end
 
