@@ -9,22 +9,6 @@ local BackupDataStore = DataStoreService:GetDataStore("AoT_Backups_V1")
 
 local RemotesFolder = ReplicatedStorage:WaitForChild("Network")
 
--- =====================================================================
--- [[ PROMO CODE GUIDE ]]
--- To create a code, use the exact format below. You can include or 
--- remove any parameter you want (e.g., just Dews, or just Items).
---
--- ["YOUR_CODE_HERE"] = {
---      Dews = 50000,
---      XP = 1000,
---      TitanXP = 500,
---      Items = {
---          ["Standard Titan Serum"] = 5,
---          ["Worn Trainee Badge"] = 10
---      }
--- }
--- =====================================================================
-
 local ActiveCodes = { 
 	["RELEASE"] = { 
 		Dews = 5000,
@@ -33,7 +17,7 @@ local ActiveCodes = {
 			["Standard Titan Serum"] = 30,
 			["Clan Blood Vial"] = 25 
 		}
-		
+
 	}, 
 	["SORRYFORBUGS"] = { 
 		Dews = 10000, 
@@ -78,19 +62,32 @@ RemotesFolder:WaitForChild("RedeemCode").OnServerEvent:Connect(function(player, 
 		return 
 	end 
 
-	-- 3. Grant Complex Rewards
+	-- [[ THE FIX: Detailed Notification Building ]]
 	player:SetAttribute("RedeemedCodes", redeemedStr .. "[" .. codeKey .. "]")
 
-	if codeData.Dews then player.leaderstats.Dews.Value += codeData.Dews end
-	if codeData.XP then player:SetAttribute("XP", (player:GetAttribute("XP") or 0) + codeData.XP) end
-	if codeData.TitanXP then player:SetAttribute("TitanXP", (player:GetAttribute("TitanXP") or 0) + codeData.TitanXP) end
+	local rewardsStr = ""
+
+	if codeData.Dews then 
+		player.leaderstats.Dews.Value += codeData.Dews
+		rewardsStr = rewardsStr .. codeData.Dews .. " Dews, " 
+	end
+	if codeData.XP then 
+		player:SetAttribute("XP", (player:GetAttribute("XP") or 0) + codeData.XP)
+		rewardsStr = rewardsStr .. codeData.XP .. " XP, " 
+	end
+	if codeData.TitanXP then 
+		player:SetAttribute("TitanXP", (player:GetAttribute("TitanXP") or 0) + codeData.TitanXP)
+		rewardsStr = rewardsStr .. codeData.TitanXP .. " Titan XP, " 
+	end
 
 	if codeData.Items then
 		for itemName, amount in pairs(codeData.Items) do
 			local safeName = itemName:gsub("[^%w]", "") .. "Count"
 			player:SetAttribute(safeName, (player:GetAttribute(safeName) or 0) + amount) 
+			rewardsStr = rewardsStr .. amount .. "x " .. itemName .. ", "
 		end
 	end
 
-	RemotesFolder.NotificationEvent:FireClient(player, "Code Redeemed!", "Success")
+	if rewardsStr ~= "" then rewardsStr = string.sub(rewardsStr, 1, -3) end -- Strip the trailing comma and space
+	RemotesFolder.NotificationEvent:FireClient(player, "Redeemed: " .. rewardsStr, "Success")
 end)
