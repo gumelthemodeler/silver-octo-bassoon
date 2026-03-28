@@ -19,17 +19,22 @@ local ActiveCodes = {
 		}
 
 	}, 
-	["SORRYFORBUGS"] = { 
-		Dews = 10000, 
+	["BUGFIX"] = { 
+		Dews = 1500, 
 		Items = {
 			["Spinal Fluid Syringe"] = 1,
-			["Clan Blood Vial"] = 3
+			["Titan Research Notes"] = 1,
 		}
 	}, 
-	["TITAN"] = { 
-		TitanXP = 1000,
+	["67PLAYERS"] = { 
+		TitanXP = 500,
+		Dews = 1500,
+	},
+	["PRESTIGEFIX"] = { 
+		XP = 1500,
 		Items = {
-			["Standard Titan Serum"] = 3 
+			["Standard Titan Serum"] = 5,
+			["Titan Research Notes"] = 1,
 		}
 	} 
 }
