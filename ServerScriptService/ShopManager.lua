@@ -181,8 +181,8 @@ VIPFreeReroll.OnServerEvent:Connect(function(player, isDews)
 	if isDews then
 		-- Handle 100k Dews Reroll
 		local dews = player.leaderstats and player.leaderstats:FindFirstChild("Dews")
-		if dews and dews.Value >= 100000 then
-			dews.Value -= 100000
+		if dews and dews.Value >= 950000 then
+			dews.Value -= 950000
 			canReroll = true
 		end
 	else
