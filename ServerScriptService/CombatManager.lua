@@ -475,6 +475,67 @@ local function ProcessEnemyDeath(player, battle)
 		return
 	end
 
+	-- [[ THE FIX: Added Missing Endless Looping Block ]]
+	if battle.Context.IsEndless then
+		battle.Context.CurrentWave += 1
+		local nextWave = battle.Context.CurrentWave
+		local prestige = player.leaderstats.Prestige.Value
+
+		local maxPart = math.min(8, player:GetAttribute("CurrentPart") or 1)
+		local targetPart = math.random(1, maxPart)
+		local partData = EnemyData.Parts[targetPart]
+		local nextEnemyTemplate = partData.Mobs[math.random(1, #partData.Mobs)]
+
+		local hpMult = GetHPScale(targetPart, prestige) * 1.4
+		local dmgMult = GetDmgScale(targetPart, prestige) * 1.4
+		local dropMult = (1.0 + (targetPart * 1.5) + (prestige * 2.5)) * 1.5
+
+		local eHP = math.floor(nextEnemyTemplate.Health * hpMult)
+		local eGateType = nextEnemyTemplate.GateType
+		local eGateHP = math.floor((nextEnemyTemplate.GateHP or 0) * (eGateType == "Steam" and 1 or hpMult))
+		local eStr = math.floor(nextEnemyTemplate.Strength * dmgMult)
+		local eDef = math.floor(nextEnemyTemplate.Defense * dmgMult)
+		local eSpd = math.floor(nextEnemyTemplate.Speed * dmgMult)
+
+		local logFlavor = "<font color='#AA55FF'>[ENDLESS EXPEDITION - WAVE " .. nextWave .. "]</font>\nYou encounter a " .. nextEnemyTemplate.Name .. "!"
+
+		battle.Context.Range = "Close"
+		if nextEnemyTemplate.Name:find("Beast Titan") then
+			battle.Context.Range = "Long"
+			battle.Context.GapCloses = 0
+			logFlavor = logFlavor .. "\n<font color='#FF5555'>The Beast Titan is at LONG RANGE. Use Maneuver to close the gap!</font>"
+		end
+
+		battle.Context.TurnCount = 0
+		battle.Context.StoredBoss = nil
+
+		local isMinigame = nextEnemyTemplate.IsMinigame
+
+		battle.Enemy = {
+			IsMinigame = isMinigame,
+			IsPlayer = false, Name = nextEnemyTemplate.Name, 
+			IsHuman = nextEnemyTemplate.IsHuman or false,
+			HP = eHP, MaxHP = eHP,
+			GateType = eGateType, GateHP = eGateHP, MaxGateHP = eGateHP,
+			TotalStrength = eStr, TotalDefense = eDef, TotalSpeed = eSpd,
+			Statuses = {}, Cooldowns = {}, Skills = nextEnemyTemplate.Skills or {"Brutal Swipe"},
+			Drops = { XP = math.floor((nextEnemyTemplate.Drops and nextEnemyTemplate.Drops.XP or 15) * dropMult), Dews = math.floor((nextEnemyTemplate.Drops and nextEnemyTemplate.Drops.Dews or 10) * dropMult), ItemChance = nextEnemyTemplate.Drops and nextEnemyTemplate.Drops.ItemChance or {} },
+			LastSkill = "None"
+		}
+
+		battle.Player.Cooldowns = {} 
+		battle.Player.Statuses = {} 
+		battle.Player.HP = battle.Player.MaxHP; battle.Player.Gas = battle.Player.MaxGas; battle.Player.TitanEnergy = math.min(100, (battle.Player.TitanEnergy or 0) + 30); battle.Player.LastSkill = "None"
+
+		if isMinigame then
+			CombatUpdate:FireClient(player, "StartMinigame", {Battle = battle, LogMsg = logFlavor .. "\n" .. killMsg, MinigameType = isMinigame})
+		else
+			CombatUpdate:FireClient(player, "WaveComplete", {Battle = battle, LogMsg = logFlavor .. "\n" .. killMsg, XP = xpGain, Dews = dewsGain, Items = droppedItems})
+		end
+		battle.IsProcessing = false
+		return
+	end
+
 	if battle.Context.IsStoryMission and battle.Context.CurrentWave < battle.Context.TotalWaves then
 		battle.Context.CurrentWave += 1
 
@@ -660,7 +721,6 @@ CombatAction.OnServerEvent:Connect(function(player, actionType, actionData)
 
 	if skillName == "Maneuver" or skillName == "Evasive Maneuver" or skillName == "Advance Maneuver" or skillName == "Retreat" or skillName == "Recover" or skillName == "Block" then pSpeed += 9999 end
 
-	-- [[ THE FIX: Pre-calculate the random rolls OUTSIDE the sorter to ensure strict deterministic ordering ]]
 	local pRoll = pSpeed + math.random(1, 15)
 	local eRoll = eSpeed + math.random(1, 15)
 
