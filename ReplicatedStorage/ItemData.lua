@@ -53,10 +53,20 @@ ItemData.Consumables = {
 	["VIP Pass (Gift)"] = { Rarity = "Transcendent", Cost = 0, IsGift = true, Action = "Consume", Buff = "Gamepass", Unlock = "VIP", Desc = "Permanently unlocks VIP status. Cannot be sold." },
 	["2x Item Drops (Gift)"] = { Rarity = "Transcendent", Cost = 0, IsGift = true, Action = "Consume", Buff = "Gamepass", Unlock = "DoubleDrops", Desc = "Permanently unlocks 2x Item Drops from combat. Cannot be sold." },
 	["2x Battle Speed (Gift)"] = { Rarity = "Transcendent", Cost = 0, IsGift = true, Action = "Consume", Buff = "Gamepass", Unlock = "DoubleSpeed", Desc = "Permanently doubles the speed of combat turns. Cannot be sold." },
-
-	-- [[ THE FIX: Added Backpack Expansion Gift ]]
 	["Backpack Expansion (Gift)"] = { Rarity = "Transcendent", Cost = 0, IsGift = true, Action = "Consume", Buff = "Gamepass", Unlock = "BackpackExpansion", Desc = "Permanently adds +50 slots to your Max Inventory capacity. Cannot be sold." }
 }
+
+-- [[ THE FIX: Dynamically injects an Itemized Consumable for every Titan ]]
+local TitanData = require(script.Parent:WaitForChild("TitanData"))
+for tName, tData in pairs(TitanData.Titans) do
+	ItemData.Consumables["Itemized " .. tName] = { 
+		Rarity = tData.Rarity, 
+		Cost = 25000, 
+		Action = "EquipTitan", 
+		TitanName = tName, 
+		Desc = "An extracted spine of the " .. tName .. ". Consume to equip it (WARNING: Overwrites your currently equipped Titan)." 
+	}
+end
 
 ItemData.ForgeRecipes = {
 	["Cadet Training Blade"] = { Result = "Garrison Standard Blades", ReqAmt = 3, DewCost = 1500 },
@@ -85,8 +95,6 @@ ItemData.Gamepasses = {
 	{ ID = 1748263337, GiftID = 3562817821, Name = "Titan Vault Expansion", Desc = "Unlocks slots 4, 5, and 6 in the Titan vault.", Key = "TitanVault" },
 	{ ID = 1760797262, GiftID = 3562817914, Name = "Clan Vault Expansion", Desc = "Unlocks slots 4, 5, and 6 in the Clan vault.", Key = "ClanVault" },
 	{ ID = 1747847881, GiftID = 3562817987, Name = "VIP Pass", Desc = "Exclusive Golden Chat Tag, 1 Free Shop Reroll, +25% Auto-Train Synergy!", Key = "VIP" },
-
-	-- [[ THE FIX: Added Backpack Expansion Gamepass ]]
 	{ ID = 1772364456, GiftID = 3564165877, Name = "2x Item Drops", Desc = "Doubles the amount of items dropped from bosses and enemies.", Key = "DoubleDrops" },
 	{ ID = 1772394444, GiftID = 3564165946, Name = "2x Battle Speed", Desc = "Doubles the animation speed and turn resolution in combat.", Key = "DoubleSpeed" },
 	{ ID = 1772982444, GiftID = 3564166063, Name = "Backpack Expansion", Desc = "Permanently adds +50 slots to your Max Inventory capacity.", Key = "BackpackExpansion" }
@@ -108,7 +116,6 @@ ItemData.Products = {
 	{ ID = 3562817914, Name = "Gift: Clan Vault", Desc = "Grants a tradable Clan Vault Expansion.", Reward = "Item", ItemName = "Clan Vault Expansion (Gift)", Amount = 1 },
 	{ ID = 3562817987, Name = "Gift: VIP Pass", Desc = "Grants a tradable VIP Pass.", Reward = "Item", ItemName = "VIP Pass (Gift)", Amount = 1 },
 
-	-- [[ THE FIX: Added Backpack Expansion Gift Product ]]
 	{ ID = 3564165877, Name = "Gift: 2x Item Drops", Desc = "Grants a tradable 2x Drops pass.", Reward = "Item", ItemName = "2x Item Drops (Gift)", Amount = 1 },
 	{ ID = 3564165946, Name = "Gift: 2x Battle Speed", Desc = "Grants a tradable 2x Battle Speed pass.", Reward = "Item", ItemName = "2x Battle Speed (Gift)", Amount = 1 },
 	{ ID = 3564166063, Name = "Gift: Backpack Expansion", Desc = "Grants a tradable Backpack Expansion pass.", Reward = "Item", ItemName = "Backpack Expansion (Gift)", Amount = 1 }
