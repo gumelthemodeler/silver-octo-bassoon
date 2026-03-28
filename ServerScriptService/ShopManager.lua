@@ -73,7 +73,10 @@ GetShopData.OnServerInvoke = function(player, requestType)
 	if requestType == "PathsShop" then
 		local pData = {}
 		for nodeName, nodeData in pairs(PathNodes) do
-			local currentLvl = player:GetAttribute("PathNode_" .. nodeName) or 0
+			-- [[ THE FIX: Strips out spaces to ensure the Attribute name is legally formatted in Roblox ]]
+			local safeNodeName = string.gsub(nodeName, "[^%w]", "")
+			local currentLvl = player:GetAttribute("PathNode_" .. safeNodeName) or 0
+
 			table.insert(pData, {
 				Name = nodeName, Desc = nodeData.Desc, 
 				CurrentLevel = currentLvl, MaxLevel = nodeData.MaxLevel, 
@@ -116,13 +119,16 @@ BuyAction.OnServerEvent:Connect(function(player, actionType, itemName)
 		local nodeData = PathNodes[targetPurchase]
 		if not nodeData then return end
 
-		local currentLvl = player:GetAttribute("PathNode_" .. targetPurchase) or 0
+		-- [[ THE FIX: Format the request dynamically so it matches the safe version in the data loop ]]
+		local safeTarget = string.gsub(targetPurchase, "[^%w]", "")
+		local currentLvl = player:GetAttribute("PathNode_" .. safeTarget) or 0
+
 		if currentLvl >= nodeData.MaxLevel then return end
 
 		local dust = player:GetAttribute("PathDust") or 0
 		if dust >= nodeData.Cost then
 			player:SetAttribute("PathDust", dust - nodeData.Cost)
-			player:SetAttribute("PathNode_" .. targetPurchase, currentLvl + 1)
+			player:SetAttribute("PathNode_" .. safeTarget, currentLvl + 1)
 
 			local currentString = player:GetAttribute("PathsAwakened") or ""
 			local newString = ""
@@ -140,7 +146,7 @@ BuyAction.OnServerEvent:Connect(function(player, actionType, itemName)
 		return
 	elseif actionType == "ClosePathsShop" then
 		player:SetAttribute("PathDust", 0)
-		NotificationEvent:FireClient(player, "Path Dust has scattered to the wind.", "Error")
+		NotificationEvent:FireClient(player, "Path Dust scattered. Returning to reality.", "Info")
 		return
 	end
 
