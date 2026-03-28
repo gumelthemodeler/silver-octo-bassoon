@@ -22,6 +22,15 @@ local PathNodes = {
 	["Path of the Breaker"] = { Stat = "IGNORE", Cost = 15, Increment = 5, MaxLevel = 5, Desc = "+5% Armor Penetration" }
 }
 
+-- [[ THE FIX: Added Rare Ancient Relics to the Paths Shop ]]
+local RarePathsItems = {
+	{ Name = "Coordinate's Sand", Cost = 100, Desc = "Godlike power. The rarest relic in the Paths." },
+	{ Name = "Ymir's Clay Fragment", Cost = 200, Desc = "Awakens the Attack Titan into the Founding Attack Titan." },
+	{ Name = "Ancestral Awakening Serum", Cost = 350, Desc = "Awakens the true power of your current lineage." },
+	{ Name = "Spinal Fluid Syringe", Cost = 75, Desc = "Guarantees a Legendary or Mythical Titan roll." },
+	{ Name = "Titan Hardening Extract", Cost = 25, Desc = "Used in the Forge to Awaken max-tier weapons." }
+}
+
 local itemPool = {}
 for name, data in pairs(ItemData.Equipment) do 
 	if not data.IsGift then table.insert(itemPool, {Name = name, Data = data}) end
@@ -73,7 +82,6 @@ GetShopData.OnServerInvoke = function(player, requestType)
 	if requestType == "PathsShop" then
 		local pData = {}
 		for nodeName, nodeData in pairs(PathNodes) do
-			-- [[ THE FIX: Strips out spaces to ensure the Attribute name is legally formatted in Roblox ]]
 			local safeNodeName = string.gsub(nodeName, "[^%w]", "")
 			local currentLvl = player:GetAttribute("PathNode_" .. safeNodeName) or 0
 
@@ -83,7 +91,7 @@ GetShopData.OnServerInvoke = function(player, requestType)
 				Cost = currentLvl < nodeData.MaxLevel and nodeData.Cost or "MAX"
 			})
 		end
-		return { Nodes = pData, Dust = player:GetAttribute("PathDust") or 0 }
+		return { Nodes = pData, Items = RarePathsItems, Dust = player:GetAttribute("PathDust") or 0 }
 	end
 
 	local globalSeed = math.floor(os.time() / 600)
@@ -111,7 +119,7 @@ end
 
 BuyAction.OnServerEvent:Connect(function(player, actionType, itemName)
 	local targetPurchase = itemName
-	if not itemName and actionType ~= "BuyPathNode" and actionType ~= "ClosePathsShop" then
+	if not itemName and actionType ~= "BuyPathNode" and actionType ~= "ClosePathsShop" and actionType ~= "BuyPathsItem" then
 		targetPurchase = actionType
 	end
 
@@ -119,7 +127,6 @@ BuyAction.OnServerEvent:Connect(function(player, actionType, itemName)
 		local nodeData = PathNodes[targetPurchase]
 		if not nodeData then return end
 
-		-- [[ THE FIX: Format the request dynamically so it matches the safe version in the data loop ]]
 		local safeTarget = string.gsub(targetPurchase, "[^%w]", "")
 		local currentLvl = player:GetAttribute("PathNode_" .. safeTarget) or 0
 
@@ -144,6 +151,24 @@ BuyAction.OnServerEvent:Connect(function(player, actionType, itemName)
 			NotificationEvent:FireClient(player, "Not enough Path Dust!", "Error")
 		end
 		return
+
+			-- [[ THE FIX: Handles the purchase of the high tier Path Relics ]]
+	elseif actionType == "BuyPathsItem" then
+		local itemDef = nil
+		for _, it in ipairs(RarePathsItems) do if it.Name == targetPurchase then itemDef = it; break end end
+		if not itemDef then return end
+
+		local dust = player:GetAttribute("PathDust") or 0
+		if dust >= itemDef.Cost then
+			player:SetAttribute("PathDust", dust - itemDef.Cost)
+			local safeName = targetPurchase:gsub("[^%w]", "") .. "Count"
+			player:SetAttribute(safeName, (player:GetAttribute(safeName) or 0) + 1)
+			NotificationEvent:FireClient(player, "Obtained " .. targetPurchase .. " from the Paths!", "Success")
+		else
+			NotificationEvent:FireClient(player, "Not enough Path Dust!", "Error")
+		end
+		return
+
 	elseif actionType == "ClosePathsShop" then
 		player:SetAttribute("PathDust", 0)
 		NotificationEvent:FireClient(player, "Path Dust scattered. Returning to reality.", "Info")
