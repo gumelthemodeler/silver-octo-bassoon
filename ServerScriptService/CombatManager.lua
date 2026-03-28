@@ -55,7 +55,6 @@ local function GetTemplate(partData, templateName)
 	return partData.Mobs[1] 
 end
 
--- [[ REBALANCE: Enemy HP & Damage scales much harder per part and per prestige ]]
 local function GetHPScale(targetPart, prestige)
 	return 1.0 + (targetPart * 0.5) + (prestige * 1.5) 
 end
@@ -131,9 +130,11 @@ local function StartBattle(player, encounterType, requestedPartId)
 	elseif encounterType == "EngagePaths" then
 		isPaths = true
 		local floor = player:GetAttribute("PathsFloor") or 1
-		targetPart = math.random(1, 8) 
-		local partData = EnemyData.Parts[targetPart]
-		eTemplate = partData.Mobs[math.random(1, #partData.Mobs)]
+		targetPart = 1 
+
+		-- [[ THE FIX: Progressively scales the pool of available memories based on the floor ]]
+		local maxMemoryIndex = math.min(#EnemyData.PathsMemories, math.max(1, math.ceil(floor / 3)))
+		eTemplate = EnemyData.PathsMemories[math.random(1, maxMemoryIndex)]
 		logFlavor = "<font color='#55FFFF'>[THE PATHS - MEMORY " .. floor .. "]</font>\nA manifestation of " .. eTemplate.Name .. " emerges from the sand..."
 
 	elseif encounterType == "EngageWorldBoss" then
@@ -152,17 +153,17 @@ local function StartBattle(player, encounterType, requestedPartId)
 
 	local hpMult = GetHPScale(targetPart, prestige)
 	local dmgMult = GetDmgScale(targetPart, prestige)
-
-	-- [[ REBALANCE: Drop multiplier flattened significantly so late game doesn't break the economy ]]
 	local dropMult = 1.0 + (targetPart * 0.3) + (prestige * 0.5)
 
 	if isEndless then 
 		hpMult *= 1.4; dmgMult *= 1.4; dropMult *= 1.5 
 	elseif isPaths then
 		local floor = player:GetAttribute("PathsFloor") or 1
-		local pathScale = math.pow(1.25, floor - 1) 
+		-- [[ THE FIX: Weak early scaling (35% base) that multiplies exponentially per floor ]]
+		local pathScale = 0.35 * math.pow(1.20, floor - 1) 
 		hpMult = hpMult * pathScale
 		dmgMult = dmgMult * pathScale
+		dropMult = 1.0 + (prestige * 0.5) + (floor * 0.15)
 	end
 
 	local baseDropXP = eTemplate.Drops and eTemplate.Drops.XP or 15
@@ -202,9 +203,9 @@ local function StartBattle(player, encounterType, requestedPartId)
 	local pTotalRes = (player:GetAttribute("Resolve") or 10) + (wpnBonus.Resolve or 0) + (accBonus.Resolve or 0)
 
 	local ctxRange = "Close"
-	if eTemplate.Name:find("Beast Titan") then
+	if eTemplate.Name:find("Beast Titan") or eTemplate.IsLongRange then
 		ctxRange = "Long"
-		logFlavor = logFlavor .. "\n<font color='#FF5555'>The Beast Titan is at LONG RANGE.</font>"
+		logFlavor = logFlavor .. "\n<font color='#FF5555'>" .. eTemplate.Name .. " is at LONG RANGE.</font>"
 	end
 
 	local isMinigame = eTemplate.IsMinigame
@@ -397,14 +398,15 @@ local function ProcessEnemyDeath(player, battle)
 
 		local rewardStr = "<font color='#55FFFF'>Memory Cleared! +" .. dustGain .. " Path Dust</font>"
 		local prestige = player.leaderstats.Prestige.Value
-		local targetPart = math.random(1, 8)
-		local partData = EnemyData.Parts[targetPart]
-		local nextEnemyTemplate = partData.Mobs[math.random(1, #partData.Mobs)]
 
-		local pathScale = math.pow(1.25, floor)
-		local hpMult = GetHPScale(targetPart, prestige) * pathScale
-		local dmgMult = GetDmgScale(targetPart, prestige) * pathScale
-		local dropMult = 1.0 + (targetPart * 0.3) + (prestige * 0.5)
+		-- [[ THE FIX: Progressively scaled pool based on next floor ]]
+		local maxMemoryIndex = math.min(#EnemyData.PathsMemories, math.max(1, math.ceil((floor + 1) / 3)))
+		local nextEnemyTemplate = EnemyData.PathsMemories[math.random(1, maxMemoryIndex)]
+
+		local pathScale = 0.35 * math.pow(1.20, floor)
+		local hpMult = GetHPScale(1, prestige) * pathScale
+		local dmgMult = GetDmgScale(1, prestige) * pathScale
+		local dropMult = 1.0 + (prestige * 0.5) + ((floor + 1) * 0.15)
 
 		local eHP = math.floor(nextEnemyTemplate.Health * hpMult)
 		local eGateType = nextEnemyTemplate.GateType
@@ -430,6 +432,13 @@ local function ProcessEnemyDeath(player, battle)
 		elseif selectedMutator == "Colossal" then
 			eHP = eHP * 2.0; eStr = eStr * 1.5; eSpd = math.floor(eSpd * 0.5)
 			logFlavor = logFlavor .. "\n<font color='#FFAA00'>[MUTATOR: COLOSSAL] Target is massive and deals lethal damage!</font>"
+		end
+
+		if nextEnemyTemplate.Name:find("Beast Titan") or nextEnemyTemplate.IsLongRange then
+			battle.Context.Range = "Long"
+			logFlavor = logFlavor .. "\n<font color='#FF5555'>" .. nextEnemyTemplate.Name .. " is at LONG RANGE.</font>"
+		else
+			battle.Context.Range = "Close"
 		end
 
 		battle.Enemy = {
@@ -471,9 +480,9 @@ local function ProcessEnemyDeath(player, battle)
 		local logFlavor = "<font color='#AA55FF'>[ENDLESS EXPEDITION - WAVE " .. nextWave .. "]</font>\nYou encounter a " .. nextEnemyTemplate.Name .. "!"
 
 		battle.Context.Range = "Close"
-		if nextEnemyTemplate.Name:find("Beast Titan") then
+		if nextEnemyTemplate.Name:find("Beast Titan") or nextEnemyTemplate.IsLongRange then
 			battle.Context.Range = "Long"
-			logFlavor = logFlavor .. "\n<font color='#FF5555'>The Beast Titan is at LONG RANGE.</font>"
+			logFlavor = logFlavor .. "\n<font color='#FF5555'>" .. nextEnemyTemplate.Name .. " is at LONG RANGE.</font>"
 		end
 
 		battle.Context.TurnCount = 0; battle.Context.StoredBoss = nil
@@ -526,9 +535,9 @@ local function ProcessEnemyDeath(player, battle)
 		local nextFinalDropDews = math.floor(nextBaseDropDews * dropMult)
 
 		local flavorText = waveData.Flavor
-		if nextEnemyTemplate.Name:find("Beast Titan") then
+		if nextEnemyTemplate.Name:find("Beast Titan") or nextEnemyTemplate.IsLongRange then
 			battle.Context.Range = "Long"
-			flavorText = flavorText .. "\n<font color='#FF5555'>The Beast Titan is at LONG RANGE.</font>"
+			flavorText = flavorText .. "\n<font color='#FF5555'>" .. nextEnemyTemplate.Name .. " is at LONG RANGE.</font>"
 		else
 			battle.Context.Range = "Close"
 		end
@@ -718,7 +727,9 @@ CombatAction.OnServerEvent:Connect(function(player, actionType, actionData)
 		if combatant.IsPlayer then
 			if skill.Effect == "Flee" or skillName == "Retreat" then 
 				CombatUpdate:FireClient(player, "Fled", {Battle = battle})
-				if battle.Context.IsPaths then CombatUpdate:FireClient(player, "PathsDeath", {Battle = battle}) end
+				if battle.Context.IsPaths then 
+					CombatUpdate:FireClient(player, "PathsDeath", {Battle = battle}) 
+				end
 				ActiveBattles[player.UserId] = nil
 				return 
 			end
@@ -886,7 +897,9 @@ CombatAction.OnServerEvent:Connect(function(player, actionType, actionData)
 
 	if battle.Player.HP < 1 then
 		CombatUpdate:FireClient(player, "Defeat", {Battle = battle})
-		if battle.Context.IsPaths then CombatUpdate:FireClient(player, "PathsDeath", {Battle = battle}) end
+		if battle.Context.IsPaths then 
+			CombatUpdate:FireClient(player, "PathsDeath", {Battle = battle}) 
+		end
 		ActiveBattles[player.UserId] = nil
 	elseif battle.Enemy.HP < 1 then
 		ProcessEnemyDeath(player, battle)
