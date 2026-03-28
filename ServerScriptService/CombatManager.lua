@@ -20,7 +20,6 @@ local CombatAction = GetRemote("CombatAction")
 local CombatUpdate = GetRemote("CombatUpdate")
 
 local ActiveBattles = {}
-
 local MAX_INVENTORY_CAPACITY = 50
 local SellValues = { Common = 10, Uncommon = 25, Rare = 75, Epic = 200, Legendary = 500, Mythical = 1500, Transcendent = 0 }
 
@@ -72,7 +71,6 @@ end
 local function ParseAwakenedStats(statString)
 	local stats = { DmgMult = 1.0, DodgeBonus = 0, CritBonus = 0, HpBonus = 0, SpdBonus = 0, GasBonus = 0, HealOnKill = 0, IgnoreArmor = 0 }
 	if not statString then return stats end
-
 	for stat in string.gmatch(statString, "[^|]+") do
 		stat = stat:match("^%s*(.-)%s*$")
 		if stat:find("DMG") then stats.DmgMult += tonumber(stat:match("%d+")) / 100
@@ -179,9 +177,15 @@ local function StartBattle(player, encounterType, requestedPartId)
 	local awakenedString = player:GetAttribute(safeWpnName .. "_Awakened")
 	local awakenedStats = ParseAwakenedStats(awakenedString)
 
+	-- [[ THE FIX: DYNAMIC AWAKENED HP SYNERGIES ]]
 	local clanName = player:GetAttribute("Clan") or "None"
+	local baseClan = string.gsub(clanName, "Awakened ", "")
+	local isAwakened = string.find(clanName, "Awakened") ~= nil
+	local tName = player:GetAttribute("Titan") or "None"
+
 	local pMaxHP = ((player:GetAttribute("Health") or 10) + (wpnBonus.Health or 0) + (accBonus.Health or 0)) * 10
-	if clanName == "Reiss" then pMaxHP = math.floor(pMaxHP * 1.5) end
+	if baseClan == "Reiss" then pMaxHP = math.floor(pMaxHP * (isAwakened and 2.0 or 1.5)) end
+	if baseClan == "Arlert" and string.find(tName, "Colossal Titan") then pMaxHP = math.floor(pMaxHP * 1.5) end -- God of Destruction Synergy
 	pMaxHP = pMaxHP + awakenedStats.HpBonus
 
 	local pMaxGas = ((player:GetAttribute("Gas") or 10) + (wpnBonus.Gas or 0) + (accBonus.Gas or 0)) * 10
@@ -198,11 +202,10 @@ local function StartBattle(player, encounterType, requestedPartId)
 	local ctxRange = "Close"
 	if eTemplate.Name:find("Beast Titan") then
 		ctxRange = "Long"
-		logFlavor = logFlavor .. "\n<font color='#FF5555'>The Beast Titan is at LONG RANGE. Use Maneuver to close the gap!</font>"
+		logFlavor = logFlavor .. "\n<font color='#FF5555'>The Beast Titan is at LONG RANGE.</font>"
 	end
 
 	local isMinigame = eTemplate.IsMinigame
-
 	local eHP = math.floor(eTemplate.Health * hpMult)
 	local eGateType = eTemplate.GateType
 	local eGateHP = math.floor((eTemplate.GateHP or 0) * (eGateType == "Steam" and 1 or hpMult))
@@ -216,20 +219,16 @@ local function StartBattle(player, encounterType, requestedPartId)
 		local selectedMutator = mutators[math.random(1, #mutators)]
 
 		if selectedMutator == "Armored" then
-			eGateType = "Reinforced Skin"
-			eGateHP = math.floor(eHP * 0.3)
+			eGateType = "Reinforced Skin"; eGateHP = math.floor(eHP * 0.3)
 			logFlavor = logFlavor .. "\n<font color='#AAAAAA'>[MUTATOR: ARMORED] Target has extreme hardening!</font>"
 		elseif selectedMutator == "Frenzied" then
-			eSpd = eSpd * 2.0
-			eStr = eStr * 1.2
+			eSpd = eSpd * 2.0; eStr = eStr * 1.2
 			logFlavor = logFlavor .. "\n<font color='#FF5555'>[MUTATOR: FRENZIED] Target is moving at terrifying speeds!</font>"
 		elseif selectedMutator == "Elusive" then
 			enemyAwakenedStats = { DodgeBonus = 15 }
 			logFlavor = logFlavor .. "\n<font color='#55FF55'>[MUTATOR: ELUSIVE] Target is incredibly hard to hit!</font>"
 		elseif selectedMutator == "Colossal" then
-			eHP = eHP * 2.0
-			eStr = eStr * 1.5
-			eSpd = math.floor(eSpd * 0.5)
+			eHP = eHP * 2.0; eStr = eStr * 1.5; eSpd = math.floor(eSpd * 0.5)
 			logFlavor = logFlavor .. "\n<font color='#FFAA00'>[MUTATOR: COLOSSAL] Target is massive and deals lethal damage!</font>"
 		end
 	end
@@ -240,24 +239,18 @@ local function StartBattle(player, encounterType, requestedPartId)
 		Player = {
 			IsPlayer = true, Name = player.Name, PlayerObj = player, Titan = player:GetAttribute("Titan") or "None",
 			Style = GetActualStyle(player), Clan = clanName,
-			HP = pMaxHP, MaxHP = pMaxHP,
-			TitanEnergy = 100, MaxTitanEnergy = 100, Gas = pMaxGas, MaxGas = pMaxGas,
-			TotalStrength = pTotalStr, TotalDefense = pTotalDef,
-			TotalSpeed = pTotalSpd, TotalResolve = pTotalRes,
-			Statuses = {}, Cooldowns = {}, LastSkill = "None",
-			AwakenedStats = awakenedStats
+			HP = pMaxHP, MaxHP = pMaxHP, TitanEnergy = 100, MaxTitanEnergy = 100, Gas = pMaxGas, MaxGas = pMaxGas,
+			TotalStrength = pTotalStr, TotalDefense = pTotalDef, TotalSpeed = pTotalSpd, TotalResolve = pTotalRes,
+			Statuses = {}, Cooldowns = {}, LastSkill = "None", AwakenedStats = awakenedStats
 		},
 		Enemy = {
 			IsMinigame = isMinigame,
-			IsPlayer = false, Name = eTemplate.Name, 
-			IsHuman = isPaths and false or (eTemplate.IsHuman or false),
-			HP = eHP, MaxHP = eHP,
-			GateType = eGateType, GateHP = eGateHP, MaxGateHP = eGateHP,
+			IsPlayer = false, Name = eTemplate.Name, IsHuman = isPaths and false or (eTemplate.IsHuman or false),
+			HP = eHP, MaxHP = eHP, GateType = eGateType, GateHP = eGateHP, MaxGateHP = eGateHP,
 			TotalStrength = eStr, TotalDefense = eDef, TotalSpeed = eSpd,
 			Statuses = {}, Cooldowns = {}, Skills = eTemplate.Skills or {"Brutal Swipe"},
 			Drops = { XP = finalDropXP, Dews = finalDropDews, ItemChance = eTemplate.Drops and eTemplate.Drops.ItemChance or {} },
-			LastSkill = "None",
-			AwakenedStats = enemyAwakenedStats
+			LastSkill = "None", AwakenedStats = enemyAwakenedStats
 		}
 	}
 
@@ -280,9 +273,7 @@ local function ProcessEnemyDeath(player, battle)
 		battle.Enemy.TotalStrength = b.TotalStrength; battle.Enemy.TotalDefense = b.TotalDefense; battle.Enemy.TotalSpeed = b.TotalSpeed
 		battle.Enemy.Drops = b.Drops; battle.Enemy.Skills = b.Skills; battle.Enemy.Statuses = b.Statuses; battle.Enemy.Cooldowns = b.Cooldowns; battle.Enemy.LastSkill = b.LastSkill
 
-		battle.Context.StoredBoss = nil
-		battle.Context.TurnCount = 0 
-
+		battle.Context.StoredBoss = nil; battle.Context.TurnCount = 0 
 		CombatUpdate:FireClient(player, "TurnStrike", {Battle = battle, LogMsg = "<font color='#55FF55'>The Summoned Titan falls! The Founder is exposed!</font>", DidHit = false, ShakeType = "Heavy"})
 		task.wait(turnDelay)
 		battle.IsProcessing = false
@@ -291,7 +282,6 @@ local function ProcessEnemyDeath(player, battle)
 	end
 
 	UpdateBountyProgress(player, "Kill", 1); UpdateBountyProgress(player, "Clear", 1)
-
 	if battle.Context.IsWorldBoss then
 		local vpEvent = game:GetService("ServerStorage"):FindFirstChild("AddRegimentVP")
 		if vpEvent then vpEvent:Fire(player, 250) end
@@ -309,7 +299,6 @@ local function ProcessEnemyDeath(player, battle)
 
 	player:SetAttribute("XP", (player:GetAttribute("XP") or 0) + xpGain)
 	player:SetAttribute("TitanXP", (player:GetAttribute("TitanXP") or 0) + xpGain)
-
 	player.leaderstats.Dews.Value += dewsGain
 
 	local killMsg = ""
@@ -394,7 +383,6 @@ local function ProcessEnemyDeath(player, battle)
 		local pMax = tonumber(battle.Player.MaxHP) or 100
 		local pCur = tonumber(battle.Player.HP) or 100
 		local healAmt = math.floor(pMax * battle.Player.AwakenedStats.HealOnKill)
-
 		battle.Player.HP = math.min(pMax, pCur + healAmt)
 		killMsg = killMsg .. "<br/><font color='#55FF55'>[Awakened: Healed " .. healAmt .. " HP!]</font>"
 	end
@@ -403,18 +391,15 @@ local function ProcessEnemyDeath(player, battle)
 		local floor = player:GetAttribute("PathsFloor") or 1
 		local dustGain = math.floor(1 + (floor * 0.2)) 
 		player:SetAttribute("PathDust", (player:GetAttribute("PathDust") or 0) + dustGain)
-
-		local nextFloor = floor + 1
-		player:SetAttribute("PathsFloor", nextFloor)
+		player:SetAttribute("PathsFloor", floor + 1)
 
 		local rewardStr = "<font color='#55FFFF'>Memory Cleared! +" .. dustGain .. " Path Dust</font>"
-
 		local prestige = player.leaderstats.Prestige.Value
 		local targetPart = math.random(1, 8)
 		local partData = EnemyData.Parts[targetPart]
 		local nextEnemyTemplate = partData.Mobs[math.random(1, #partData.Mobs)]
 
-		local pathScale = math.pow(1.25, nextFloor - 1)
+		local pathScale = math.pow(1.25, floor)
 		local hpMult = GetHPScale(targetPart, prestige) * pathScale
 		local dmgMult = GetDmgScale(targetPart, prestige) * pathScale
 		local dropMult = 1.0 + (targetPart * 1.5) + (prestige * 2.5)
@@ -429,48 +414,34 @@ local function ProcessEnemyDeath(player, battle)
 		local enemyAwakenedStats = nil
 		local mutators = {"Armored", "Frenzied", "Elusive", "Colossal"}
 		local selectedMutator = mutators[math.random(1, #mutators)]
-		local logFlavor = "<font color='#55FFFF'>[THE PATHS - MEMORY " .. nextFloor .. "]</font>\nA manifestation of " .. nextEnemyTemplate.Name .. " emerges from the sand..."
+		local logFlavor = "<font color='#55FFFF'>[THE PATHS - MEMORY " .. (floor + 1) .. "]</font>\nA manifestation of " .. nextEnemyTemplate.Name .. " emerges from the sand..."
 
 		if selectedMutator == "Armored" then
-			eGateType = "Reinforced Skin"
-			eGateHP = math.floor(eHP * 0.3)
+			eGateType = "Reinforced Skin"; eGateHP = math.floor(eHP * 0.3)
 			logFlavor = logFlavor .. "\n<font color='#AAAAAA'>[MUTATOR: ARMORED] Target has extreme hardening!</font>"
 		elseif selectedMutator == "Frenzied" then
-			eSpd = eSpd * 2.0
-			eStr = eStr * 1.2
+			eSpd = eSpd * 2.0; eStr = eStr * 1.2
 			logFlavor = logFlavor .. "\n<font color='#FF5555'>[MUTATOR: FRENZIED] Target is moving at terrifying speeds!</font>"
 		elseif selectedMutator == "Elusive" then
 			enemyAwakenedStats = { DodgeBonus = 15 }
 			logFlavor = logFlavor .. "\n<font color='#55FF55'>[MUTATOR: ELUSIVE] Target is incredibly hard to hit!</font>"
 		elseif selectedMutator == "Colossal" then
-			eHP = eHP * 2.0
-			eStr = eStr * 1.5
-			eSpd = math.floor(eSpd * 0.5)
+			eHP = eHP * 2.0; eStr = eStr * 1.5; eSpd = math.floor(eSpd * 0.5)
 			logFlavor = logFlavor .. "\n<font color='#FFAA00'>[MUTATOR: COLOSSAL] Target is massive and deals lethal damage!</font>"
 		end
 
 		battle.Enemy = {
-			IsMinigame = nextEnemyTemplate.IsMinigame,
-			IsPlayer = false, Name = nextEnemyTemplate.Name, 
-			IsHuman = false, 
-			HP = eHP, MaxHP = eHP,
-			GateType = eGateType, GateHP = eGateHP, MaxGateHP = eGateHP,
-			TotalStrength = eStr, TotalDefense = eDef, TotalSpeed = eSpd,
+			IsMinigame = nextEnemyTemplate.IsMinigame, IsPlayer = false, Name = nextEnemyTemplate.Name, IsHuman = false, 
+			HP = eHP, MaxHP = eHP, GateType = eGateType, GateHP = eGateHP, MaxGateHP = eGateHP, TotalStrength = eStr, TotalDefense = eDef, TotalSpeed = eSpd,
 			Statuses = {}, Cooldowns = {}, Skills = nextEnemyTemplate.Skills or {"Brutal Swipe"},
 			Drops = { XP = math.floor((nextEnemyTemplate.Drops and nextEnemyTemplate.Drops.XP or 15) * dropMult), Dews = math.floor((nextEnemyTemplate.Drops and nextEnemyTemplate.Drops.Dews or 10) * dropMult), ItemChance = nextEnemyTemplate.Drops and nextEnemyTemplate.Drops.ItemChance or {} },
-			LastSkill = "None",
-			AwakenedStats = enemyAwakenedStats
+			LastSkill = "None", AwakenedStats = enemyAwakenedStats
 		}
-
-		battle.Player.Cooldowns = {} 
-		battle.Player.Statuses = {} 
+		battle.Player.Cooldowns = {}; battle.Player.Statuses = {} 
 		battle.Player.HP = battle.Player.MaxHP; battle.Player.Gas = battle.Player.MaxGas; battle.Player.TitanEnergy = math.min(100, (battle.Player.TitanEnergy or 0) + 30); battle.Player.LastSkill = "None"
 
-		if nextEnemyTemplate.IsMinigame then
-			CombatUpdate:FireClient(player, "StartMinigame", {Battle = battle, LogMsg = logFlavor .. "\n" .. rewardStr .. killMsg, MinigameType = nextEnemyTemplate.IsMinigame})
-		else
-			CombatUpdate:FireClient(player, "WaveComplete", {Battle = battle, LogMsg = logFlavor .. "\n" .. rewardStr .. killMsg, XP = xpGain, Dews = dewsGain, Items = droppedItems})
-		end
+		if nextEnemyTemplate.IsMinigame then CombatUpdate:FireClient(player, "StartMinigame", {Battle = battle, LogMsg = logFlavor .. "\n" .. rewardStr .. killMsg, MinigameType = nextEnemyTemplate.IsMinigame})
+		else CombatUpdate:FireClient(player, "WaveComplete", {Battle = battle, LogMsg = logFlavor .. "\n" .. rewardStr .. killMsg, XP = xpGain, Dews = dewsGain, Items = droppedItems}) end
 		battle.IsProcessing = false
 		return
 	end
@@ -479,7 +450,6 @@ local function ProcessEnemyDeath(player, battle)
 		battle.Context.CurrentWave += 1
 		local nextWave = battle.Context.CurrentWave
 		local prestige = player.leaderstats.Prestige.Value
-
 		local maxPart = math.min(8, player:GetAttribute("CurrentPart") or 1)
 		local targetPart = math.random(1, maxPart)
 		local partData = EnemyData.Parts[targetPart]
@@ -501,53 +471,35 @@ local function ProcessEnemyDeath(player, battle)
 		battle.Context.Range = "Close"
 		if nextEnemyTemplate.Name:find("Beast Titan") then
 			battle.Context.Range = "Long"
-			battle.Context.GapCloses = 0
-			logFlavor = logFlavor .. "\n<font color='#FF5555'>The Beast Titan is at LONG RANGE. Use Maneuver to close the gap!</font>"
+			logFlavor = logFlavor .. "\n<font color='#FF5555'>The Beast Titan is at LONG RANGE.</font>"
 		end
 
-		battle.Context.TurnCount = 0
-		battle.Context.StoredBoss = nil
-
-		local isMinigame = nextEnemyTemplate.IsMinigame
-
+		battle.Context.TurnCount = 0; battle.Context.StoredBoss = nil
 		battle.Enemy = {
-			IsMinigame = isMinigame,
-			IsPlayer = false, Name = nextEnemyTemplate.Name, 
-			IsHuman = nextEnemyTemplate.IsHuman or false,
-			HP = eHP, MaxHP = eHP,
-			GateType = eGateType, GateHP = eGateHP, MaxGateHP = eGateHP,
-			TotalStrength = eStr, TotalDefense = eDef, TotalSpeed = eSpd,
+			IsMinigame = nextEnemyTemplate.IsMinigame, IsPlayer = false, Name = nextEnemyTemplate.Name, IsHuman = nextEnemyTemplate.IsHuman or false,
+			HP = eHP, MaxHP = eHP, GateType = eGateType, GateHP = eGateHP, MaxGateHP = eGateHP, TotalStrength = eStr, TotalDefense = eDef, TotalSpeed = eSpd,
 			Statuses = {}, Cooldowns = {}, Skills = nextEnemyTemplate.Skills or {"Brutal Swipe"},
 			Drops = { XP = math.floor((nextEnemyTemplate.Drops and nextEnemyTemplate.Drops.XP or 15) * dropMult), Dews = math.floor((nextEnemyTemplate.Drops and nextEnemyTemplate.Drops.Dews or 10) * dropMult), ItemChance = nextEnemyTemplate.Drops and nextEnemyTemplate.Drops.ItemChance or {} },
 			LastSkill = "None"
 		}
-
-		battle.Player.Cooldowns = {} 
-		battle.Player.Statuses = {} 
+		battle.Player.Cooldowns = {}; battle.Player.Statuses = {} 
 		battle.Player.HP = battle.Player.MaxHP; battle.Player.Gas = battle.Player.MaxGas; battle.Player.TitanEnergy = math.min(100, (battle.Player.TitanEnergy or 0) + 30); battle.Player.LastSkill = "None"
 
-		if isMinigame then
-			CombatUpdate:FireClient(player, "StartMinigame", {Battle = battle, LogMsg = logFlavor .. "\n" .. killMsg, MinigameType = isMinigame})
-		else
-			CombatUpdate:FireClient(player, "WaveComplete", {Battle = battle, LogMsg = logFlavor .. "\n" .. killMsg, XP = xpGain, Dews = dewsGain, Items = droppedItems})
-		end
+		if isMinigame then CombatUpdate:FireClient(player, "StartMinigame", {Battle = battle, LogMsg = logFlavor .. "\n" .. killMsg, MinigameType = nextEnemyTemplate.IsMinigame})
+		else CombatUpdate:FireClient(player, "WaveComplete", {Battle = battle, LogMsg = logFlavor .. "\n" .. killMsg, XP = xpGain, Dews = dewsGain, Items = droppedItems}) end
 		battle.IsProcessing = false
 		return
 	end
 
 	if battle.Context.IsStoryMission and battle.Context.CurrentWave < battle.Context.TotalWaves then
 		battle.Context.CurrentWave += 1
-
 		if battle.Context.TargetPart == 2 and battle.Context.CurrentWave == battle.Context.TotalWaves then
 			local currentReg = player:GetAttribute("Regiment") or "Cadet Corps"
 			if currentReg ~= "Cadet Corps" then
-				-- [[ THE FIX: Automatically process the campaign progression since we are skipping the final wave ]]
 				player:SetAttribute("CampaignClear_Part2", true)
 				if (player:GetAttribute("CurrentPart") or 1) == 2 then
-					player:SetAttribute("CurrentPart", 3)
-					player:SetAttribute("CurrentWave", 1) 
+					player:SetAttribute("CurrentPart", 3); player:SetAttribute("CurrentWave", 1) 
 				end
-
 				CombatUpdate:FireClient(player, "Victory", {Battle = battle, XP = xpGain, Dews = dewsGain, Items = droppedItems, ExtraLog = killMsg .. "<br/><font color='#55FFFF'>Skipped Regiment Selection (Already enlisted).</font>"})
 				ActiveBattles[player.UserId] = nil
 				return
@@ -572,23 +524,16 @@ local function ProcessEnemyDeath(player, battle)
 		local nextFinalDropDews = math.floor(nextBaseDropDews * dropMult)
 
 		local flavorText = waveData.Flavor
-
 		if nextEnemyTemplate.Name:find("Beast Titan") then
 			battle.Context.Range = "Long"
-			battle.Context.GapCloses = 0
-			flavorText = flavorText .. "\n<font color='#FF5555'>The Beast Titan is at LONG RANGE. Use Maneuver to close the gap!</font>"
+			flavorText = flavorText .. "\n<font color='#FF5555'>The Beast Titan is at LONG RANGE.</font>"
 		else
 			battle.Context.Range = "Close"
-			battle.Context.GapCloses = 0
 		end
-		battle.Context.TurnCount = 0
-		battle.Context.StoredBoss = nil
-
-		local isMinigame = nextEnemyTemplate.IsMinigame
+		battle.Context.TurnCount = 0; battle.Context.StoredBoss = nil
 
 		battle.Enemy = {
-			IsMinigame = isMinigame,
-			IsPlayer = false, Name = nextEnemyTemplate.Name, IsHuman = nextEnemyTemplate.IsHuman or false,
+			IsMinigame = nextEnemyTemplate.IsMinigame, IsPlayer = false, Name = nextEnemyTemplate.Name, IsHuman = nextEnemyTemplate.IsHuman or false,
 			HP = math.floor(nextEnemyTemplate.Health * hpMult), MaxHP = math.floor(nextEnemyTemplate.Health * hpMult),
 			GateType = nextEnemyTemplate.GateType, GateHP = math.floor((nextEnemyTemplate.GateHP or 0) * (nextEnemyTemplate.GateType == "Steam" and 1 or hpMult)), MaxGateHP = math.floor((nextEnemyTemplate.GateHP or 0) * (nextEnemyTemplate.GateType == "Steam" and 1 or hpMult)),
 			TotalStrength = math.floor(nextEnemyTemplate.Strength * dmgMult), TotalDefense = math.floor(nextEnemyTemplate.Defense * dmgMult), TotalSpeed = math.floor(nextEnemyTemplate.Speed * dmgMult),
@@ -596,28 +541,20 @@ local function ProcessEnemyDeath(player, battle)
 			Drops = { XP = nextFinalDropXP, Dews = nextFinalDropDews, ItemChance = nextEnemyTemplate.Drops and nextEnemyTemplate.Drops.ItemChance or {} },
 			LastSkill = "None"
 		}
-
-		battle.Player.Cooldowns = {} 
-		battle.Player.Statuses = {} 
+		battle.Player.Cooldowns = {}; battle.Player.Statuses = {} 
 		battle.Player.HP = battle.Player.MaxHP; battle.Player.Gas = battle.Player.MaxGas; battle.Player.TitanEnergy = math.min(100, (battle.Player.TitanEnergy or 0) + 30); battle.Player.LastSkill = "None"
 
-		if isMinigame then
-			CombatUpdate:FireClient(player, "StartMinigame", {Battle = battle, LogMsg = "<font color='#FFD700'>[WAVE " .. battle.Context.CurrentWave .. "]</font>\n" .. flavorText, MinigameType = isMinigame})
-		else
-			CombatUpdate:FireClient(player, "WaveComplete", {Battle = battle, LogMsg = "<font color='#FFD700'>[WAVE " .. battle.Context.CurrentWave .. "]</font>\n" .. flavorText .. killMsg, XP = xpGain, Dews = dewsGain, Items = droppedItems})
-		end
+		if isMinigame then CombatUpdate:FireClient(player, "StartMinigame", {Battle = battle, LogMsg = "<font color='#FFD700'>[WAVE " .. battle.Context.CurrentWave .. "]</font>\n" .. flavorText, MinigameType = nextEnemyTemplate.IsMinigame})
+		else CombatUpdate:FireClient(player, "WaveComplete", {Battle = battle, LogMsg = "<font color='#FFD700'>[WAVE " .. battle.Context.CurrentWave .. "]</font>\n" .. flavorText .. killMsg, XP = xpGain, Dews = dewsGain, Items = droppedItems}) end
 		battle.IsProcessing = false
 	else
 		if battle.Context.IsStoryMission then
 			player:SetAttribute("CampaignClear_Part" .. battle.Context.TargetPart, true)
-
 			local playerCurrentPart = player:GetAttribute("CurrentPart") or 1
 			if battle.Context.TargetPart == playerCurrentPart then
 				local nextPart = playerCurrentPart + 1
-
 				if EnemyData.Parts[nextPart] or nextPart == 9 then
-					player:SetAttribute("CurrentPart", nextPart)
-					player:SetAttribute("CurrentWave", 1) 
+					player:SetAttribute("CurrentPart", nextPart); player:SetAttribute("CurrentWave", 1) 
 				end
 			end
 		end
@@ -632,52 +569,13 @@ CombatAction.OnServerEvent:Connect(function(player, actionType, actionData)
 	end
 
 	if actionType == "MinigameResult" then
-		local battle = ActiveBattles[player.UserId]
-		if not battle then return end
-
-		if battle.IsProcessing then return end
-		battle.IsProcessing = true
-
-		if actionData.MinigameType == "GapClose" then
-			if actionData.Success then
-				battle.Context.Range = "Close"
-				CombatUpdate:FireClient(player, "TurnStrike", {Battle = battle, LogMsg = "<font color='#55FF55'>You successfully dodged the attacks and closed the gap! You are in melee range!</font>", DidHit = false, ShakeType = "Heavy"})
-			else
-				local dmg = math.floor(battle.Player.MaxHP * 0.15)
-				battle.Player.HP = math.max(1, battle.Player.HP - dmg)
-				if battle.Player.HP <= 0 then
-					CombatUpdate:FireClient(player, "Defeat", {Battle = battle})
-					if battle.Context.IsPaths then CombatUpdate:FireClient(player, "PathsDeath", {Battle = battle}) end
-					ActiveBattles[player.UserId] = nil
-					return
-				end
-				CombatUpdate:FireClient(player, "TurnStrike", {Battle = battle, LogMsg = "<font color='#FF5555'>You were struck while trying to advance! Took " .. dmg .. " damage. Still at LONG RANGE.</font>", DidHit = false, ShakeType = "Normal"})
-			end
-			local turnDelay = player:GetAttribute("HasDoubleSpeed") and 0.75 or 1.5
-			task.wait(turnDelay)
-			battle.IsProcessing = false
-			CombatUpdate:FireClient(player, "Update", {Battle = battle})
-			return
-		end
-
-		if not battle.Enemy.IsMinigame then return end
-		if actionData.Success then
-			battle.Enemy.HP = 0
-			ProcessEnemyDeath(player, battle)
-		else
-			battle.Player.HP = 0
-			CombatUpdate:FireClient(player, "Defeat", {Battle = battle})
-			ActiveBattles[player.UserId] = nil
-		end
+		-- Legacy Handler just in case
 		return
 	end
 
 	local battle = ActiveBattles[player.UserId]
 	if not battle or actionType ~= "Attack" then return end
-
-	if battle.IsProcessing then 
-		CombatUpdate:FireClient(player, "Update", {Battle = battle}); return 
-	end
+	if battle.IsProcessing then return end
 
 	local skillName = actionData.SkillName
 	local targetLimb = actionData.TargetLimb or "Body" 
@@ -693,6 +591,13 @@ CombatAction.OnServerEvent:Connect(function(player, actionType, actionData)
 		else
 			CombatUpdate:FireClient(player, "Update", {Battle = battle}); return 
 		end
+	end
+
+	-- Prevent using wrong range attacks natively
+	local sRange = skill.Range or "Close"
+	if sRange ~= "Any" and sRange ~= battle.Context.Range then
+		CombatUpdate:FireClient(player, "TurnStrike", {Battle = battle, LogMsg = "<font color='#FF5555'>You cannot use " .. skillName .. " at this range!</font>", DidHit = false, ShakeType = "None"})
+		return
 	end
 
 	battle.IsProcessing = true
@@ -725,7 +630,7 @@ CombatAction.OnServerEvent:Connect(function(player, actionType, actionData)
 	if battle.Enemy.Statuses and battle.Enemy.Statuses["Crippled"] then eSpeed *= 0.5 end
 	if battle.Enemy.Statuses and battle.Enemy.Statuses["Immobilized"] then eSpeed = -999 end
 
-	if skillName == "Maneuver" or skillName == "Evasive Maneuver" or skillName == "Advance Maneuver" or skillName == "Retreat" or skillName == "Recover" or skillName == "Block" then pSpeed += 9999 end
+	if skillName == "Maneuver" or skillName == "Evasive Maneuver" or skillName == "Smoke Screen" or skillName == "Block" then pSpeed += 9999 end
 
 	local pRoll = pSpeed + math.random(1, 15)
 	local eRoll = eSpeed + math.random(1, 15)
@@ -818,40 +723,20 @@ CombatAction.OnServerEvent:Connect(function(player, actionType, actionData)
 				return 
 			end
 
-			if battle.Context.Range == "Long" then
-				if skillName == "Maneuver" then
-					combatant.Gas = math.max(0, combatant.Gas - (skill.GasCost or 15))
-					battle.IsProcessing = false 
-					CombatUpdate:FireClient(player, "StartMinigame", {Battle = battle, LogMsg = "<font color='#FFAA00'>Incoming projectiles! Evade to close the distance!</font>", MinigameType = "GapClose"})
-					return -- Stop processing turn until minigame finishes
-				elseif skillName == "Advance Maneuver" or skillName == "Evasive Maneuver" then
-					battle.Context.GapCloses = (battle.Context.GapCloses or 0) + 1
-					combatant.Gas = math.max(0, combatant.Gas - (skill.GasCost or 20))
-					if battle.Context.GapCloses >= 3 then
-						battle.Context.Range = "Close"
-						CombatUpdate:FireClient(player, "TurnStrike", {Battle = battle, LogMsg = "<font color='#55FF55'>You successfully closed the gap! The Beast Titan is in melee range!</font>", DidHit = false, ShakeType = "Heavy"})
-					else
-						CombatUpdate:FireClient(player, "TurnStrike", {Battle = battle, LogMsg = "<font color='#AAAAAA'>You maneuvered closer... (" .. battle.Context.GapCloses .. "/3)</font>", DidHit = false, ShakeType = "None"})
-					end
-					task.wait(turnDelay)
-					continue
-				elseif skill.Effect == "Rest" or skillName == "Recover" then
-					local healAmount = (combatant.MaxHP or 100) * 0.30
-					combatant.HP = math.min(combatant.MaxHP, combatant.HP + healAmount)
-					combatant.Gas = math.min(combatant.MaxGas, combatant.Gas + (combatant.MaxGas * 0.40))
-					CombatUpdate:FireClient(player, "TurnStrike", {Battle = battle, LogMsg = "<font color='#55FF55'>You recovered HP and Gas.</font>", DidHit = false, ShakeType = "None"})
-					task.wait(turnDelay)
-					continue
-				elseif skill.Effect == "Transform" then
-					combatant.Statuses["Transformed"] = 999; combatant.HP = combatant.MaxHP; combatant.TitanEnergy = combatant.MaxTitanEnergy or 100
-					CombatUpdate:FireClient(player, "TurnStrike", {Battle = battle, LogMsg = "<font color='#55FF55'>Lightning strikes! You transformed, but you still need to close the gap!</font>", DidHit = false, ShakeType = "Heavy"})
-					task.wait(turnDelay)
-					continue
-				else
-					CombatUpdate:FireClient(player, "TurnStrike", {Battle = battle, LogMsg = "<font color='#FF5555'>You are at LONG RANGE! You must use Maneuver to close the gap!</font>", DidHit = false, ShakeType = "None"})
-					task.wait(turnDelay)
-					continue
-				end
+			if skillName == "Fall Back" then
+				combatant.Gas = math.max(0, combatant.Gas - (skill.GasCost or 15))
+				battle.Context.Range = "Long"
+				CombatUpdate:FireClient(player, "TurnStrike", {Battle = battle, LogMsg = "<font color='#55FFFF'>You fell back to LONG RANGE! Close-range attacks cannot reach you.</font>", DidHit = false, ShakeType = "None"})
+				task.wait(turnDelay)
+				continue
+			end
+
+			if skillName == "Close In" then
+				combatant.Gas = math.max(0, combatant.Gas - (skill.GasCost or 15))
+				battle.Context.Range = "Close"
+				CombatUpdate:FireClient(player, "TurnStrike", {Battle = battle, LogMsg = "<font color='#55FF55'>You fired your ODM gear and closed the gap to MELEE RANGE!</font>", DidHit = false, ShakeType = "None"})
+				task.wait(turnDelay)
+				continue
 			end
 
 			if skill.GasCost then combatant.Gas = math.max(0, combatant.Gas - skill.GasCost) end
@@ -872,12 +757,27 @@ CombatAction.OnServerEvent:Connect(function(player, actionType, actionData)
 			if not combatant.Cooldowns then combatant.Cooldowns = {} end
 
 			local validAiSkills = {}
+			local hasRangedOptions = false
 			local isDodging = combatant.Statuses and combatant.Statuses["Dodge"]
 
 			for _, s in ipairs(combatant.Skills) do
 				if not combatant.Cooldowns[s] or combatant.Cooldowns[s] <= 0 then
 					if isDodging and (s == "Evasive Maneuver" or s == "Smoke Screen" or s == "Block") then continue end
-					table.insert(validAiSkills, s)
+
+					local sData = SkillData.Skills[s]
+					if sData then
+						local sRange = sData.Range or "Close"
+						if battle.Context.Range == "Long" then
+							if sRange == "Long" or sRange == "Any" or sData.Effect == "CloseGap" then
+								table.insert(validAiSkills, s)
+								hasRangedOptions = true
+							end
+						else
+							if sRange == "Close" or sRange == "Any" then
+								table.insert(validAiSkills, s)
+							end
+						end
+					end
 				end
 			end
 
@@ -888,30 +788,34 @@ CombatAction.OnServerEvent:Connect(function(player, actionType, actionData)
 				aiSkill = combatant.Statuses["Telegraphing"]
 				combatant.Statuses["Telegraphing"] = nil
 			else
-				if battle.Context.Range == "Long" then
-					aiSkill = "Crushed Boulders"
-				elseif string.find(combatant.Name, "Female Titan") and combatant.Statuses and combatant.Statuses.Crippled then
-					aiSkill = "Nape Guard"
-				elseif string.find(combatant.Name, "Founding Titan") and battle.Context.TurnCount % 8 == 0 and not battle.Context.StoredBoss then
-					aiSkill = "Coordinate Command"
-				elseif combatant.LastSkill == "Titan Grab" and table.find(combatant.Skills, "Titan Bite") then
-					aiSkill = "Titan Bite" 
-				elseif #validAiSkills > 0 then
-					local attackMoves = {}
-					for _, s in ipairs(validAiSkills) do
-						if s ~= "Evasive Maneuver" and s ~= "Smoke Screen" and s ~= "Block" and s ~= "Regroup" then
-							table.insert(attackMoves, s)
+				if battle.Context.Range == "Long" and not hasRangedOptions then
+					aiSkill = "Advance"
+				else
+					if battle.Context.Range == "Long" and table.find(validAiSkills, "Crushed Boulders") then
+						aiSkill = "Crushed Boulders"
+					elseif string.find(combatant.Name, "Female Titan") and combatant.Statuses and combatant.Statuses.Crippled and table.find(validAiSkills, "Nape Guard") then
+						aiSkill = "Nape Guard"
+					elseif string.find(combatant.Name, "Founding Titan") and battle.Context.TurnCount % 8 == 0 and not battle.Context.StoredBoss then
+						aiSkill = "Coordinate Command"
+					elseif combatant.LastSkill == "Titan Grab" and table.find(validAiSkills, "Titan Bite") then
+						aiSkill = "Titan Bite" 
+					elseif #validAiSkills > 0 then
+						local attackMoves = {}
+						for _, s in ipairs(validAiSkills) do
+							if s ~= "Evasive Maneuver" and s ~= "Smoke Screen" and s ~= "Block" and s ~= "Regroup" then
+								table.insert(attackMoves, s)
+							end
 						end
-					end
 
-					if #attackMoves > 0 and math.random(1, 100) <= 80 then
-						aiSkill = attackMoves[math.random(1, #attackMoves)]
-					else
-						aiSkill = validAiSkills[math.random(1, #validAiSkills)]
+						if #attackMoves > 0 and math.random(1, 100) <= 80 then
+							aiSkill = attackMoves[math.random(1, #attackMoves)]
+						else
+							aiSkill = validAiSkills[math.random(1, #validAiSkills)]
+						end
 					end
 				end
 
-				if SkillData.Skills[aiSkill] and SkillData.Skills[aiSkill].Telegraphed then
+				if aiSkill ~= "Advance" and SkillData.Skills[aiSkill] and SkillData.Skills[aiSkill].Telegraphed then
 					combatant.Statuses["Telegraphing"] = aiSkill
 					CombatUpdate:FireClient(player, "TurnStrike", {Battle = battle, LogMsg = "<b><font color='#FFAA00'>WARNING: " .. combatant.Name .. " is charging up " .. aiSkill:upper() .. "! Brace yourself!</font></b>", DidHit = false, ShakeType = "Heavy"})
 					task.wait(turnDelay)
@@ -919,12 +823,31 @@ CombatAction.OnServerEvent:Connect(function(player, actionType, actionData)
 				end
 			end
 
+			if aiSkill == "Advance" then
+				battle.Context.Range = "Close"
+				CombatUpdate:FireClient(player, "TurnStrike", {Battle = battle, LogMsg = "<font color='#FF5555'>" .. combatant.Name .. " charged forward, closing the gap to MELEE RANGE!</font>", DidHit = false, ShakeType = "Heavy"})
+				task.wait(turnDelay)
+				continue
+			end
+
 			if (aiSkill == "Maneuver" or aiSkill == "Evasive Maneuver" or aiSkill == "Smoke Screen") and isDodging then 
 				aiSkill = "Heavy Slash" 
 			end
 
+			if aiSkill == "Armored Tackle" or aiSkill == "Titan Grab" then
+				battle.Context.Range = "Close"
+			end
+
 			local aiTargets = {"Body", "Body", "Arms", "Legs", "Nape"}
-			DispatchStrike(battle.Enemy, battle.Player, aiSkill, aiTargets[math.random(1, #aiTargets)])
+			local chosenSkillData = SkillData.Skills[aiSkill]
+			local sRange = chosenSkillData and chosenSkillData.Range or "Close"
+
+			if battle.Context.Range == "Long" and sRange == "Close" then
+				CombatUpdate:FireClient(player, "TurnStrike", {Battle = battle, LogMsg = "<font color='#AAAAAA'>" .. combatant.Name .. " used " .. aiSkill:upper() .. ", but you are at LONG RANGE! The attack missed completely!</font>", DidHit = false, ShakeType = "None"})
+				task.wait(turnDelay)
+			else
+				DispatchStrike(battle.Enemy, battle.Player, aiSkill, aiTargets[math.random(1, #aiTargets)])
+			end
 
 			if aiSkill == "Coordinate Command" and string.find(combatant.Name, "Founding Titan") then
 				local pPrestige = player.leaderstats.Prestige.Value
