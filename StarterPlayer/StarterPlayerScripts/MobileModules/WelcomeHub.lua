@@ -128,7 +128,7 @@ RunTourStep = function(step)
 
 	if step == 1 then
 		SpeakerTxt.Text = "SYSTEM"
-		DialogTxt.Text = "Welcome to Attack on Titan: Chronicles! Let's take a guided tour of your HUD so you know where everything is."
+		DialogTxt.Text = "Welcome to Attack on Titan: Incremental! Let's take a guided tour of your HUD so you know where everything is."
 		tutorialConnection = NextBtn.MouseButton1Click:Connect(function() RunTourStep(2) end)
 	elseif step == 2 then
 		SpeakerTxt.Text = "INSTRUCTOR"
@@ -209,7 +209,7 @@ function WelcomeHub.Init(parentFrame)
 	local hpLayout = Instance.new("UIListLayout", HubScroll); hpLayout.SortOrder = Enum.SortOrder.LayoutOrder; hpLayout.Padding = UDim.new(0, 10); hpLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
 	local hpPad = Instance.new("UIPadding", HubScroll); hpPad.PaddingTop = UDim.new(0, 15); hpPad.PaddingBottom = UDim.new(0, 20)
 
-	local Title = Instance.new("TextLabel", HubScroll); Title.Size = UDim2.new(0.9, 0, 0, 30); Title.BackgroundTransparency = 1; Title.Font = Enum.Font.GothamBlack; Title.TextColor3 = Color3.fromRGB(255, 215, 100); Title.TextSize = 18; Title.TextXAlignment = Enum.TextXAlignment.Center; Title.Text = "ATTACK ON TITAN: CHRONICLES"; Title.LayoutOrder = 1
+	local Title = Instance.new("TextLabel", HubScroll); Title.Size = UDim2.new(0.9, 0, 0, 30); Title.BackgroundTransparency = 1; Title.Font = Enum.Font.GothamBlack; Title.TextColor3 = Color3.fromRGB(255, 215, 100); Title.TextSize = 18; Title.TextXAlignment = Enum.TextXAlignment.Center; Title.Text = "ATTACK ON TITAN: INCREMENTAL"; Title.LayoutOrder = 1
 	ApplyGradient(Title, Color3.fromRGB(255, 235, 150), Color3.fromRGB(255, 150, 50))
 
 	local function CreateSection(parent, titleTxt, bodyTxt, layoutOrder)
