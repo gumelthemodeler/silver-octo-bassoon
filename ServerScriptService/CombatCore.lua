@@ -24,14 +24,14 @@ function CombatCore.CalculateDamage(attacker, defender, skillMult, targetLimb)
 	local isAttackerTransformed = attacker.Statuses and (tonumber(attacker.Statuses.Transformed) or 0) > 0
 	local isDefenderTransformed = defender.Statuses and (tonumber(defender.Statuses.Transformed) or 0) > 0
 
-	-- [[ REBALANCE: Titans now act as massive Multipliers on top of Human Base Stats, not replacements! ]]
+	-- [[ REBALANCE: Reduced the scaling division to heavily nerf the Titan Multiplier ]]
 	if attacker.IsPlayer and isAttackerTransformed then
 		local titanPower = tonumber(attacker.PlayerObj:GetAttribute("Titan_Power_Val")) or 10
-		atkStrength = atkStrength * (1.0 + (titanPower / 15.0))
+		atkStrength = atkStrength * (1.0 + (titanPower / 35.0))
 	end
 	if defender.IsPlayer and isDefenderTransformed then
 		local titanHardening = tonumber(defender.PlayerObj:GetAttribute("Titan_Hardening_Val")) or 10
-		defArmor = defArmor * (1.0 + (titanHardening / 15.0))
+		defArmor = defArmor * (1.0 + (titanHardening / 35.0))
 	end
 
 	skillMult = tonumber(skillMult) or 1.0
