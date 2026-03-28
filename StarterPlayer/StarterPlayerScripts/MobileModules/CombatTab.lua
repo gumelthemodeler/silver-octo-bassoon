@@ -28,6 +28,12 @@ local MAX_LOG_MESSAGES = 3
 
 local cachedTooltipMgr
 
+local PathsShopOverlay
+local PSModal
+local psDust
+local psScroll
+local PopulatePathsShop
+
 local function AddLogMessage(msgText, append)
 	if not msgText or msgText == "" then return end
 	if append then 
@@ -104,7 +110,6 @@ local function CreateBar(parent, color1, color2, size, labelText, alignRight)
 	return fill, text, container
 end
 
--- [[ THE FIX: Re-added the robust type checking for Telegraphing strings so math ops don't crash ]]
 local function RenderStatuses(container, combatant, isRight)
 	for _, child in ipairs(container:GetChildren()) do if child:IsA("Frame") then child:Destroy() end end
 	local function addIcon(iconTxt, bgColor, strokeColor, tooltipText)
@@ -127,18 +132,18 @@ local function RenderStatuses(container, combatant, isRight)
 			if sName == "Telegraphing" and type(duration) == "string" then
 				addIcon("WRN", Color3.fromRGB(200, 100, 0), Color3.fromRGB(255, 150, 0), "Charging Attack: " .. duration)
 			elseif type(duration) == "number" and duration > 0 then
-				if sName == "Bleed" then addIcon("BLD", Color3.fromRGB(150, 20, 20), Color3.fromRGB(255, 50, 50), "Bleeding: Takes Damage over Time (" .. duration .. " turns)")
-				elseif sName == "Burn" then addIcon("BRN", Color3.fromRGB(200, 80, 20), Color3.fromRGB(255, 120, 50), "Burning: Takes heavy DoT (" .. duration .. " turns)")
-				elseif sName == "Stun" then addIcon("STN", Color3.fromRGB(200, 200, 80), Color3.fromRGB(255, 255, 150), "Stunned: Loses next turn (" .. duration .. " turns)")
-				elseif sName == "NapeGuard" then addIcon("GRD", Color3.fromRGB(100, 60, 150), Color3.fromRGB(150, 100, 200), "Nape Guard: Nape damage reduced to 1 (" .. duration .. " turns)")
-				elseif sName == "Confusion" then addIcon("CNF", Color3.fromRGB(150, 80, 150), Color3.fromRGB(200, 100, 200), "Confused: May miss attacks (" .. duration .. " turns)")
-				elseif sName == "Debuff_Defense" then addIcon("BRK", Color3.fromRGB(120, 60, 60), Color3.fromRGB(200, 100, 100), "Defense Broken: Armor shredded (" .. duration .. " turns)")
-				elseif sName == "Crippled" then addIcon("CRP", Color3.fromRGB(80, 80, 80), Color3.fromRGB(120, 120, 120), "Crippled: Speed & Dodge Halved (" .. duration .. " turns)")
-				elseif sName == "Immobilized" then addIcon("IMB", Color3.fromRGB(40, 120, 40), Color3.fromRGB(80, 200, 80), "Immobilized: 0 Speed & 0 Dodge (" .. duration .. " turns)")
-				elseif sName == "Weakened" then addIcon("WEK", Color3.fromRGB(120, 80, 40), Color3.fromRGB(200, 120, 60), "Weakened: Damage Halved (" .. duration .. " turns)")
-				elseif sName == "Blinded" then addIcon("BLN", Color3.fromRGB(40, 40, 40), Color3.fromRGB(80, 80, 80), "Blinded: Target loses their turn! (" .. duration .. " turns)")
-				elseif sName == "TrueBlind" then addIcon("TBL", Color3.fromRGB(20, 20, 20), Color3.fromRGB(50, 50, 50), "True Blindness: Target loses their turn! (" .. duration .. " turns)")
-				elseif sName == "Buff_Strength" or sName == "Buff_Defense" then addIcon("BUF", Color3.fromRGB(20, 120, 20), Color3.fromRGB(40, 200, 40), "Stat Buff Active (" .. duration .. " turns)")
+				if sName == "Bleed" then addIcon("BLD", Color3.fromRGB(150, 20, 20), Color3.fromRGB(255, 50, 50), "Bleeding (" .. duration .. ")")
+				elseif sName == "Burn" then addIcon("BRN", Color3.fromRGB(200, 80, 20), Color3.fromRGB(255, 120, 50), "Burning (" .. duration .. ")")
+				elseif sName == "Stun" then addIcon("STN", Color3.fromRGB(200, 200, 80), Color3.fromRGB(255, 255, 150), "Stunned (" .. duration .. ")")
+				elseif sName == "NapeGuard" then addIcon("GRD", Color3.fromRGB(100, 60, 150), Color3.fromRGB(150, 100, 200), "Nape Guard (" .. duration .. ")")
+				elseif sName == "Confusion" then addIcon("CNF", Color3.fromRGB(150, 80, 150), Color3.fromRGB(200, 100, 200), "Confused (" .. duration .. ")")
+				elseif sName == "Debuff_Defense" then addIcon("BRK", Color3.fromRGB(120, 60, 60), Color3.fromRGB(200, 100, 100), "Defense Broken (" .. duration .. ")")
+				elseif sName == "Crippled" then addIcon("CRP", Color3.fromRGB(80, 80, 80), Color3.fromRGB(120, 120, 120), "Crippled (" .. duration .. ")")
+				elseif sName == "Immobilized" then addIcon("IMB", Color3.fromRGB(40, 120, 40), Color3.fromRGB(80, 200, 80), "Immobilized (" .. duration .. ")")
+				elseif sName == "Weakened" then addIcon("WEK", Color3.fromRGB(120, 80, 40), Color3.fromRGB(200, 120, 60), "Weakened (" .. duration .. ")")
+				elseif sName == "Blinded" then addIcon("BLN", Color3.fromRGB(40, 40, 40), Color3.fromRGB(80, 80, 80), "Blinded (" .. duration .. ")")
+				elseif sName == "TrueBlind" then addIcon("TBL", Color3.fromRGB(20, 20, 20), Color3.fromRGB(50, 50, 50), "True Blind (" .. duration .. ")")
+				elseif sName == "Buff_Strength" or sName == "Buff_Defense" then addIcon("BUF", Color3.fromRGB(20, 120, 20), Color3.fromRGB(40, 200, 40), "Buff Active (" .. duration .. ")")
 				end
 			end
 		end
@@ -199,6 +204,137 @@ function CombatTab.Init(parentFrame, tooltipMgr)
 	MainFrame.ZIndex = 200
 	Instance.new("UICorner", MainFrame).CornerRadius = UDim.new(0, 12)
 	local outerStroke = Instance.new("UIStroke", MainFrame); outerStroke.Thickness = 2; outerStroke.Color = Color3.fromRGB(200, 160, 50); outerStroke.LineJoinMode = Enum.LineJoinMode.Miter
+
+	PathsShopOverlay = Instance.new("TextButton", parentFrame.Parent)
+	PathsShopOverlay.Name = "PathsShopOverlay"
+	PathsShopOverlay.Size = UDim2.new(1, 0, 1, 0)
+	PathsShopOverlay.BackgroundColor3 = Color3.new(0, 0, 0)
+	PathsShopOverlay.BackgroundTransparency = 1
+	PathsShopOverlay.Text = ""
+	PathsShopOverlay.AutoButtonColor = false
+	PathsShopOverlay.ZIndex = 1000
+	PathsShopOverlay.Visible = false
+
+	PSModal = Instance.new("Frame", PathsShopOverlay)
+	PSModal.Size = UDim2.new(0.95, 0, 0.95, 0)
+	PSModal.Position = UDim2.new(0.5, 0, 0.5, 0)
+	PSModal.AnchorPoint = Vector2.new(0.5, 0.5)
+	PSModal.BackgroundColor3 = Color3.fromRGB(15, 15, 18)
+	PSModal.Visible = false
+	Instance.new("UICorner", PSModal).CornerRadius = UDim.new(0, 12)
+	Instance.new("UIStroke", PSModal).Color = Color3.fromRGB(85, 255, 255)
+
+	local modalBlocker = Instance.new("TextButton", PSModal)
+	modalBlocker.Size = UDim2.new(1, 0, 1, 0); modalBlocker.BackgroundTransparency = 1; modalBlocker.Text = ""; modalBlocker.ZIndex = 1
+
+	local psHeader = Instance.new("Frame", PSModal)
+	psHeader.Size = UDim2.new(1, 0, 0, 40); psHeader.BackgroundColor3 = Color3.fromRGB(20, 20, 25); psHeader.ZIndex = 2
+	Instance.new("UICorner", psHeader).CornerRadius = UDim.new(0, 12)
+
+	local psTitle = Instance.new("TextLabel", psHeader)
+	psTitle.Size = UDim2.new(0.5, 0, 1, 0); psTitle.Position = UDim2.new(0, 10, 0, 0); psTitle.BackgroundTransparency = 1; psTitle.Font = Enum.Font.GothamBlack; psTitle.TextColor3 = Color3.fromRGB(85, 255, 255); psTitle.TextSize = 14; psTitle.TextXAlignment = Enum.TextXAlignment.Left; psTitle.Text = "THE PATHS"
+	psTitle.ZIndex = 2
+
+	psDust = Instance.new("TextLabel", psHeader)
+	psDust.Size = UDim2.new(0.5, 0, 1, 0); psDust.Position = UDim2.new(0.5, -10, 0, 0); psDust.BackgroundTransparency = 1; psDust.Font = Enum.Font.GothamBlack; psDust.TextColor3 = Color3.fromRGB(255, 255, 255); psDust.TextSize = 14; psDust.TextXAlignment = Enum.TextXAlignment.Right; psDust.Text = "PATH DUST: 0"
+	psDust.ZIndex = 2
+
+	-- [[ THE FIX: Added Explicit Close Button to Paths Shop on Mobile ]]
+	local psLeaveBtn = Instance.new("TextButton", PSModal)
+	psLeaveBtn.Size = UDim2.new(1, -20, 0, 45); psLeaveBtn.Position = UDim2.new(0, 10, 1, -55)
+	psLeaveBtn.Font = Enum.Font.GothamBlack; psLeaveBtn.TextColor3 = Color3.fromRGB(255, 255, 255); psLeaveBtn.TextSize = 14; psLeaveBtn.Text = "SCATTER DUST & LEAVE"; psLeaveBtn.ZIndex = 3
+	ApplyButtonGradient(psLeaveBtn, Color3.fromRGB(150, 50, 50), Color3.fromRGB(80, 20, 20), Color3.fromRGB(100, 30, 30))
+
+	psScroll = Instance.new("ScrollingFrame", PSModal)
+	psScroll.Size = UDim2.new(1, -10, 1, -110); psScroll.Position = UDim2.new(0, 5, 0, 45); psScroll.BackgroundTransparency = 1; psScroll.ScrollBarThickness = 0; psScroll.ZIndex = 2
+	local psLayout = Instance.new("UIListLayout", psScroll); psLayout.Padding = UDim.new(0, 10); psLayout.SortOrder = Enum.SortOrder.LayoutOrder
+
+	local function ClosePathsShop()
+		Network.ShopAction:FireServer("ClosePathsShop")
+		TweenService:Create(PathsShopOverlay, TweenInfo.new(0.5), {BackgroundTransparency = 0}):Play()
+		PSModal.Visible = false
+		task.wait(0.5)
+		TweenService:Create(PathsShopOverlay, TweenInfo.new(1.0), {BackgroundTransparency = 1}):Play()
+		task.wait(1.0)
+		PathsShopOverlay.Visible = false
+
+		if _G.AOT_OpenCategory and _G.AOT_SwitchTab then
+			_G.AOT_OpenCategory("PLAYER")
+			_G.AOT_SwitchTab("Profile")
+		end
+	end
+
+	PathsShopOverlay.MouseButton1Click:Connect(ClosePathsShop)
+	psLeaveBtn.MouseButton1Click:Connect(ClosePathsShop)
+
+	PopulatePathsShop = function(data)
+		psDust.Text = "PATH DUST: " .. tostring(data.Dust)
+		for _, c in ipairs(psScroll:GetChildren()) do if c:IsA("Frame") or c:IsA("TextLabel") then c:Destroy() end end
+
+		local nLbl = Instance.new("TextLabel", psScroll)
+		nLbl.Size = UDim2.new(1, 0, 0, 25); nLbl.BackgroundTransparency = 1; nLbl.Font = Enum.Font.GothamBlack; nLbl.TextColor3 = Color3.fromRGB(200, 200, 200); nLbl.TextSize = 14; nLbl.TextXAlignment = Enum.TextXAlignment.Left; nLbl.Text = "MEMORY NODES (Stat Upgrades)"
+
+		local nGrid = Instance.new("Frame", psScroll)
+		nGrid.Size = UDim2.new(1, 0, 0, 0); nGrid.AutomaticSize = Enum.AutomaticSize.Y; nGrid.BackgroundTransparency = 1
+		local ngl = Instance.new("UIGridLayout", nGrid); ngl.CellSize = UDim2.new(1, 0, 0, 90); ngl.CellPadding = UDim2.new(0, 0, 0, 10); ngl.SortOrder = Enum.SortOrder.LayoutOrder
+
+		for _, node in ipairs(data.Nodes) do
+			local card = Instance.new("Frame", nGrid)
+			card.BackgroundColor3 = Color3.fromRGB(22, 22, 28); Instance.new("UICorner", card).CornerRadius = UDim.new(0, 6); local stroke = Instance.new("UIStroke", card); stroke.Color = Color3.fromRGB(85, 255, 255); stroke.Thickness = 1; stroke.Transparency = 0.5
+
+			local cTitle = Instance.new("TextLabel", card); cTitle.Size = UDim2.new(1, -20, 0, 20); cTitle.Position = UDim2.new(0, 10, 0, 5); cTitle.BackgroundTransparency = 1; cTitle.Font = Enum.Font.GothamBlack; cTitle.TextColor3 = Color3.fromRGB(255, 215, 100); cTitle.TextSize = 13; cTitle.TextXAlignment = Enum.TextXAlignment.Left; cTitle.Text = node.Name
+			local cDesc = Instance.new("TextLabel", card); cDesc.Size = UDim2.new(1, -20, 0, 30); cDesc.Position = UDim2.new(0, 10, 0, 25); cDesc.BackgroundTransparency = 1; cDesc.Font = Enum.Font.GothamMedium; cDesc.TextColor3 = Color3.fromRGB(200, 200, 200); cDesc.TextSize = 10; cDesc.TextWrapped = true; cDesc.TextXAlignment = Enum.TextXAlignment.Left; cDesc.TextYAlignment = Enum.TextYAlignment.Top; cDesc.Text = node.Desc
+
+			local btn = Instance.new("TextButton", card); btn.Size = UDim2.new(0.45, 0, 0, 25); btn.Position = UDim2.new(1, -10, 1, -30); btn.AnchorPoint = Vector2.new(1, 0); btn.Font = Enum.Font.GothamBold; btn.TextColor3 = Color3.fromRGB(255, 255, 255); btn.TextSize = 10; Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 4)
+			if type(node.Cost) == "number" then
+				btn.Text = "AWAKEN (" .. node.Cost .. ")"
+				ApplyButtonGradient(btn, Color3.fromRGB(40, 120, 120), Color3.fromRGB(20, 60, 60), Color3.fromRGB(30, 80, 80))
+				btn.MouseButton1Click:Connect(function()
+					if data.Dust >= node.Cost then
+						Network.ShopAction:FireServer("BuyPathNode", node.Name)
+						task.delay(0.2, function()
+							local nd = Network.GetShopData:InvokeServer("PathsShop")
+							if nd then PopulatePathsShop(nd) end
+						end)
+					end
+				end)
+			else
+				btn.Text = "MAX LEVEL"
+				ApplyButtonGradient(btn, Color3.fromRGB(60, 60, 65), Color3.fromRGB(30, 30, 35), Color3.fromRGB(80, 80, 90)); btn.TextColor3 = Color3.fromRGB(150, 150, 150)
+			end
+		end
+
+		local rLbl = Instance.new("TextLabel", psScroll)
+		rLbl.Size = UDim2.new(1, 0, 0, 30); rLbl.BackgroundTransparency = 1; rLbl.Font = Enum.Font.GothamBlack; rLbl.TextColor3 = Color3.fromRGB(255, 100, 100); rLbl.TextSize = 14; rLbl.TextXAlignment = Enum.TextXAlignment.Left; rLbl.Text = "ANCIENT RELICS (Rare Items)"
+
+		local rGrid = Instance.new("Frame", psScroll)
+		rGrid.Size = UDim2.new(1, 0, 0, 0); rGrid.AutomaticSize = Enum.AutomaticSize.Y; rGrid.BackgroundTransparency = 1
+		local rgl = Instance.new("UIGridLayout", rGrid); rgl.CellSize = UDim2.new(1, 0, 0, 90); rgl.CellPadding = UDim2.new(0, 0, 0, 10); rgl.SortOrder = Enum.SortOrder.LayoutOrder
+
+		for _, item in ipairs(data.Items) do
+			local card = Instance.new("Frame", rGrid)
+			card.BackgroundColor3 = Color3.fromRGB(22, 22, 28); Instance.new("UICorner", card).CornerRadius = UDim.new(0, 6); local stroke = Instance.new("UIStroke", card); stroke.Color = Color3.fromRGB(255, 100, 100); stroke.Thickness = 1; stroke.Transparency = 0.5
+
+			local cTitle = Instance.new("TextLabel", card); cTitle.Size = UDim2.new(1, -20, 0, 20); cTitle.Position = UDim2.new(0, 10, 0, 5); cTitle.BackgroundTransparency = 1; cTitle.Font = Enum.Font.GothamBlack; cTitle.TextColor3 = Color3.fromRGB(255, 150, 150); cTitle.TextSize = 13; cTitle.TextXAlignment = Enum.TextXAlignment.Left; cTitle.Text = item.Name
+			local cDesc = Instance.new("TextLabel", card); cDesc.Size = UDim2.new(1, -20, 0, 30); cDesc.Position = UDim2.new(0, 10, 0, 25); cDesc.BackgroundTransparency = 1; cDesc.Font = Enum.Font.GothamMedium; cDesc.TextColor3 = Color3.fromRGB(200, 200, 200); cDesc.TextSize = 10; cDesc.TextWrapped = true; cDesc.TextXAlignment = Enum.TextXAlignment.Left; cDesc.TextYAlignment = Enum.TextYAlignment.Top; cDesc.Text = item.Desc
+
+			local btn = Instance.new("TextButton", card); btn.Size = UDim2.new(0.5, 0, 0, 25); btn.Position = UDim2.new(0.5, -10, 1, -30); btn.AnchorPoint = Vector2.new(0, 0); btn.Font = Enum.Font.GothamBold; btn.TextColor3 = Color3.fromRGB(255, 255, 255); btn.TextSize = 10; Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 4)
+			btn.Text = "BUY (" .. item.Cost .. ")"
+			ApplyButtonGradient(btn, Color3.fromRGB(150, 50, 50), Color3.fromRGB(80, 20, 20), Color3.fromRGB(100, 30, 30))
+
+			btn.MouseButton1Click:Connect(function()
+				if data.Dust >= item.Cost then
+					Network.ShopAction:FireServer("BuyPathsItem", item.Name)
+					task.delay(0.2, function()
+						local nd = Network.GetShopData:InvokeServer("PathsShop")
+						if nd then PopulatePathsShop(nd) end
+					end)
+				end
+			end)
+		end
+
+		task.delay(0.05, function() psScroll.CanvasSize = UDim2.new(0, 0, 0, psLayout.AbsoluteContentSize.Y + 20) end)
+	end
 
 	local mainLayout = Instance.new("UIListLayout", MainFrame)
 	mainLayout.SortOrder = Enum.SortOrder.LayoutOrder; mainLayout.Padding = UDim.new(0, 5); mainLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
@@ -281,7 +417,11 @@ function CombatTab.Init(parentFrame, tooltipMgr)
 	ActionGrid = Instance.new("ScrollingFrame", BottomArea)
 	ActionGrid.Size = UDim2.new(1, 0, 1, 0); ActionGrid.BackgroundTransparency = 1; ActionGrid.ScrollBarThickness = 0; ActionGrid.BorderSizePixel = 0
 	local gridLayout = Instance.new("UIGridLayout", ActionGrid)
-	gridLayout.CellSize = UDim2.new(0.48, 0, 0, 35); gridLayout.CellPadding = UDim2.new(0.03, 0, 0, 8); gridLayout.SortOrder = Enum.SortOrder.LayoutOrder; gridLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
+
+	-- [[ THE FIX: Re-structured the ActionGrid to be scrollable and incredibly chunky/legible on Mobile! ]]
+	gridLayout.CellSize = UDim2.new(0.48, 0, 0, 55)
+	gridLayout.CellPadding = UDim2.new(0.03, 0, 0, 10)
+	gridLayout.SortOrder = Enum.SortOrder.LayoutOrder; gridLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
 
 	gridLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
 		ActionGrid.CanvasSize = UDim2.new(0, 0, 0, gridLayout.AbsoluteContentSize.Y + 10)
@@ -421,7 +561,7 @@ function CombatTab.Init(parentFrame, tooltipMgr)
 
 				local btn = Instance.new("TextButton", ActionGrid)
 				btn.RichText = true 
-				btn.Font = Enum.Font.GothamBold; btn.TextSize = 10; btn.LayoutOrder = order or 10
+				btn.Font = Enum.Font.GothamBold; btn.TextSize = 13; btn.LayoutOrder = order or 10
 
 				local baseColor = color or Color3.fromRGB(60, 60, 70)
 				if isReady then
@@ -442,7 +582,7 @@ function CombatTab.Init(parentFrame, tooltipMgr)
 					end 
 				end
 
-				btn.Text = sName:upper() .. "\n<font size='8' color='" .. (isReady and "#AAAAAA" or "#FF5555") .. "'>[" .. cdStr .. "]</font>"
+				btn.Text = sName:upper() .. "\n<font size='10' color='" .. (isReady and "#AAAAAA" or "#FF5555") .. "'>[" .. cdStr .. "]</font>"
 
 				btn.MouseButton1Click:Connect(function()
 					if isBattleActive and not inputLocked and isReady then
@@ -617,6 +757,11 @@ function CombatTab.Init(parentFrame, tooltipMgr)
 		elseif action == "PathsDeath" then
 			if EffectsManager and type(EffectsManager.PlaySFX) == "function" then EffectsManager.PlaySFX("Defeat", 1) end
 			isBattleActive = false
+
+			PathsShopOverlay.Visible = true
+			TweenService:Create(PathsShopOverlay, TweenInfo.new(1.5), {BackgroundTransparency = 0}):Play()
+			task.wait(1.5)
+
 			MainFrame.Visible = false
 			parentFrame.Visible = true 
 			local topGui = parentFrame:FindFirstAncestorOfClass("ScreenGui")
@@ -630,31 +775,44 @@ function CombatTab.Init(parentFrame, tooltipMgr)
 				end
 			end
 
-			if _G.AOT_OpenCategory and _G.AOT_SwitchTab then
-				_G.AOT_OpenCategory("SUPPLY")
-				_G.AOT_SwitchTab("Shop")
-
-				task.delay(0.1, function()
-					local pathBtn = nil
-					for _, desc in ipairs(parentFrame:GetDescendants()) do
-						if desc:IsA("TextButton") and desc.Text == "THE PATHS" then
-							pathBtn = desc
-							break
-						end
-					end
-					if pathBtn then
-						for _, conn in pairs(getconnections(pathBtn.MouseButton1Click)) do
-							conn.Function()
-						end
-					end
-				end)
+			local shopData = Network.GetShopData:InvokeServer("PathsShop")
+			if shopData then
+				PopulatePathsShop(shopData)
+				PSModal.Visible = true
+				TweenService:Create(PathsShopOverlay, TweenInfo.new(1.0), {BackgroundTransparency = 0.5}):Play()
+			else
+				PathsShopOverlay.Visible = false
 			end
 
 		elseif action == "Fled" then
 			if EffectsManager and type(EffectsManager.PlaySFX) == "function" then EffectsManager.PlaySFX("Flee", 1) end
 			isBattleActive = false; LockGrid()
-			BottomArea.Visible = false; LeaveBtn.Visible = true; LeaveBtn.Text = "COWARD - RETURN"; ApplyButtonGradient(LeaveBtn, Color3.fromRGB(150, 150, 150), Color3.fromRGB(80, 80, 80), Color3.fromRGB(50, 50, 50))
-			AddLogMessage("<b><font color='#AAAAAA'>You fired a smoke signal and fled.</font></b>", false)
+
+			if data.Battle and data.Battle.Context.IsPaths then
+				PathsShopOverlay.Visible = true
+				TweenService:Create(PathsShopOverlay, TweenInfo.new(1.5), {BackgroundTransparency = 0}):Play()
+				task.wait(1.5)
+
+				MainFrame.Visible = false
+				parentFrame.Visible = true 
+				local topGui = parentFrame:FindFirstAncestorOfClass("ScreenGui")
+				if topGui then
+					if topGui:FindFirstChild("TopBar") then topGui.TopBar.Visible = true end
+					if topGui:FindFirstChild("NavBar") then topGui.NavBar.Visible = true end
+				end
+
+				local shopData = Network.GetShopData:InvokeServer("PathsShop")
+				if shopData then
+					PopulatePathsShop(shopData)
+					PSModal.Visible = true
+					TweenService:Create(PathsShopOverlay, TweenInfo.new(1.0), {BackgroundTransparency = 0.5}):Play()
+				else
+					PathsShopOverlay.Visible = false
+				end
+			else
+				BottomArea.Visible = false; LeaveBtn.Visible = true; LeaveBtn.Text = "COWARD - RETURN"; ApplyButtonGradient(LeaveBtn, Color3.fromRGB(150, 150, 150), Color3.fromRGB(80, 80, 80), Color3.fromRGB(50, 50, 50))
+				AddLogMessage("<b><font color='#AAAAAA'>You fired a smoke signal and fled.</font></b>", false)
+			end
 		end
 	end)
 end
