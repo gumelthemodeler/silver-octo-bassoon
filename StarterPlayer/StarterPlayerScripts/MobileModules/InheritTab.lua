@@ -12,6 +12,7 @@ local CinematicManager = require(script.Parent.Parent:WaitForChild("UIModules"):
 local player = Players.LocalPlayer
 local MainFrame
 local isRolling = { Titan = false, Clan = false }
+local isAutoRolling = { Titan = false, Clan = false }
 
 local RarityColors = {
 	["Common"] = "#AAAAAA", ["Uncommon"] = "#55FF55", ["Rare"] = "#5588FF",
@@ -49,6 +50,14 @@ function InheritTab.Init(parentFrame, tooltipMgr)
 	MainFrame.Visible = false
 	MainFrame.ScrollBarThickness = 0
 	MainFrame.AutomaticCanvasSize = Enum.AutomaticSize.Y
+
+	-- [[ THE FIX: Automatically stop rolling if the user leaves the tab ]]
+	MainFrame:GetPropertyChangedSignal("Visible"):Connect(function()
+		if not MainFrame.Visible then
+			isAutoRolling.Titan = false
+			isAutoRolling.Clan = false
+		end
+	end)
 
 	local layout = Instance.new("UIListLayout", MainFrame)
 	layout.Padding = UDim.new(0, 20)
@@ -178,6 +187,8 @@ function InheritTab.Init(parentFrame, tooltipMgr)
 			end
 		end
 
+		task.delay(0.05, function() ListContainer.CanvasSize = UDim2.new(0, 0, 0, SList.AbsoluteContentSize.Y + 10) end)
+
 		local BottomArea = Instance.new("Frame", Panel)
 		BottomArea.Size = UDim2.new(1, 0, 0, 210); BottomArea.Position = UDim2.new(0, 0, 0, 305); BottomArea.BackgroundTransparency = 1
 
@@ -239,7 +250,7 @@ function InheritTab.Init(parentFrame, tooltipMgr)
 		local attrReq = (gType == "Titan") and "StandardTitanSerumCount" or "ClanBloodVialCount"
 
 		RollBtn.MouseButton1Click:Connect(function()
-			if isRolling[gType] then return end
+			if isRolling[gType] or isAutoRolling[gType] then return end
 			local count = player:GetAttribute(attrReq) or 0
 			if count > 0 then
 				isRolling[gType] = true
@@ -252,7 +263,7 @@ function InheritTab.Init(parentFrame, tooltipMgr)
 		end)
 
 		PremiumRollBtn.MouseButton1Click:Connect(function()
-			if isRolling[gType] then return end
+			if isRolling[gType] or isAutoRolling[gType] then return end
 			local count = player:GetAttribute("SpinalFluidSyringeCount") or 0
 			if count > 0 then
 				isRolling[gType] = true
@@ -264,13 +275,15 @@ function InheritTab.Init(parentFrame, tooltipMgr)
 			end
 		end)
 
+		-- [[ THE FIX: Controlled Client-Side Auto-Roll Loop ]]
 		AutoRollBtn.MouseButton1Click:Connect(function()
-			if isRolling[gType] then return end
+			if isRolling[gType] or isAutoRolling[gType] then return end
 			local count = player:GetAttribute(attrReq) or 0
 			if count > 0 then
+				isAutoRolling[gType] = true
 				isRolling[gType] = true
 				ResultLbl.Text = "<i>Auto-Rolling...</i>"
-				Network.GachaRollAuto:FireServer(gType)
+				Network.GachaRoll:FireServer(gType, false)
 			else
 				ResultLbl.Text = "<font color='#FF5555'>Not enough items!</font>"
 				EffectsManager.PlaySFX("Error", 1)
@@ -285,8 +298,8 @@ function InheritTab.Init(parentFrame, tooltipMgr)
 	local cResult, cPity, cRoll, cPrem, cAuto, cStores = CreateGachaPanel("Clan", 2)
 
 	local function UpdateUI()
-		if not isRolling.Titan then tResult.Text = "Current: " .. (player:GetAttribute("Titan") or "None") end
-		if not isRolling.Clan then cResult.Text = "Current: " .. (player:GetAttribute("Clan") or "None") end
+		if not isRolling.Titan and not isAutoRolling.Titan then tResult.Text = "Current: " .. (player:GetAttribute("Titan") or "None") end
+		if not isRolling.Clan and not isAutoRolling.Clan then cResult.Text = "Current: " .. (player:GetAttribute("Clan") or "None") end
 
 		for i = 1, 6 do
 			local tStoreName = player:GetAttribute("Titan_Slot"..i) or "None"
@@ -336,6 +349,7 @@ function InheritTab.Init(parentFrame, tooltipMgr)
 		if gType == "Titan" then for tName, _ in pairs(TitanData.Titans) do table.insert(names, tName) end
 		else for cName, _ in pairs(TitanData.ClanWeights) do table.insert(names, cName) end end
 
+		-- Cinematic Spin
 		for i = 1, 20 do 
 			EffectsManager.PlaySFX("Spin", 1 + (i/25)) 
 			targetLbl.Text = names[math.random(1, #names)]
@@ -352,7 +366,30 @@ function InheritTab.Init(parentFrame, tooltipMgr)
 			CinematicManager.Show(titleText, resultName, cinemColor)
 		end
 
-		task.wait(1.5); isRolling[gType] = false; UpdateUI()
+		task.wait(1.5)
+
+		-- [[ THE FIX: Check if we are auto-rolling to trigger the next roll ]]
+		if isAutoRolling[gType] and MainFrame.Visible then
+			if resultRarity == "Legendary" or resultRarity == "Mythical" or resultRarity == "Transcendent" then
+				isAutoRolling[gType] = false
+				isRolling[gType] = false
+				UpdateUI()
+			else
+				local attrReq = (gType == "Titan") and "StandardTitanSerumCount" or "ClanBloodVialCount"
+				if (player:GetAttribute(attrReq) or 0) > 0 then
+					targetLbl.Text = "<i>Auto-Rolling...</i>"
+					Network.GachaRoll:FireServer(gType, false)
+				else
+					isAutoRolling[gType] = false
+					isRolling[gType] = false
+					targetLbl.Text = "<font color='#FF5555'>Out of items!</font>"
+					task.delay(1.5, function() if not isRolling[gType] then UpdateUI() end end)
+				end
+			end
+		else
+			isRolling[gType] = false
+			UpdateUI()
+		end
 	end)
 end
 
