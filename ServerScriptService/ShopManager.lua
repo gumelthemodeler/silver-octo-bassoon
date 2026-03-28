@@ -6,7 +6,7 @@ local Players = game:GetService("Players")
 local DataStoreService = game:GetService("DataStoreService")
 local ItemData = require(ReplicatedStorage:WaitForChild("ItemData"))
 local GameData = require(ReplicatedStorage:WaitForChild("GameData")) 
-local GameDataStore = DataStoreService:GetDataStore("AoT_Data_V3") 
+local GameDataStore = DataStoreService:GetDataStore("AoT_Data_V5") 
 
 local Network = ReplicatedStorage:WaitForChild("Network")
 local GetShopData = Network:WaitForChild("GetShopData")
@@ -168,6 +168,43 @@ BuyAction.OnServerEvent:Connect(function(player, actionType, itemName)
 		else
 			NotificationEvent:FireClient(player, "Not enough Dews!", "Error")
 		end
+	end
+end)
+
+-- [[ THE FIX: Added VIPFreeReroll Event Listener ]]
+local VIPFreeReroll = Network:FindFirstChild("VIPFreeReroll") or Instance.new("RemoteEvent", Network)
+VIPFreeReroll.Name = "VIPFreeReroll"
+
+VIPFreeReroll.OnServerEvent:Connect(function(player, isDews)
+	local canReroll = false
+
+	if isDews then
+		-- Handle 100k Dews Reroll
+		local dews = player.leaderstats and player.leaderstats:FindFirstChild("Dews")
+		if dews and dews.Value >= 100000 then
+			dews.Value -= 100000
+			canReroll = true
+		end
+	else
+		-- Handle Daily VIP Reroll
+		local hasVIP = player:GetAttribute("HasVIP")
+		local lastRoll = player:GetAttribute("LastFreeReroll") or 0
+		if hasVIP and (os.time() - lastRoll) >= 86400 then
+			player:SetAttribute("LastFreeReroll", os.time())
+			canReroll = true
+		end
+	end
+
+	-- Apply the new shop seed if requirements were met
+	if canReroll then
+		local newSeed = math.random(1, 9999999)
+		player:SetAttribute("PersonalShopSeed", newSeed)
+		player:SetAttribute("ShopSeedTime", math.floor(os.time() / 600))
+		player:SetAttribute("ShopPurchases_Seed", newSeed)
+		player:SetAttribute("ShopPurchases_Data", "")
+		NotificationEvent:FireClient(player, "Shop Successfully Rerolled!", "Success")
+	else
+		NotificationEvent:FireClient(player, "Reroll failed. Missing requirements.", "Error")
 	end
 end)
 
