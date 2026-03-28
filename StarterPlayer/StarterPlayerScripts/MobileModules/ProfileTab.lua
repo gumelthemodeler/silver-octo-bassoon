@@ -9,7 +9,6 @@ local Network = ReplicatedStorage:WaitForChild("Network")
 local ItemData = require(ReplicatedStorage:WaitForChild("ItemData"))
 local GameData = require(ReplicatedStorage:WaitForChild("GameData"))
 
--- Corrected Mobile Pathing
 local NotificationManager = require(script.Parent.Parent:WaitForChild("UIModules"):WaitForChild("NotificationManager"))
 
 local player = Players.LocalPlayer
@@ -281,7 +280,11 @@ function ProfileTab.Init(parentFrame, tooltipMgr)
 		wpnLabel.Text = "Weapon: " .. (player:GetAttribute("EquippedWeapon") or "None"); accLabel.Text = "Accessory: " .. (player:GetAttribute("EquippedAccessory") or "None")
 
 		if tName == "Attack Titan" and (player:GetAttribute("YmirsClayFragmentCount") or 0) > 0 then titanAwakenBtn.Visible = true else titanAwakenBtn.Visible = false end
-		if cName == "Ackerman" and (player:GetAttribute("AckermanAwakeningPillCount") or 0) > 0 then clanAwakenBtn.Visible = true else clanAwakenBtn.Visible = false end
+
+		-- Check all valid clans for awakening button
+		local validClans = {["Ackerman"] = true, ["Yeager"] = true, ["Tybur"] = true, ["Braun"] = true, ["Galliard"] = true}
+		if validClans[cName] and (player:GetAttribute("AncestralAwakeningSerumCount") or 0) > 0 then clanAwakenBtn.Visible = true else clanAwakenBtn.Visible = false end
+
 		if cPart > 8 then prestigeBtn.Visible = true else prestigeBtn.Visible = false end
 
 		RenderRadarChart()
@@ -440,7 +443,6 @@ function ProfileTab.Init(parentFrame, tooltipMgr)
 					ActionsOverlay.Active = true 
 					Instance.new("UICorner", ActionsOverlay).CornerRadius = UDim.new(0, 6)
 
-					-- [[ THE FIX: Updated Layout spacing to fit the third button cleanly for mobile touch ]]
 					local actLayout = Instance.new("UIListLayout", ActionsOverlay)
 					actLayout.Padding = UDim.new(0, 3)
 					actLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
@@ -460,7 +462,6 @@ function ProfileTab.Init(parentFrame, tooltipMgr)
 						return btn
 					end
 
-					-- [[ THE FIX: Added "SELL ALL" button and functionality ]]
 					local equipBtn = MakeOverlayBtn("EQUIP", Color3.fromRGB(40, 80, 40))
 					local sellBtn = MakeOverlayBtn("SELL 1x", Color3.fromRGB(80, 35, 35))
 					local sellAllBtn = MakeOverlayBtn("SELL ALL", Color3.fromRGB(120, 30, 30))
@@ -481,10 +482,8 @@ function ProfileTab.Init(parentFrame, tooltipMgr)
 							buttonConsumed = true
 							if isEq then
 								Network.EquipItem:FireServer("Unequip_" .. itemInfo.Type)
-								if NotificationManager then NotificationManager.Show("Unequipped " .. itemName .. ".", "Info") end
 							else
 								Network.EquipItem:FireServer(itemName)
-								if NotificationManager then NotificationManager.Show("Equipped " .. itemName .. "!", "Success") end
 							end
 							ActionsOverlay.Visible = false
 						end)
@@ -499,7 +498,8 @@ function ProfileTab.Init(parentFrame, tooltipMgr)
 								buttonConsumed = true
 								if itemInfo.Action == "AwakenTitan" then Network.AwakenAction:FireServer("Titan") 
 								elseif itemInfo.Action == "AwakenClan" then Network.AwakenAction:FireServer("Clan") 
-								elseif itemInfo.Action == "Consume" then Network.ConsumeItem:FireServer(itemName); if NotificationManager then NotificationManager.Show("Used " .. itemName .. "!", "Success") end
+									-- [[ THE FIX: Updated to natively fire the Consume action for Itemized Titans ]]
+								elseif itemInfo.Action == "Consume" or itemInfo.Action == "EquipTitan" then Network.ConsumeItem:FireServer(itemName)
 								end 
 								ActionsOverlay.Visible = false
 							end)
@@ -511,15 +511,12 @@ function ProfileTab.Init(parentFrame, tooltipMgr)
 					sellBtn.MouseButton1Click:Connect(function() 
 						buttonConsumed = true
 						Network.SellItem:FireServer(itemName, false)
-						if NotificationManager then NotificationManager.Show("Sold 1x " .. itemName .. " for " .. sellVal .. " Dews.", "Success") end
 						ActionsOverlay.Visible = false
 					end)
 
 					sellAllBtn.MouseButton1Click:Connect(function()
 						buttonConsumed = true
 						Network.SellItem:FireServer(itemName, true)
-						local totalEarnings = sellVal * count
-						if NotificationManager then NotificationManager.Show("Sold " .. count .. "x " .. itemName .. " for " .. totalEarnings .. " Dews.", "Success") end
 						ActionsOverlay.Visible = false
 					end)
 
