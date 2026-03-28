@@ -113,7 +113,7 @@ ClickCatcher.InputBegan:Connect(function(input)
 	end
 end)
 ClickCatcher.InputEnded:Connect(function(input)
-	if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+	if isActive and (input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch) then
 		isPressing = false
 	end
 end)
@@ -177,7 +177,6 @@ CombatUpdate.OnClientEvent:Connect(function(action, data)
 			end)
 
 		elseif data.MinigameType == "GapClose" then
-			-- [[ THE FIX: Interactive Dodge/Evasion Minigame ]]
 			ScreenGui.Enabled = true
 			isActive = true
 
@@ -220,24 +219,28 @@ CombatUpdate.OnClientEvent:Connect(function(action, data)
 				t:Play()
 
 				local clicked = false
-				target.MouseButton1Click:Connect(function()
-					if clicked or not isActive then return end
-					clicked = true; hits += 1
-					target.BackgroundColor3 = Color3.fromRGB(50, 255, 50); target.Text = "SAFE"
-					task.wait(0.15); target:Destroy()
 
-					if hits >= targetsToHit then
-						Title.Text = "SUCCESS!"
-						Title.TextColor3 = Color3.fromRGB(50, 255, 50)
-						task.wait(1)
-						gcContainer:Destroy()
-						Track.Visible = true; ProgressContainer.Visible = true; ClickCatcher.Visible = true
-						Title.TextColor3 = Color3.fromRGB(255, 215, 100)
-						isActive = false
-						ScreenGui.Enabled = false
-						CombatAction:FireServer("MinigameResult", { Success = true, MinigameType = "GapClose" })
-					else
-						SpawnTarget()
+				-- [[ THE FIX: Replaced MouseButton1Click with InputBegan to perfectly capture Mobile touches ]]
+				target.InputBegan:Connect(function(input)
+					if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+						if clicked or not isActive then return end
+						clicked = true; hits += 1
+						target.BackgroundColor3 = Color3.fromRGB(50, 255, 50); target.Text = "SAFE"
+						task.wait(0.15); target:Destroy()
+
+						if hits >= targetsToHit then
+							Title.Text = "SUCCESS!"
+							Title.TextColor3 = Color3.fromRGB(50, 255, 50)
+							task.wait(1)
+							gcContainer:Destroy()
+							Track.Visible = true; ProgressContainer.Visible = true; ClickCatcher.Visible = true
+							Title.TextColor3 = Color3.fromRGB(255, 215, 100)
+							isActive = false
+							ScreenGui.Enabled = false
+							CombatAction:FireServer("MinigameResult", { Success = true, MinigameType = "GapClose" })
+						else
+							SpawnTarget()
+						end
 					end
 				end)
 
