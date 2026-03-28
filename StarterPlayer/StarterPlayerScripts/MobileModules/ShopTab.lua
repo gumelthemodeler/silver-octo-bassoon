@@ -121,7 +121,7 @@ function ShopTab.Init(parentFrame, tooltipMgr)
 	local rrLayout = Instance.new("UIListLayout", RRArea); rrLayout.FillDirection = Enum.FillDirection.Horizontal; rrLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center; rrLayout.Padding = UDim.new(0.04, 0)
 
 	DewsRRBtn = Instance.new("TextButton", RRArea)
-	DewsRRBtn.Size = UDim2.new(0.48, 0, 1, 0); DewsRRBtn.Font = Enum.Font.GothamBold; DewsRRBtn.TextColor3 = Color3.fromRGB(255,255,255); DewsRRBtn.TextSize = 10; DewsRRBtn.Text = "RESTOCK (100K Dews)"
+	DewsRRBtn.Size = UDim2.new(0.48, 0, 1, 0); DewsRRBtn.Font = Enum.Font.GothamBold; DewsRRBtn.TextColor3 = Color3.fromRGB(255,255,255); DewsRRBtn.TextSize = 10; DewsRRBtn.Text = "RESTOCK (950K Dews)"
 	ApplyButtonGradient(DewsRRBtn, Color3.fromRGB(80, 140, 200), Color3.fromRGB(40, 80, 120), Color3.fromRGB(60, 100, 160))
 
 	RRBtn = Instance.new("TextButton", RRArea)
@@ -186,7 +186,7 @@ function ShopTab.Init(parentFrame, tooltipMgr)
 		currentShopData = Network.GetShopData:InvokeServer()
 		isFetching = false
 
-		if DewsRRBtn and not isProcessingReroll then DewsRRBtn.Text = "RESTOCK (100K Dews)" end
+		if DewsRRBtn and not isProcessingReroll then DewsRRBtn.Text = "RESTOCK (950K Dews)" end
 		CheckVIPReroll()
 
 		if not currentShopData then return end
@@ -252,17 +252,17 @@ function ShopTab.Init(parentFrame, tooltipMgr)
 	-- [[ THE FIX: Bulletproof hard-reset timers to guarantee the button never freezes ]]
 	DewsRRBtn.MouseButton1Click:Connect(function()
 		if isProcessingReroll then return end
-		if player.leaderstats and player.leaderstats:FindFirstChild("Dews") and player.leaderstats.Dews.Value >= 100000 then
+		if player.leaderstats and player.leaderstats:FindFirstChild("Dews") and player.leaderstats.Dews.Value >= 950000 then
 			isProcessingReroll = true
 			DewsRRBtn.Text = "REROLLING..."
 			Network.VIPFreeReroll:FireServer(true)
 			task.delay(3, function() 
 				isProcessingReroll = false
 				FetchAndRenderShop()
-				if DewsRRBtn then DewsRRBtn.Text = "RESTOCK (100K Dews)" end
+				if DewsRRBtn then DewsRRBtn.Text = "RESTOCK (950K Dews)" end
 			end)
 		else
-			if NotificationManager then NotificationManager.Show("You need 100,000 Dews to force a restock!", "Error") end
+			if NotificationManager then NotificationManager.Show("You need 950,000 Dews to force a restock!", "Error") end
 		end
 	end)
 
@@ -307,7 +307,7 @@ function ShopTab.Init(parentFrame, tooltipMgr)
 	player:GetAttributeChangedSignal("PersonalShopSeed"):Connect(function()
 		if MainFrame and MainFrame.Visible then
 			FetchAndRenderShop()
-			if DewsRRBtn and not isProcessingReroll then DewsRRBtn.Text = "RESTOCK (100K Dews)" end
+			if DewsRRBtn and not isProcessingReroll then DewsRRBtn.Text = "RESTOCK (950K Dews)" end
 			CheckVIPReroll() 
 		end
 	end)
