@@ -132,7 +132,6 @@ function TradeMenu.Init(parentFrame)
 	Players.PlayerAdded:Connect(function() if MainFrame.Visible then RefreshPlayers() end end)
 	Players.PlayerRemoving:Connect(function() if MainFrame.Visible then RefreshPlayers() end end)
 
-	-- [[ POPUPS ]]
 	local PopupsContainer = Instance.new("Frame", playerGui:WaitForChild("AOT_Interface"))
 	PopupsContainer.Name = "TradePopups"; PopupsContainer.Size = UDim2.new(0, 250, 1, 0); PopupsContainer.Position = UDim2.new(1, -260, 0, 0); PopupsContainer.BackgroundTransparency = 1; PopupsContainer.ZIndex = 6000
 	local pcLayout = Instance.new("UIListLayout", PopupsContainer); pcLayout.VerticalAlignment = Enum.VerticalAlignment.Bottom; pcLayout.Padding = UDim.new(0, 10); pcLayout.SortOrder = Enum.SortOrder.LayoutOrder
@@ -157,21 +156,16 @@ function TradeMenu.Init(parentFrame)
 		task.delay(15, function() if popup and popup.Parent then TweenService:Create(popup, TweenInfo.new(0.3), {BackgroundTransparency = 1}):Play(); task.wait(0.3); popup:Destroy() end end)
 	end)
 
-	-- [[ MASSIVE TRADE UI BUILDER ]]
 	local TradeUIElements = {}
 	local TradeScreenGui = playerGui:FindFirstChild("TradeScreenGui") or Instance.new("ScreenGui", playerGui)
-	TradeScreenGui.Name = "TradeScreenGui"
-	TradeScreenGui.DisplayOrder = 9999
-	TradeScreenGui.ResetOnSpawn = false
-	TradeScreenGui.IgnoreGuiInset = true
+	TradeScreenGui.Name = "TradeScreenGui"; TradeScreenGui.DisplayOrder = 9999; TradeScreenGui.ResetOnSpawn = false; TradeScreenGui.IgnoreGuiInset = true
 
 	Network.TradeUpdate.OnClientEvent:Connect(function(action, data)
 		if action == "Open" then
 			TradeScreenGui:ClearAllChildren()
 
 			local overlay = Instance.new("Frame", TradeScreenGui)
-			overlay.Name = "TradeOverlay"; overlay.Size = UDim2.new(1, 0, 1, 0); overlay.BackgroundColor3 = Color3.new(0,0,0); overlay.BackgroundTransparency = 0.6; overlay.Active = true
-			overlay.ZIndex = 5000
+			overlay.Name = "TradeOverlay"; overlay.Size = UDim2.new(1, 0, 1, 0); overlay.BackgroundColor3 = Color3.new(0,0,0); overlay.BackgroundTransparency = 0.6; overlay.Active = true; overlay.ZIndex = 5000
 
 			local mainPanel = Instance.new("Frame", overlay)
 			mainPanel.Size = UDim2.new(0.96, 0, 0.9, 0); mainPanel.Position = UDim2.new(0.5, 0, 0.5, 0); mainPanel.AnchorPoint = Vector2.new(0.5, 0.5); mainPanel.BackgroundColor3 = Color3.fromRGB(18, 18, 22); mainPanel.ZIndex = 5001
@@ -234,14 +228,19 @@ function TradeMenu.Init(parentFrame)
 		elseif action == "Sync" then
 			if not TradeUIElements.MyInvList then return end
 
+			-- [[ THE FIX: Bulletproof Boolean Parsing without Ternary Trap ]]
 			local isP1 = (data.P1.Name == player.Name)
 			local myOffer = isP1 and data.P1Offer or data.P2Offer
 			local theirOffer = isP1 and data.P2Offer or data.P1Offer
-			local myReady = isP1 and data.P1Ready or data.P2Ready
-			local theirReady = isP1 and data.P2Ready or data.P1Ready
-			local myConfirm = isP1 and data.P1Confirmed or data.P2Confirmed
-			local theirConfirm = isP1 and data.P2Confirmed or data.P1Confirmed
-			local countdown = data.Countdown
+
+			local myReady, theirReady, myConfirm, theirConfirm
+			if isP1 then
+				myReady = data.P1Ready; theirReady = data.P2Ready
+				myConfirm = data.P1Confirmed; theirConfirm = data.P2Confirmed
+			else
+				myReady = data.P2Ready; theirReady = data.P1Ready
+				myConfirm = data.P2Confirmed; theirConfirm = data.P1Confirmed
+			end
 
 			TradeUIElements.MyDewsBox.Text = tostring(myOffer.Dews)
 			TradeUIElements.TheirDewsBox.Text = tostring(theirOffer.Dews)
@@ -285,16 +284,29 @@ function TradeMenu.Init(parentFrame)
 			end
 			TradeUIElements.TheirOfferList.CanvasSize = UDim2.new(0, 0, 0, tCount * 45)
 
-			-- Update Borders
-			TradeUIElements.Col2.UIStroke.Color = myConfirm and Color3.fromRGB(80, 180, 80) or Color3.fromRGB(60, 60, 70)
-			TradeUIElements.Col3.UIStroke.Color = theirConfirm and Color3.fromRGB(80, 180, 80) or Color3.fromRGB(60, 60, 70)
+			-- [[ THE FIX: Real-time visual feedback for the OTHER player's readiness ]]
+			if myConfirm then
+				TradeUIElements.Col2.UIStroke.Color = Color3.fromRGB(80, 220, 80)
+			elseif myReady then
+				TradeUIElements.Col2.UIStroke.Color = Color3.fromRGB(150, 200, 100)
+			else
+				TradeUIElements.Col2.UIStroke.Color = Color3.fromRGB(60, 60, 70)
+			end
+
+			if theirConfirm then
+				TradeUIElements.Col3.UIStroke.Color = Color3.fromRGB(80, 220, 80)
+			elseif theirReady then
+				TradeUIElements.Col3.UIStroke.Color = Color3.fromRGB(150, 200, 100)
+			else
+				TradeUIElements.Col3.UIStroke.Color = Color3.fromRGB(60, 60, 70)
+			end
 
 			if myReady and theirReady then
 				TradeUIElements.ReadyBtn.Visible = false
 				TradeUIElements.ConfirmBtn.Visible = true
 
-				if countdown and countdown > 0 then
-					TradeUIElements.ConfirmBtn.Text = "TRADING IN " .. countdown .. "..."
+				if data.Countdown and data.Countdown > 0 then
+					TradeUIElements.ConfirmBtn.Text = "TRADING IN " .. data.Countdown .. "..."
 					ApplyButtonGradient(TradeUIElements.ConfirmBtn, Color3.fromRGB(200, 150, 50), Color3.fromRGB(120, 80, 20), Color3.fromRGB(255, 200, 0))
 				elseif myConfirm then
 					TradeUIElements.ConfirmBtn.Text = "WAITING ON PARTNER..."
