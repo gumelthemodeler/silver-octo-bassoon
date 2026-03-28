@@ -24,11 +24,14 @@ function CombatCore.CalculateDamage(attacker, defender, skillMult, targetLimb)
 	local isAttackerTransformed = attacker.Statuses and (tonumber(attacker.Statuses.Transformed) or 0) > 0
 	local isDefenderTransformed = defender.Statuses and (tonumber(defender.Statuses.Transformed) or 0) > 0
 
+	-- [[ REBALANCE: Titans now act as massive Multipliers on top of Human Base Stats, not replacements! ]]
 	if attacker.IsPlayer and isAttackerTransformed then
-		atkStrength = tonumber(attacker.PlayerObj:GetAttribute("Titan_Power_Val")) or 10
+		local titanPower = tonumber(attacker.PlayerObj:GetAttribute("Titan_Power_Val")) or 10
+		atkStrength = atkStrength * (1.0 + (titanPower / 15.0))
 	end
 	if defender.IsPlayer and isDefenderTransformed then
-		defArmor = tonumber(defender.PlayerObj:GetAttribute("Titan_Hardening_Val")) or 10
+		local titanHardening = tonumber(defender.PlayerObj:GetAttribute("Titan_Hardening_Val")) or 10
+		defArmor = defArmor * (1.0 + (titanHardening / 15.0))
 	end
 
 	skillMult = tonumber(skillMult) or 1.0
@@ -56,7 +59,6 @@ function CombatCore.CalculateDamage(attacker, defender, skillMult, targetLimb)
 
 	local defenseMultiplier = 1.0
 
-	-- [[ THE FIX: DYNAMIC AWAKENED SCALING & DEFENSE SYNERGIES ]]
 	if defender.IsPlayer then
 		local dClanFull = tostring(defender.Clan or "None")
 		local dIsAwakened = string.find(dClanFull, "Awakened") ~= nil
@@ -68,11 +70,10 @@ function CombatCore.CalculateDamage(attacker, defender, skillMult, targetLimb)
 		end
 
 		if dBaseClan == "Braun" and string.find(dTitan, "Armored Titan") and isDefenderTransformed then
-			effectiveArmor = effectiveArmor * 1.50 -- Shield Synergy
+			effectiveArmor = effectiveArmor * 1.50 
 		end
 	end
 
-	-- [[ THE FIX: DYNAMIC AWAKENED SCALING & DAMAGE SYNERGIES ]]
 	if attacker.IsPlayer then
 		baseDmg = baseDmg * 4.0 
 		local clanDmgMult = 1.0
@@ -88,8 +89,8 @@ function CombatCore.CalculateDamage(attacker, defender, skillMult, targetLimb)
 			if aBaseClan == "Tybur" then clanDmgMult += (aIsAwakened and 0.40 or 0.20) end
 			if aBaseClan == "Yeager" then clanDmgMult += (aIsAwakened and 0.50 or 0.25) end
 
-			if aBaseClan == "Yeager" and string.find(aTitan, "Attack Titan") then clanDmgMult += 0.30 end -- Freedom Synergy
-			if aBaseClan == "Tybur" and string.find(aTitan, "War Hammer") then clanDmgMult += 0.30 end -- Aristocrat Synergy
+			if aBaseClan == "Yeager" and string.find(aTitan, "Attack Titan") then clanDmgMult += 0.30 end 
+			if aBaseClan == "Tybur" and string.find(aTitan, "War Hammer") then clanDmgMult += 0.30 end 
 		else
 			if aBaseClan == "Ackerman" then clanDmgMult += (aIsAwakened and 0.50 or 0.25) end
 		end
@@ -227,7 +228,6 @@ function CombatCore.ExecuteStrike(attacker, defender, skillName, targetLimb, log
 	local defSpd = tonumber(defender.TotalSpeed) or 10
 	local atkRes = tonumber(attacker.TotalResolve) or 10
 
-	-- [[ THE FIX: SPEED SYNERGIES ]]
 	if attacker.IsPlayer then
 		local aClanFull = tostring(attacker.Clan or "None")
 		local aIsAwakened = string.find(aClanFull, "Awakened") ~= nil
@@ -239,7 +239,7 @@ function CombatCore.ExecuteStrike(attacker, defender, skillName, targetLimb, log
 		if aBaseClan == "Ackerman" and aIsAwakened then atkSpd = atkSpd * 1.50 end
 		if aBaseClan == "Arlert" then atkRes = atkRes * (aIsAwakened and 1.30 or 1.15) end
 
-		if aBaseClan == "Galliard" and string.find(aTitan, "Jaw Titan") then atkSpd = atkSpd * 1.25 end -- Nutcracker Synergy
+		if aBaseClan == "Galliard" and string.find(aTitan, "Jaw Titan") then atkSpd = atkSpd * 1.25 end
 	end
 	if defender.IsPlayer then
 		local dClanFull = tostring(defender.Clan or "None")
@@ -300,12 +300,11 @@ function CombatCore.ExecuteStrike(attacker, defender, skillName, targetLimb, log
 			critChance = critChance + tonumber(attacker.AwakenedStats.CritBonus)
 		end
 
-		-- [[ THE FIX: CRIT SYNERGIES ]]
 		if attacker.IsPlayer then
 			local aBaseClan = string.gsub(tostring(attacker.Clan or "None"), "Awakened ", "")
 			local aTitan = tostring(attacker.Titan or "None")
 			if aBaseClan == "Galliard" and string.find(aTitan, "Jaw Titan") then
-				critChance = critChance + 25 -- Nutcracker Synergy
+				critChance = critChance + 25
 			end
 		end
 
