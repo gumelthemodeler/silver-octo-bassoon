@@ -74,13 +74,16 @@ end)
 -- [[ CONSUMABLES & BUFFS ]]
 Network:WaitForChild("ConsumeItem").OnServerEvent:Connect(function(player, itemName)
 	local itemInfo = ItemData.Consumables[itemName]
-	if itemInfo and itemInfo.Action == "Consume" then
+	if itemInfo and itemInfo.Action then
 		local safeName = itemName:gsub("[^%w]", "") .. "Count"
 		local count = player:GetAttribute(safeName) or 0
 		if count > 0 then
 			player:SetAttribute(safeName, count - 1)
 
-			if itemInfo.Buff == "Dews" then
+			if itemInfo.Action == "EquipTitan" then
+				player:SetAttribute("Titan", itemInfo.TitanName)
+				NotificationEvent:FireClient(player, "Inherited the " .. itemInfo.TitanName .. "!", "Success")
+			elseif itemInfo.Buff == "Dews" then
 				local amt = math.random(itemInfo.MinAmount or 5000, itemInfo.MaxAmount or 20000)
 				player.leaderstats.Dews.Value += amt
 				NotificationEvent:FireClient(player, "Gained " .. amt .. " Dews!", "Success")
@@ -138,34 +141,73 @@ end)
 Network:WaitForChild("AwakenAction").OnServerEvent:Connect(function(player, actionType)
 	if actionType == "Clan" then
 		local count = player:GetAttribute("AncestralAwakeningSerumCount") or 0
-		if count >= 1 and player:GetAttribute("Clan") == "Ackerman" then
+		local currentClan = player:GetAttribute("Clan") or "None"
+
+		local validClans = {["Ackerman"] = true, ["Yeager"] = true, ["Tybur"] = true, ["Braun"] = true, ["Galliard"] = true}
+
+		if count >= 1 and validClans[currentClan] then
 			player:SetAttribute("AncestralAwakeningSerumCount", count - 1)
-			player:SetAttribute("Clan", "Awakened Ackerman")
-			NotificationEvent:FireClient(player, "Ackerman Bloodline Awakened!", "Success")
+			player:SetAttribute("Clan", "Awakened " .. currentClan)
+			NotificationEvent:FireClient(player, currentClan .. " Bloodline Awakened!", "Success")
+		elseif count >= 1 then
+			NotificationEvent:FireClient(player, "Your bloodline is too weak to awaken.", "Error")
 		end
 	elseif actionType == "Titan" then
 		local count = player:GetAttribute("YmirsClayFragmentCount") or 0
 		if count >= 1 and player:GetAttribute("Titan") == "Attack Titan" then
 			player:SetAttribute("YmirsClayFragmentCount", count - 1)
-			player:SetAttribute("Titan", "Founding Titan")
+			player:SetAttribute("Titan", "Founding Attack Titan")
 			NotificationEvent:FireClient(player, "You have reached the Coordinate!", "Success")
 		end
 	end
 end)
 
-Network:WaitForChild("FuseTitan").OnServerEvent:Connect(function(player, slotIndex)
+-- [[ TITAN FUSION & ITEMIZATION ]]
+Network:WaitForChild("FuseTitan").OnServerEvent:Connect(function(player, baseSlot, sacSlot)
+	if not baseSlot or not sacSlot or baseSlot == sacSlot then return end
 	local dews = player.leaderstats.Dews.Value
-	if dews >= 50000 then
-		local currentTitan = player:GetAttribute("Titan") or "None"
-		local storedTitan = player:GetAttribute("Titan_Slot" .. slotIndex) or "None"
-		local result = FusionRecipes[currentTitan] and FusionRecipes[currentTitan][storedTitan]
+	if dews >= 250000 then
+		local baseAttr = (baseSlot == "Equipped") and "Titan" or ("Titan_Slot" .. baseSlot)
+		local sacAttr = (sacSlot == "Equipped") and "Titan" or ("Titan_Slot" .. sacSlot)
+
+		local baseTitan = player:GetAttribute(baseAttr) or "None"
+		local sacTitan = player:GetAttribute(sacAttr) or "None"
+
+		local result = FusionRecipes[baseTitan] and FusionRecipes[baseTitan][sacTitan]
 
 		if result then
-			player.leaderstats.Dews.Value -= 50000
-			player:SetAttribute("Titan_Slot" .. slotIndex, "None")
-			player:SetAttribute("Titan", result)
-			-- UI cinematic triggers based on Attribute change
+			player.leaderstats.Dews.Value -= 250000
+			player:SetAttribute(baseAttr, result)
+			player:SetAttribute(sacAttr, "None")
+			NotificationEvent:FireClient(player, "Fusion Successful!", "Success")
+		else
+			NotificationEvent:FireClient(player, "Invalid Fusion combination.", "Error")
 		end
+	else
+		NotificationEvent:FireClient(player, "Not enough Dews to fuse!", "Error")
+	end
+end)
+
+local ItemizeTitan = Network:FindFirstChild("ItemizeTitan") or Instance.new("RemoteEvent", Network)
+ItemizeTitan.Name = "ItemizeTitan"
+
+ItemizeTitan.OnServerEvent:Connect(function(player, slotId)
+	if not slotId then return end
+	local dews = player.leaderstats.Dews.Value
+	if dews >= 100000 then
+		local attrName = (slotId == "Equipped") and "Titan" or ("Titan_Slot" .. slotId)
+		local titanName = player:GetAttribute(attrName) or "None"
+
+		if titanName ~= "None" then
+			player.leaderstats.Dews.Value -= 100000
+			player:SetAttribute(attrName, "None")
+
+			local safeItemName = ("Itemized " .. titanName):gsub("[^%w]", "") .. "Count"
+			player:SetAttribute(safeItemName, (player:GetAttribute(safeItemName) or 0) + 1)
+			NotificationEvent:FireClient(player, "Titan extracted to your inventory!", "Success")
+		end
+	else
+		NotificationEvent:FireClient(player, "Not enough Dews to itemize!", "Error")
 	end
 end)
 
@@ -182,7 +224,7 @@ Network:WaitForChild("ManageStorage").OnServerEvent:Connect(function(player, gTy
 end)
 
 -- [[ GACHA SYSTEM ]]
-local function HandleRoll(player, gType, isPremium)
+Network:WaitForChild("GachaRoll").OnServerEvent:Connect(function(player, gType, isPremium)
 	local attrReq = ""
 	if gType == "Titan" then
 		attrReq = isPremium and "SpinalFluidSyringeCount" or "StandardTitanSerumCount"
@@ -202,7 +244,7 @@ local function HandleRoll(player, gType, isPremium)
 
 			resultName, rarity = TitanData.RollTitan(legPity, mythPity)
 
-			if rarity == "Mythical" then
+			if rarity == "Mythical" or rarity == "Transcendent" then
 				player:SetAttribute("TitanPity", 0)
 				player:SetAttribute("TitanMythicalPity", 0)
 			elseif rarity == "Legendary" then
@@ -213,36 +255,35 @@ local function HandleRoll(player, gType, isPremium)
 				player:SetAttribute("TitanMythicalPity", mythPity + 1)
 			end
 		else
-			resultName = TitanData.RollClan()
-			local weight = TitanData.ClanWeights[resultName] or 40
-			if weight <= 1.5 then rarity = "Mythical"
-			elseif weight <= 4.0 then rarity = "Legendary"
-			elseif weight <= 8.0 then rarity = "Epic"
-			elseif weight <= 15.0 then rarity = "Rare"
-			else rarity = "Common" end
+			local clanPity = player:GetAttribute("ClanPity") or 0
+			if clanPity >= 100 then
+				local premiumClans = {}
+				for cName, w in pairs(TitanData.ClanWeights) do
+					if w <= 4.0 then table.insert(premiumClans, cName) end
+				end
+				resultName = premiumClans[math.random(1, #premiumClans)]
+				local weight = TitanData.ClanWeights[resultName]
+				if weight <= 1.5 then rarity = "Mythical" else rarity = "Legendary" end
+				player:SetAttribute("ClanPity", 0)
+			else
+				resultName = TitanData.RollClan()
+				local weight = TitanData.ClanWeights[resultName] or 40
+				if weight <= 1.5 then rarity = "Mythical"
+				elseif weight <= 4.0 then rarity = "Legendary"
+				elseif weight <= 8.0 then rarity = "Epic"
+				elseif weight <= 15.0 then rarity = "Rare"
+				else rarity = "Common" end
+
+				if rarity == "Legendary" or rarity == "Mythical" or rarity == "Transcendent" then
+					player:SetAttribute("ClanPity", 0)
+				else
+					player:SetAttribute("ClanPity", clanPity + 1)
+				end
+			end
 		end
 
 		player:SetAttribute(gType, resultName)
 		GachaResult:FireClient(player, gType, resultName, rarity)
-		return rarity
-	end
-	return nil
-end
-
-Network:WaitForChild("GachaRoll").OnServerEvent:Connect(function(player, gType, isPremium)
-	HandleRoll(player, gType, isPremium)
-end)
-
-Network:WaitForChild("GachaRollAuto").OnServerEvent:Connect(function(player, gType)
-	-- Loop until a high rarity is hit or user runs out of items
-	local maxRolls = 50 -- Safety breaker to prevent freezing
-	for i = 1, maxRolls do
-		local rarity = HandleRoll(player, gType, false)
-		if not rarity then break end
-		if rarity == "Legendary" or rarity == "Mythical" or rarity == "Transcendent" then
-			break
-		end
-		task.wait(0.05) -- Fast roll effect
 	end
 end)
 
