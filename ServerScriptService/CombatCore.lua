@@ -33,7 +33,6 @@ function CombatCore.CalculateDamage(attacker, defender, skillMult, targetLimb)
 
 	skillMult = tonumber(skillMult) or 1.0
 	local baseDmg = atkStrength * atkBuff * skillMult
-
 	targetLimb = tostring(targetLimb or "Body")
 
 	if targetLimb == "Nape" then
@@ -53,37 +52,55 @@ function CombatCore.CalculateDamage(attacker, defender, skillMult, targetLimb)
 	if attacker.AwakenedStats and (tonumber(attacker.AwakenedStats.IgnoreArmor) or 0) > 0 then
 		effectiveArmor = effectiveArmor * (1.0 - (tonumber(attacker.AwakenedStats.IgnoreArmor) or 0))
 	end
-
-	-- Prevent negative armor from causing a divide-by-zero Infinity crash
 	effectiveArmor = math.max(0, effectiveArmor)
 
 	local defenseMultiplier = 1.0
 
+	-- [[ THE FIX: DYNAMIC AWAKENED SCALING & DEFENSE SYNERGIES ]]
+	if defender.IsPlayer then
+		local dClanFull = tostring(defender.Clan or "None")
+		local dIsAwakened = string.find(dClanFull, "Awakened") ~= nil
+		local dBaseClan = string.gsub(dClanFull, "Awakened ", "")
+		local dTitan = tostring(defender.Titan or "None")
+
+		if dBaseClan == "Braun" then 
+			effectiveArmor = effectiveArmor * (dIsAwakened and 1.40 or 1.20) 
+		end
+
+		if dBaseClan == "Braun" and string.find(dTitan, "Armored Titan") and isDefenderTransformed then
+			effectiveArmor = effectiveArmor * 1.50 -- Shield Synergy
+		end
+	end
+
+	-- [[ THE FIX: DYNAMIC AWAKENED SCALING & DAMAGE SYNERGIES ]]
 	if attacker.IsPlayer then
 		baseDmg = baseDmg * 4.0 
 		local clanDmgMult = 1.0
-		local pClan = tostring(attacker.Clan or "None")
 
-		if pClan == "Galliard" then clanDmgMult = clanDmgMult + 0.05 end
+		local aClanFull = tostring(attacker.Clan or "None")
+		local aIsAwakened = string.find(aClanFull, "Awakened") ~= nil
+		local aBaseClan = string.gsub(aClanFull, "Awakened ", "")
+		local aTitan = tostring(attacker.Titan or "None")
+
+		if aBaseClan == "Galliard" then clanDmgMult += (aIsAwakened and 0.15 or 0.05) end
 
 		if isAttackerTransformed then
-			if pClan == "Tybur" then clanDmgMult = clanDmgMult + 0.20 end
-			if pClan == "Yeager" then clanDmgMult = clanDmgMult + 0.25 end
+			if aBaseClan == "Tybur" then clanDmgMult += (aIsAwakened and 0.40 or 0.20) end
+			if aBaseClan == "Yeager" then clanDmgMult += (aIsAwakened and 0.50 or 0.25) end
+
+			if aBaseClan == "Yeager" and string.find(aTitan, "Attack Titan") then clanDmgMult += 0.30 end -- Freedom Synergy
+			if aBaseClan == "Tybur" and string.find(aTitan, "War Hammer") then clanDmgMult += 0.30 end -- Aristocrat Synergy
 		else
-			if pClan == "Ackerman" or pClan == "Awakened Ackerman" then clanDmgMult = clanDmgMult + 0.25 end
+			if aBaseClan == "Ackerman" then clanDmgMult += (aIsAwakened and 0.50 or 0.25) end
 		end
 		baseDmg = baseDmg * clanDmgMult
 
 		local expiry = attacker.PlayerObj and tonumber(attacker.PlayerObj:GetAttribute("Buff_Damage_Expiry")) or 0
-		if expiry > os.time() then
-			baseDmg = baseDmg * 1.5
-		end
+		if expiry > os.time() then baseDmg = baseDmg * 1.5 end
 
-		if defender.IsPlayer and tostring(defender.Clan or "None") == "Braun" then effectiveArmor = effectiveArmor * 1.20 end
 		defenseMultiplier = math.clamp(300 / (300 + effectiveArmor), 0.15, 1.0)
 	else
 		baseDmg = baseDmg * 0.75 
-		if defender.IsPlayer and tostring(defender.Clan or "None") == "Braun" then effectiveArmor = effectiveArmor * 1.20 end
 		defenseMultiplier = math.clamp(150 / (150 + (effectiveArmor * 3)), 0.05, 1.0)
 	end
 
@@ -124,13 +141,17 @@ function CombatCore.TakeDamage(combatant, damage, attackerStyle)
 		local currentHP = tonumber(combatant.HP) or 0
 		if (currentHP - actualDmg) < 1 then
 			local resolveStat = tonumber(combatant.TotalResolve) or 10
-			local cClan = tostring(combatant.Clan or "None")
+			local cClanFull = tostring(combatant.Clan or "None")
+			local cIsAwakened = string.find(cClanFull, "Awakened") ~= nil
+			local cBaseClan = string.gsub(cClanFull, "Awakened ", "")
 
-			if combatant.IsPlayer and cClan == "Arlert" then resolveStat = resolveStat * 1.15 end
+			if combatant.IsPlayer and cBaseClan == "Arlert" then resolveStat = resolveStat * (cIsAwakened and 1.30 or 1.15) end
 
 			local survivalChance = math.clamp(resolveStat * 0.7, 0, 45)
 			local maxSurvivals = 1
-			if combatant.IsPlayer and (cClan == "Ackerman" or cClan == "Awakened Ackerman") then survivalChance = 100; maxSurvivals = 3 end
+			if combatant.IsPlayer and cBaseClan == "Ackerman" then 
+				survivalChance = 100; maxSurvivals = cIsAwakened and 3 or 1 
+			end
 
 			local usedSurvivals = tonumber(combatant.ResolveSurvivals) or 0
 			if usedSurvivals < maxSurvivals and math.random(1, 100) <= survivalChance then
@@ -206,18 +227,28 @@ function CombatCore.ExecuteStrike(attacker, defender, skillName, targetLimb, log
 	local defSpd = tonumber(defender.TotalSpeed) or 10
 	local atkRes = tonumber(attacker.TotalResolve) or 10
 
+	-- [[ THE FIX: SPEED SYNERGIES ]]
 	if attacker.IsPlayer then
-		local aClan = tostring(attacker.Clan or "None")
-		if aClan == "Braus" then atkSpd = atkSpd * 1.10 end
-		if aClan == "Galliard" then atkSpd = atkSpd * 1.15 end
-		if aClan == "Awakened Ackerman" then atkSpd = atkSpd * 1.50 end
-		if aClan == "Arlert" then atkRes = atkRes * 1.15 end
+		local aClanFull = tostring(attacker.Clan or "None")
+		local aIsAwakened = string.find(aClanFull, "Awakened") ~= nil
+		local aBaseClan = string.gsub(aClanFull, "Awakened ", "")
+		local aTitan = tostring(attacker.Titan or "None")
+
+		if aBaseClan == "Braus" then atkSpd = atkSpd * (aIsAwakened and 1.20 or 1.10) end
+		if aBaseClan == "Galliard" then atkSpd = atkSpd * (aIsAwakened and 1.30 or 1.15) end
+		if aBaseClan == "Ackerman" and aIsAwakened then atkSpd = atkSpd * 1.50 end
+		if aBaseClan == "Arlert" then atkRes = atkRes * (aIsAwakened and 1.30 or 1.15) end
+
+		if aBaseClan == "Galliard" and string.find(aTitan, "Jaw Titan") then atkSpd = atkSpd * 1.25 end -- Nutcracker Synergy
 	end
 	if defender.IsPlayer then
-		local dClan = tostring(defender.Clan or "None")
-		if dClan == "Braus" then defSpd = defSpd * 1.10 end
-		if dClan == "Galliard" then defSpd = defSpd * 1.15 end
-		if dClan == "Awakened Ackerman" then defSpd = defSpd * 1.50 end
+		local dClanFull = tostring(defender.Clan or "None")
+		local dIsAwakened = string.find(dClanFull, "Awakened") ~= nil
+		local dBaseClan = string.gsub(dClanFull, "Awakened ", "")
+
+		if dBaseClan == "Braus" then defSpd = defSpd * (dIsAwakened and 1.20 or 1.10) end
+		if dBaseClan == "Galliard" then defSpd = defSpd * (dIsAwakened and 1.30 or 1.15) end
+		if dBaseClan == "Ackerman" and dIsAwakened then defSpd = defSpd * 1.50 end
 	end
 
 	for i = 1, hitsToDo do
@@ -243,19 +274,15 @@ function CombatCore.ExecuteStrike(attacker, defender, skillName, targetLimb, log
 			dodgeChance = dodgeChance + 35 
 		end
 
-		if defender.IsPlayer and tostring(defender.Clan or "None") == "Springer" then dodgeChance = dodgeChance + 15 end
+		if defender.IsPlayer and string.find(tostring(defender.Clan or "None"), "Springer") then dodgeChance = dodgeChance + 15 end
 
 		if defender.AwakenedStats and (tonumber(defender.AwakenedStats.DodgeBonus) or 0) > 0 then
 			dodgeChance = dodgeChance + tonumber(defender.AwakenedStats.DodgeBonus)
 		end
 
 		dodgeChance = math.clamp(dodgeChance or 0, 0, 80)
-
 		if isDodging then dodgeChance = 100 end
-
-		if defender.Statuses and (tonumber(defender.Statuses.Immobilized) or 0) > 0 then
-			dodgeChance = 0
-		end
+		if defender.Statuses and (tonumber(defender.Statuses.Immobilized) or 0) > 0 then dodgeChance = 0 end
 
 		if math.random(1, 100) <= (dodgeChance or 0) then
 			if hitsToDo == 1 then 
@@ -273,6 +300,15 @@ function CombatCore.ExecuteStrike(attacker, defender, skillName, targetLimb, log
 			critChance = critChance + tonumber(attacker.AwakenedStats.CritBonus)
 		end
 
+		-- [[ THE FIX: CRIT SYNERGIES ]]
+		if attacker.IsPlayer then
+			local aBaseClan = string.gsub(tostring(attacker.Clan or "None"), "Awakened ", "")
+			local aTitan = tostring(attacker.Titan or "None")
+			if aBaseClan == "Galliard" and string.find(aTitan, "Jaw Titan") then
+				critChance = critChance + 25 -- Nutcracker Synergy
+			end
+		end
+
 		local isCrit = math.random(1, 100) <= (critChance or 0)
 		local mult = (tonumber(skill.Mult) or 1.0) * (isCrit and 1.5 or 1.0) * comboMult
 		local baseDmg = CombatCore.CalculateDamage(attacker, defender, mult, targetLimb)
@@ -282,12 +318,10 @@ function CombatCore.ExecuteStrike(attacker, defender, skillName, targetLimb, log
 		local effectLog = ""
 		local isArmored = defender.GateType == "Reinforced Skin" and (tonumber(defender.GateHP) or 0) > 0
 
-		if skill.Effect and skill.Effect ~= "None" and skill.Effect ~= "Block" and skill.Effect ~= "Rest" and skill.Effect ~= "Flee" and skill.Effect ~= "Transform" and skill.Effect ~= "Eject" and skill.Effect ~= "TitanRest" then
+		if skill.Effect and skill.Effect ~= "None" and skill.Effect ~= "Block" and skill.Effect ~= "Rest" and skill.Effect ~= "Flee" and skill.Effect ~= "Transform" and skill.Effect ~= "Eject" and skill.Effect ~= "TitanRest" and skill.Effect ~= "FallBack" and skill.Effect ~= "CloseGap" then
 			if not defender.Statuses then defender.Statuses = {} end
-
 			local safeEffect = tostring(skill.Effect)
 
-			-- [[ THE FIX: Intercept beneficial Attacker effects like Cannibalize before they hit the Defender ]]
 			if safeEffect == "RestoreHeat" then
 				if attacker.IsPlayer then
 					local pNrg = tonumber(attacker.TitanEnergy) or 0
