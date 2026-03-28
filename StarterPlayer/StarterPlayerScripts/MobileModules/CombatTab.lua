@@ -62,25 +62,20 @@ end
 local function ApplyButtonGradient(btn, topColor, botColor, strokeColor)
 	btn.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
 	local grad = btn:FindFirstChildOfClass("UIGradient") or Instance.new("UIGradient", btn)
-	grad.Color = ColorSequence.new{ColorSequenceKeypoint.new(0, topColor), ColorSequenceKeypoint.new(1, botColor)}
-	grad.Rotation = 90
-	local corner = btn:FindFirstChildOfClass("UICorner") or Instance.new("UICorner", btn)
-	corner.CornerRadius = UDim.new(0, 4)
+	grad.Color = ColorSequence.new{ColorSequenceKeypoint.new(0, topColor), ColorSequenceKeypoint.new(1, botColor)}; grad.Rotation = 90
+	local corner = btn:FindFirstChildOfClass("UICorner") or Instance.new("UICorner", btn); corner.CornerRadius = UDim.new(0, 4)
 	if strokeColor then
 		local stroke = btn:FindFirstChildOfClass("UIStroke") or Instance.new("UIStroke", btn)
 		stroke.Color = strokeColor; stroke.Thickness = 1; stroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border; stroke.LineJoinMode = Enum.LineJoinMode.Miter
 	end
 	if not btn:GetAttribute("GradientTextFixed") then
 		btn:SetAttribute("GradientTextFixed", true)
-		local textLbl = Instance.new("TextLabel", btn)
-		textLbl.Name = "BtnTextLabel"; textLbl.Size = UDim2.new(1, 0, 1, 0); textLbl.BackgroundTransparency = 1
+		local textLbl = Instance.new("TextLabel", btn); textLbl.Name = "BtnTextLabel"; textLbl.Size = UDim2.new(1, 0, 1, 0); textLbl.BackgroundTransparency = 1
 		textLbl.Font = btn.Font; textLbl.TextSize = btn.TextSize; textLbl.TextScaled = btn.TextScaled; textLbl.RichText = btn.RichText; textLbl.TextWrapped = btn.TextWrapped
 		textLbl.TextXAlignment = btn.TextXAlignment; textLbl.TextYAlignment = btn.TextYAlignment; textLbl.ZIndex = btn.ZIndex + 1
-		local tConstraint = btn:FindFirstChildOfClass("UITextSizeConstraint")
-		if tConstraint then tConstraint.Parent = textLbl end
+		local tConstraint = btn:FindFirstChildOfClass("UITextSizeConstraint"); if tConstraint then tConstraint.Parent = textLbl end
 		btn.ChildAdded:Connect(function(child) if child:IsA("UITextSizeConstraint") then task.delay(0, function() child.Parent = textLbl end) end end)
 		textLbl.Text = btn.Text; textLbl.TextColor3 = btn.TextColor3; btn.Text = ""
-
 		btn:GetPropertyChangedSignal("Text"):Connect(function() if btn.Text ~= "" then textLbl.Text = btn.Text; btn.Text = "" end end)
 		btn:GetPropertyChangedSignal("TextColor3"):Connect(function() textLbl.TextColor3 = btn.TextColor3 end)
 		btn:GetPropertyChangedSignal("RichText"):Connect(function() textLbl.RichText = btn.RichText end)
@@ -109,6 +104,7 @@ local function CreateBar(parent, color1, color2, size, labelText, alignRight)
 	return fill, text, container
 end
 
+-- [[ THE FIX: Added ALL CombatCore statuses so they properly render on the UI ]]
 local function RenderStatuses(container, combatant, isRight)
 	for _, child in ipairs(container:GetChildren()) do if child:IsA("Frame") then child:Destroy() end end
 	local function addIcon(iconTxt, bgColor, strokeColor, tooltipText)
@@ -131,10 +127,16 @@ local function RenderStatuses(container, combatant, isRight)
 			if sName == "Telegraphing" and type(duration) == "string" then
 				addIcon("WRN", Color3.fromRGB(200, 100, 0), Color3.fromRGB(255, 150, 0), "Charging Attack: " .. duration)
 			elseif type(duration) == "number" and duration > 0 then
-				if sName == "Crippled" then addIcon("CRP", Color3.fromRGB(80, 80, 80), Color3.fromRGB(120, 120, 120), "Crippled: Speed & Dodge Halved (" .. duration .. " turns)")
+				if sName == "Bleed" then addIcon("BLD", Color3.fromRGB(150, 20, 20), Color3.fromRGB(255, 50, 50), "Bleeding: Takes Damage over Time (" .. duration .. " turns)")
+				elseif sName == "Burn" then addIcon("BRN", Color3.fromRGB(200, 80, 20), Color3.fromRGB(255, 120, 50), "Burning: Takes heavy DoT (" .. duration .. " turns)")
+				elseif sName == "Stun" then addIcon("STN", Color3.fromRGB(200, 200, 80), Color3.fromRGB(255, 255, 150), "Stunned: Loses next turn (" .. duration .. " turns)")
+				elseif sName == "NapeGuard" then addIcon("GRD", Color3.fromRGB(100, 60, 150), Color3.fromRGB(150, 100, 200), "Nape Guard: Nape damage reduced to 1 (" .. duration .. " turns)")
+				elseif sName == "Confusion" then addIcon("CNF", Color3.fromRGB(150, 80, 150), Color3.fromRGB(200, 100, 200), "Confused: May miss attacks (" .. duration .. " turns)")
+				elseif sName == "Debuff_Defense" then addIcon("BRK", Color3.fromRGB(120, 60, 60), Color3.fromRGB(200, 100, 100), "Defense Broken: Armor shredded (" .. duration .. " turns)")
+				elseif sName == "Crippled" then addIcon("CRP", Color3.fromRGB(80, 80, 80), Color3.fromRGB(120, 120, 120), "Crippled: Speed & Dodge Halved (" .. duration .. " turns)")
 				elseif sName == "Immobilized" then addIcon("IMB", Color3.fromRGB(40, 120, 40), Color3.fromRGB(80, 200, 80), "Immobilized: 0 Speed & 0 Dodge (" .. duration .. " turns)")
 				elseif sName == "Weakened" then addIcon("WEK", Color3.fromRGB(120, 80, 40), Color3.fromRGB(200, 120, 60), "Weakened: Damage Halved (" .. duration .. " turns)")
-				elseif sName == "Blinded" then addIcon("BLD", Color3.fromRGB(40, 40, 40), Color3.fromRGB(80, 80, 80), "Blinded: Target loses their turn! (" .. duration .. " turns)")
+				elseif sName == "Blinded" then addIcon("BLN", Color3.fromRGB(40, 40, 40), Color3.fromRGB(80, 80, 80), "Blinded: Target loses their turn! (" .. duration .. " turns)")
 				elseif sName == "TrueBlind" then addIcon("TBL", Color3.fromRGB(20, 20, 20), Color3.fromRGB(50, 50, 50), "True Blindness: Target loses their turn! (" .. duration .. " turns)")
 				elseif sName == "Buff_Strength" or sName == "Buff_Defense" then addIcon("BUF", Color3.fromRGB(20, 120, 20), Color3.fromRGB(40, 200, 40), "Stat Buff Active (" .. duration .. " turns)")
 				end
@@ -495,8 +497,6 @@ function CombatTab.Init(parentFrame, tooltipMgr)
 				local orderIndex = 7
 				for sName, sData in pairs(SkillData.Skills) do
 					if sName == "Basic Slash" or sName == "Maneuver" or sName == "Fall Back" or sName == "Close In" or sName == "Recover" or sName == "Retreat" or sName == "Transform" then continue end
-
-					-- [[ THE FIX: Exclude Anti-Titan Rifle from rendering at all unless at Long Range ]]
 					if sName == "Anti-Titan Rifle" and battleState.Context.Range ~= "Long" then continue end
 
 					local req = sData.Requirement
