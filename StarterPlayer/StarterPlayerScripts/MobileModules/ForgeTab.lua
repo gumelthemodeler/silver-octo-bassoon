@@ -7,6 +7,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local TweenService = game:GetService("TweenService")
 local Network = ReplicatedStorage:WaitForChild("Network")
 local ItemData = require(ReplicatedStorage:WaitForChild("ItemData"))
+local TitanData = require(ReplicatedStorage:WaitForChild("TitanData"))
 
 local NotificationManager = require(script.Parent.Parent:WaitForChild("UIModules"):WaitForChild("NotificationManager"))
 local CinematicManager = require(script.Parent.Parent:WaitForChild("UIModules"):WaitForChild("CinematicManager"))
@@ -19,17 +20,23 @@ local SubBtns = {}
 
 local selectedCraftingRecipe = nil
 local selectedWeapon = nil
-local selectedFusionSlot = nil
-local expectedFusionResult = nil
 
--- UI References
+-- [[ THE FIX: Separated Fusion Logic State ]]
+local fusionState = "Base"
+local selectedFusionBase = nil
+local selectedFusionSacrifice = nil
+
 local ingBoxName, ingBoxCount, ingStroke, ingTagBox, ingTagTxt
 local dewsBoxCount, dewsStroke, dewsTagBox
 local resBoxName, resStroke, resTagBox, resTagTxt
 local craftBtn
 local rightPanelName, rightPanelStats, awakenBtn, extractCountLbl
-local fusionBaseLbl, fusionSacrificeLbl, fusionResultLbl, fuseBtn
+
+-- [[ THE FIX: Updated Fusion UI References ]]
+local fusBaseBox, fusSacBox, fusResBox
+local fuseBtn
 local RecipeList, CraftInvGrid
+local VaultList
 
 local RarityColors = { ["Common"] = "#AAAAAA", ["Uncommon"] = "#55FF55", ["Rare"] = "#5588FF", ["Epic"] = "#CC44FF", ["Legendary"] = "#FFD700", ["Mythical"] = "#FF3333", ["Transcendent"] = "#FF55FF" }
 local RarityOrder = { Transcendent = 0, Mythical = 1, Legendary = 2, Epic = 3, Rare = 4, Uncommon = 5, Common = 6 }
@@ -49,7 +56,6 @@ local function ApplyGradient(label, color1, color2)
 	grad.Color = ColorSequence.new{ColorSequenceKeypoint.new(0, color1), ColorSequenceKeypoint.new(1, color2)}
 end
 
--- [[ Premium Dark Gradient Helper ]]
 local function ApplyButtonGradient(btn, topColor, botColor, strokeColor)
 	btn.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
 	local grad = btn:FindFirstChildOfClass("UIGradient") or Instance.new("UIGradient", btn)
@@ -152,8 +158,8 @@ function ForgeTab.Init(parentFrame, tooltipMgr)
 	fLayout.SortOrder = Enum.SortOrder.LayoutOrder
 
 	local function CreateStationSquare(parent, rarityColor, isDews, lOrder)
-		local sq = Instance.new("Frame", parent)
-		sq.Size = UDim2.new(0, 70, 0, 70); sq.BackgroundColor3 = Color3.fromRGB(22, 22, 28); sq.LayoutOrder = lOrder
+		local sq = Instance.new("TextButton", parent)
+		sq.Size = UDim2.new(0, 70, 0, 70); sq.BackgroundColor3 = Color3.fromRGB(22, 22, 28); sq.Text = ""; sq.LayoutOrder = lOrder
 		local stroke = Instance.new("UIStroke", sq); stroke.Color = Color3.fromHex(rarityColor:gsub("#","")); stroke.Thickness = 2; stroke.LineJoinMode = Enum.LineJoinMode.Miter; stroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
 
 		local tBox, tTxt
@@ -407,112 +413,191 @@ function ForgeTab.Init(parentFrame, tooltipMgr)
 
 
 	-- ==========================================
-	-- [[ 3. FUSION TAB ]]
+	-- [[ 3. FUSION TAB (OVERHAULED) ]]
 	-- ==========================================
 	SubTabs["Fusion"] = Instance.new("ScrollingFrame", ContentArea)
 	SubTabs["Fusion"].Size = UDim2.new(1, 0, 1, 0); SubTabs["Fusion"].BackgroundTransparency = 1; SubTabs["Fusion"].Visible = false; SubTabs["Fusion"].ScrollBarThickness = 0
 	local fMasterLayout = Instance.new("UIListLayout", SubTabs["Fusion"]); fMasterLayout.Padding = UDim.new(0, 15); fMasterLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center; fMasterLayout.SortOrder = Enum.SortOrder.LayoutOrder
 
 	local FusTopPanel = Instance.new("Frame", SubTabs["Fusion"])
-	FusTopPanel.Size = UDim2.new(0.95, 0, 0, 240); FusTopPanel.BackgroundColor3 = Color3.fromRGB(20, 20, 25); FusTopPanel.LayoutOrder = 1
+	FusTopPanel.Size = UDim2.new(0.95, 0, 0, 180); FusTopPanel.BackgroundColor3 = Color3.fromRGB(20, 20, 25); FusTopPanel.LayoutOrder = 1
 	Instance.new("UICorner", FusTopPanel).CornerRadius = UDim.new(0, 8); Instance.new("UIStroke", FusTopPanel).Color = Color3.fromRGB(255, 100, 100)
-	local ftLayout = Instance.new("UIListLayout", FusTopPanel); ftLayout.Padding = UDim.new(0, 5); ftLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center; ftLayout.SortOrder = Enum.SortOrder.LayoutOrder
-	local ftPad = Instance.new("UIPadding", FusTopPanel); ftPad.PaddingTop = UDim.new(0, 10); ftPad.PaddingBottom = UDim.new(0, 10)
 
-	local function CreateFusLbl(parent, text, height, bgColor, lOrder)
-		local l = Instance.new("TextLabel", parent); l.Size = UDim2.new(0.9, 0, 0, height); l.Font = Enum.Font.GothamBold; l.TextColor3 = Color3.fromRGB(200, 200, 200); l.TextSize = 12; l.Text = text; l.LayoutOrder = lOrder
-		if bgColor then l.BackgroundColor3 = bgColor; Instance.new("UICorner", l).CornerRadius = UDim.new(0, 6); Instance.new("UIStroke", l).Color = Color3.fromRGB(60, 60, 70) else l.BackgroundTransparency = 1 end
-		return l
+	local ftTitle = Instance.new("TextLabel", FusTopPanel)
+	ftTitle.Size = UDim2.new(1, 0, 0, 25); ftTitle.Position = UDim2.new(0, 0, 0, 5); ftTitle.BackgroundTransparency = 1; ftTitle.Font = Enum.Font.GothamBlack; ftTitle.TextColor3 = Color3.fromRGB(255, 150, 150); ftTitle.TextSize = 14; ftTitle.Text = "TITAN FUSION"
+
+	local FusEqArea = Instance.new("Frame", FusTopPanel)
+	FusEqArea.Size = UDim2.new(1, 0, 0, 85); FusEqArea.Position = UDim2.new(0, 0, 0, 30); FusEqArea.BackgroundTransparency = 1
+	local feLayout = Instance.new("UIListLayout", FusEqArea); feLayout.FillDirection = Enum.FillDirection.Horizontal; feLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center; feLayout.VerticalAlignment = Enum.VerticalAlignment.Center; feLayout.Padding = UDim.new(0, 5); feLayout.SortOrder = Enum.SortOrder.LayoutOrder
+
+	fusBaseBox, _, _, _, _, _ = CreateStationSquare(FusEqArea, "#FFFFFF", false, 1)
+	CreateMathSym(FusEqArea, "+", 2)
+	fusSacBox, _, _, _, _, _ = CreateStationSquare(FusEqArea, "#FFFFFF", false, 3)
+	CreateMathSym(FusEqArea, "=", 4)
+	fusResBox, _, _, _, _, _ = CreateStationSquare(FusEqArea, "#FFFFFF", false, 5)
+	fusResBox.BackgroundColor3 = Color3.fromRGB(35, 30, 30)
+
+	local function UpdateFusBoxVisuals()
+		local baseColor = (fusionState == "Base") and Color3.fromRGB(255, 215, 100) or Color3.fromRGB(60, 60, 70)
+		local sacColor = (fusionState == "Sacrifice") and Color3.fromRGB(255, 100, 100) or Color3.fromRGB(60, 60, 70)
+
+		fusBaseBox:FindFirstChildOfClass("UIStroke").Color = baseColor
+		fusSacBox:FindFirstChildOfClass("UIStroke").Color = sacColor
 	end
 
-	fusionBaseLbl = CreateFusLbl(FusTopPanel, "Base: None", 35, Color3.fromRGB(30, 30, 35), 1)
-	local plusLbl = CreateFusLbl(FusTopPanel, "+", 20, nil, 2); plusLbl.Font = Enum.Font.GothamBlack; plusLbl.TextColor3 = Color3.fromRGB(150, 150, 150); plusLbl.TextSize = 20
-	fusionSacrificeLbl = CreateFusLbl(FusTopPanel, "Sacrifice: Select from Vault", 35, Color3.fromRGB(30, 30, 35), 3)
-	local equalsLbl = CreateFusLbl(FusTopPanel, "=", 20, nil, 4); equalsLbl.Font = Enum.Font.GothamBlack; equalsLbl.TextColor3 = Color3.fromRGB(150, 150, 150); equalsLbl.TextSize = 20
-	fusionResultLbl = CreateFusLbl(FusTopPanel, "Result: Unknown", 35, nil, 5); fusionResultLbl.Font = Enum.Font.GothamBlack; fusionResultLbl.TextColor3 = Color3.fromRGB(255, 215, 100); fusionResultLbl.TextSize = 14
+	fusBaseBox.MouseButton1Click:Connect(function() fusionState = "Base"; UpdateFusBoxVisuals() end)
+	fusSacBox.MouseButton1Click:Connect(function() fusionState = "Sacrifice"; UpdateFusBoxVisuals() end)
 
-	fuseBtn = Instance.new("TextButton", FusTopPanel)
-	fuseBtn.Size = UDim2.new(0.9, 0, 0, 45); fuseBtn.Font = Enum.Font.GothamBlack; fuseBtn.TextColor3 = Color3.fromRGB(255, 255, 255); fuseBtn.TextSize = 14; fuseBtn.Text = "FUSE (50,000 Dews)"; fuseBtn.LayoutOrder = 6
-	ApplyButtonGradient(fuseBtn, Color3.fromRGB(180, 60, 60), Color3.fromRGB(100, 30, 30), Color3.fromRGB(80, 20, 20)); fuseBtn.Visible = false
+	local ActionArea = Instance.new("Frame", FusTopPanel)
+	ActionArea.Size = UDim2.new(1, 0, 0, 45); ActionArea.Position = UDim2.new(0, 0, 1, -55); ActionArea.BackgroundTransparency = 1
+	local aaLayout = Instance.new("UIListLayout", ActionArea); aaLayout.FillDirection = Enum.FillDirection.Horizontal; aaLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center; aaLayout.VerticalAlignment = Enum.VerticalAlignment.Center; aaLayout.Padding = UDim.new(0, 20)
+
+	fuseBtn = Instance.new("TextButton", ActionArea)
+	fuseBtn.Size = UDim2.new(0.8, 0, 1, 0); fuseBtn.Font = Enum.Font.GothamBlack; fuseBtn.TextColor3 = Color3.fromRGB(255, 255, 255); fuseBtn.TextSize = 14; fuseBtn.Text = "FUSE (250,000 Dews)"
+	ApplyButtonGradient(fuseBtn, Color3.fromRGB(120, 40, 40), Color3.fromRGB(60, 20, 20), Color3.fromRGB(40, 10, 10))
 
 	fuseBtn.MouseButton1Click:Connect(function()
-		if selectedFusionSlot then 
-			local currentTitan = player:GetAttribute("Titan") or "None"
-			local storedTitan = player:GetAttribute("Titan_Slot" .. selectedFusionSlot) or "None"
-			expectedFusionResult = FusionRecipes[currentTitan] and FusionRecipes[currentTitan][storedTitan]
-			Network:WaitForChild("FuseTitan"):FireServer(selectedFusionSlot) 
+		if selectedFusionBase and selectedFusionSacrifice then 
+			local baseTitan = player:GetAttribute(selectedFusionBase == "Equipped" and "Titan" or ("Titan_Slot" .. selectedFusionBase)) or "None"
+			local sacTitan = player:GetAttribute(selectedFusionSacrifice == "Equipped" and "Titan" or ("Titan_Slot" .. selectedFusionSacrifice)) or "None"
+			expectedFusionResult = FusionRecipes[baseTitan] and FusionRecipes[baseTitan][sacTitan]
+			Network:WaitForChild("FuseTitan"):FireServer(selectedFusionBase, selectedFusionSacrifice)
+			selectedFusionBase = nil; selectedFusionSacrifice = nil; fusionState = "Base"
 		end
 	end)
 
-	local fusListTitle = Instance.new("TextLabel", SubTabs["Fusion"])
-	fusListTitle.Size = UDim2.new(0.95, 0, 0, 30); fusListTitle.BackgroundTransparency = 1; fusListTitle.Font = Enum.Font.GothamBlack; fusListTitle.TextColor3 = Color3.fromRGB(255, 100, 100); fusListTitle.TextSize = 16; fusListTitle.Text = "SELECT SACRIFICE"; fusListTitle.LayoutOrder = 2
+	local FusVaultPanel = Instance.new("Frame", SubTabs["Fusion"])
+	FusVaultPanel.Size = UDim2.new(0.95, 0, 0, 0); FusVaultPanel.BackgroundColor3 = Color3.fromRGB(20, 20, 25); FusVaultPanel.LayoutOrder = 2
+	Instance.new("UICorner", FusVaultPanel).CornerRadius = UDim.new(0, 8); Instance.new("UIStroke", FusVaultPanel).Color = Color3.fromRGB(80, 80, 90)
 
-	local VaultList = Instance.new("Frame", SubTabs["Fusion"])
-	VaultList.Size = UDim2.new(0.95, 0, 0, 0); VaultList.BackgroundTransparency = 1; VaultList.LayoutOrder = 3
-	local vLayout = Instance.new("UIListLayout", VaultList); vLayout.Padding = UDim.new(0, 10)
-	vLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function() VaultList.Size = UDim2.new(0.95, 0, 0, vLayout.AbsoluteContentSize.Y) end)
+	local vTitleLbl = Instance.new("TextLabel", FusVaultPanel)
+	vTitleLbl.Size = UDim2.new(1, 0, 0, 30); vTitleLbl.Position = UDim2.new(0, 0, 0, 5); vTitleLbl.BackgroundTransparency = 1; vTitleLbl.Font = Enum.Font.GothamBlack; vTitleLbl.TextColor3 = Color3.fromRGB(200, 200, 200); vTitleLbl.TextSize = 12; vTitleLbl.Text = "SELECT A TITAN FROM YOUR VAULT"
+
+	VaultList = Instance.new("Frame", FusVaultPanel)
+	VaultList.Size = UDim2.new(1, -10, 0, 0); VaultList.Position = UDim2.new(0, 5, 0, 35); VaultList.BackgroundTransparency = 1
+	local vLayout = Instance.new("UIGridLayout", VaultList); vLayout.CellSize = UDim2.new(0.48, 0, 0, 50); vLayout.CellPadding = UDim2.new(0.04, 0, 0, 10); vLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center; vLayout.SortOrder = Enum.SortOrder.LayoutOrder
+
+	vLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function() 
+		VaultList.Size = UDim2.new(1, -10, 0, vLayout.AbsoluteContentSize.Y)
+		FusVaultPanel.Size = UDim2.new(0.95, 0, 0, 45 + vLayout.AbsoluteContentSize.Y)
+		SubTabs["Fusion"].CanvasSize = UDim2.new(0, 0, 0, 180 + 45 + vLayout.AbsoluteContentSize.Y + 40)
+	end)
 
 	local function RenderFusion()
-		for _, child in ipairs(VaultList:GetChildren()) do if child:IsA("TextButton") then child:Destroy() end end
+		UpdateFusBoxVisuals()
+		for _, child in ipairs(VaultList:GetChildren()) do if child:IsA("Frame") then child:Destroy() end end
 
-		local currentTitan = player:GetAttribute("Titan") or "None"
-		fusionBaseLbl.Text = "Base: <font color='#FF5555'>" .. currentTitan .. "</font>"
-		fusionBaseLbl.RichText = true
+		local function createVaultCard(slotId, tName, lOrder)
+			if tName == "None" then return end
+			local tData = TitanData.Titans[tName]
+			local rKey = tData and tData.Rarity or "Common"
+			local cColor = RarityColors[rKey] or "#FFFFFF"
+			local rarityRGB = Color3.fromHex(cColor:gsub("#", ""))
 
-		for i = 1, 6 do
-			local storedTitan = player:GetAttribute("Titan_Slot" .. i) or "None"
-			if storedTitan ~= "None" then
-				local btn = Instance.new("TextButton", VaultList)
-				btn.Size = UDim2.new(1, 0, 0, 45); btn.Font = Enum.Font.GothamBold; btn.Text = ""
-				ApplyButtonGradient(btn, Color3.fromRGB(40, 40, 45), Color3.fromRGB(20, 20, 25), Color3.fromRGB(60, 60, 70))
+			local card = Instance.new("Frame", VaultList)
+			card.BackgroundColor3 = Color3.fromRGB(22, 22, 28); card.LayoutOrder = lOrder; card.ClipsDescendants = true
+			Instance.new("UICorner", card).CornerRadius = UDim.new(0, 6)
 
-				local lbl = Instance.new("TextLabel", btn); lbl.Size = UDim2.new(1, -20, 1, 0); lbl.Position = UDim2.new(0, 10, 0, 0); lbl.BackgroundTransparency = 1; lbl.Font = Enum.Font.GothamBold; lbl.TextColor3 = Color3.fromRGB(200,200,200); lbl.TextXAlignment = Enum.TextXAlignment.Left; lbl.TextSize = 13
-				lbl.Text = "[Slot " .. i .. "] " .. storedTitan
+			local stroke = Instance.new("UIStroke", card)
+			if selectedFusionBase == slotId then stroke.Color = Color3.fromRGB(255, 215, 100); stroke.Thickness = 2
+			elseif selectedFusionSacrifice == slotId then stroke.Color = Color3.fromRGB(255, 100, 100); stroke.Thickness = 2
+			else stroke.Color = rarityRGB; stroke.Thickness = 1 end
+			stroke.Transparency = 0.2; stroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
 
-				btn.MouseButton1Click:Connect(function()
-					selectedFusionSlot = i
-					fusionSacrificeLbl.Text = "Sacrifice: <font color='#AAAAAA'>" .. storedTitan .. "</font>"
-					fusionSacrificeLbl.RichText = true
+			local accentBar = Instance.new("Frame", card)
+			accentBar.Size = UDim2.new(0, 4, 1, 0); accentBar.BackgroundColor3 = stroke.Color; accentBar.BorderSizePixel = 0; accentBar.ZIndex = 2
 
-					local result = FusionRecipes[currentTitan] and FusionRecipes[currentTitan][storedTitan]
-					if result then
-						fusionResultLbl.Text = "Result: <font color='#FFD700'>" .. result .. "</font>"
-						fusionResultLbl.RichText = true
-						fuseBtn.Visible = true
-						if player.leaderstats and player.leaderstats:FindFirstChild("Dews") and player.leaderstats.Dews.Value >= 50000 then
-							ApplyButtonGradient(fuseBtn, Color3.fromRGB(180, 60, 60), Color3.fromRGB(100, 30, 30), Color3.fromRGB(80, 20, 20))
-						else
-							ApplyButtonGradient(fuseBtn, Color3.fromRGB(100, 40, 40), Color3.fromRGB(60, 20, 20), Color3.fromRGB(50, 15, 15))
-						end
-					else
-						fusionResultLbl.Text = "<font color='#FF5555'>INCOMPATIBLE</font>"
-						fusionResultLbl.RichText = true
-						fuseBtn.Visible = false
-					end
-				end)
-			end
-		end
+			local bgGlow = Instance.new("Frame", card)
+			bgGlow.Size = UDim2.new(0.5, 0, 1, 0); bgGlow.BackgroundColor3 = stroke.Color; bgGlow.BackgroundTransparency = 0.92; bgGlow.BorderSizePixel = 0; bgGlow.ZIndex = 1
 
-		if selectedFusionSlot then
-			local storedTitan = player:GetAttribute("Titan_Slot" .. selectedFusionSlot) or "None"
-			if storedTitan == "None" then
-				selectedFusionSlot = nil
-				fusionSacrificeLbl.Text = "Sacrifice: Select from Vault"
-				fusionResultLbl.Text = "Result: Unknown"
-				fuseBtn.Visible = false
-			else
-				local result = FusionRecipes[currentTitan] and FusionRecipes[currentTitan][storedTitan]
-				if result then
-					if player.leaderstats and player.leaderstats:FindFirstChild("Dews") and player.leaderstats.Dews.Value >= 50000 then
-						ApplyButtonGradient(fuseBtn, Color3.fromRGB(180, 60, 60), Color3.fromRGB(100, 30, 30), Color3.fromRGB(80, 20, 20))
-					else
-						ApplyButtonGradient(fuseBtn, Color3.fromRGB(100, 40, 40), Color3.fromRGB(60, 20, 20), Color3.fromRGB(50, 15, 15))
-					end
+			local titleLbl = Instance.new("TextLabel", card)
+			titleLbl.Size = UDim2.new(1, -10, 0, 15); titleLbl.Position = UDim2.new(0, 8, 0, 5); titleLbl.BackgroundTransparency = 1
+			titleLbl.Font = Enum.Font.GothamBold; titleLbl.TextColor3 = Color3.fromRGB(230, 230, 230); titleLbl.TextSize = 10; titleLbl.TextXAlignment = Enum.TextXAlignment.Left
+			titleLbl.RichText = true; titleLbl.Text = "<b><font color='" .. cColor .. "'>[" .. string.sub(rKey,1,1) .. "]</font></b> " .. tName; titleLbl.ZIndex = 3
+			Instance.new("UITextSizeConstraint", titleLbl).MaxTextSize = 11
+
+			local slotLbl = Instance.new("TextLabel", card)
+			slotLbl.Size = UDim2.new(1, -10, 0, 15); slotLbl.Position = UDim2.new(0, 8, 0, 20); slotLbl.BackgroundTransparency = 1
+			slotLbl.Font = Enum.Font.GothamMedium; slotLbl.TextColor3 = Color3.fromRGB(150, 150, 150); slotLbl.TextSize = 9; slotLbl.TextXAlignment = Enum.TextXAlignment.Left
+			slotLbl.Text = (slotId == "Equipped") and "Loc: Equipped" or ("Loc: Slot " .. slotId); slotLbl.ZIndex = 3
+
+			local selectBtn = Instance.new("TextButton", card)
+			selectBtn.Size = UDim2.new(1, 0, 1, 0); selectBtn.BackgroundTransparency = 1; selectBtn.Text = ""; selectBtn.ZIndex = 5
+
+			local itemizeBtn = Instance.new("TextButton", card)
+			itemizeBtn.Size = UDim2.new(0, 75, 0, 16); itemizeBtn.AnchorPoint = Vector2.new(1, 1); itemizeBtn.Position = UDim2.new(1, -4, 1, -4)
+			itemizeBtn.Font = Enum.Font.GothamBold; itemizeBtn.TextColor3 = Color3.fromRGB(255, 255, 255); itemizeBtn.TextSize = 8; itemizeBtn.Text = "ITEMIZE (150K)"; itemizeBtn.ZIndex = 6
+			ApplyButtonGradient(itemizeBtn, Color3.fromRGB(160, 80, 200), Color3.fromRGB(100, 40, 140), Color3.fromRGB(80, 20, 100))
+
+			selectBtn.MouseButton1Click:Connect(function()
+				if fusionState == "Base" then
+					if selectedFusionSacrifice == slotId then selectedFusionSacrifice = selectedFusionBase end
+					selectedFusionBase = (selectedFusionBase == slotId) and nil or slotId
+					if selectedFusionBase then fusionState = "Sacrifice" end
+				else
+					if selectedFusionBase == slotId then selectedFusionBase = selectedFusionSacrifice end
+					selectedFusionSacrifice = (selectedFusionSacrifice == slotId) and nil or slotId
+					if selectedFusionSacrifice then fusionState = "Base" end
 				end
+				RenderFusion()
+			end)
+
+			itemizeBtn.MouseButton1Click:Connect(function() Network:WaitForChild("ItemizeTitan"):FireServer(slotId) end)
+		end
+
+		createVaultCard("Equipped", player:GetAttribute("Titan") or "None", 0)
+		for i = 1, 6 do createVaultCard(i, player:GetAttribute("Titan_Slot" .. i) or "None", i) end
+
+		local function updateBox(box, sId, cColor)
+			local tName = sId and player:GetAttribute(sId == "Equipped" and "Titan" or ("Titan_Slot"..sId)) or "None"
+			local bNameLbl = box:FindFirstChildOfClass("TextLabel")
+			local bRarTxt = box:FindFirstChild("Frame") and box.Frame:FindFirstChildOfClass("TextLabel")
+			if tName ~= "None" then
+				local tData = TitanData.Titans[tName]
+				local rKey = tData and tData.Rarity or "Common"
+				bNameLbl.Text = tName; bNameLbl.TextColor3 = Color3.fromHex((RarityColors[rKey] or "#FFFFFF"):gsub("#",""))
+				if bRarTxt then bRarTxt.Text = string.sub(rKey, 1, 1) end
+			else
+				bNameLbl.Text = "???"; bNameLbl.TextColor3 = Color3.fromRGB(150, 150, 150)
+				if bRarTxt then bRarTxt.Text = "?" end
 			end
 		end
 
-		task.delay(0.05, function() SubTabs["Fusion"].CanvasSize = UDim2.new(0, 0, 0, 240 + 30 + vLayout.AbsoluteContentSize.Y + 40) end)
+		updateBox(fusBaseBox, selectedFusionBase, "#FFD700")
+		updateBox(fusSacBox, selectedFusionSacrifice, "#FF5555")
+
+		local resNameLbl = fusResBox:FindFirstChildOfClass("TextLabel")
+		local resRarTxt = fusResBox:FindFirstChild("Frame") and fusResBox.Frame:FindFirstChildOfClass("TextLabel")
+
+		if selectedFusionBase and selectedFusionSacrifice then
+			local bTitan = player:GetAttribute(selectedFusionBase == "Equipped" and "Titan" or ("Titan_Slot"..selectedFusionBase)) or "None"
+			local sTitan = player:GetAttribute(selectedFusionSacrifice == "Equipped" and "Titan" or ("Titan_Slot"..selectedFusionSacrifice)) or "None"
+			local result = FusionRecipes[bTitan] and FusionRecipes[bTitan][sTitan]
+
+			if result then
+				local rData = TitanData.Titans[result]
+				local rKey = rData and rData.Rarity or "Transcendent"
+				local cColor = Color3.fromHex((RarityColors[rKey] or "#FFFFFF"):gsub("#",""))
+
+				resNameLbl.Text = result; resNameLbl.TextColor3 = cColor
+				if resRarTxt then resRarTxt.Text = string.sub(rKey, 1, 1) end
+				fusResBox:FindFirstChildOfClass("UIStroke").Color = cColor
+
+				local pDews = player.leaderstats and player.leaderstats:FindFirstChild("Dews") and player.leaderstats.Dews.Value or 0
+				if pDews >= 250000 then ApplyButtonGradient(fuseBtn, Color3.fromRGB(200, 60, 60), Color3.fromRGB(120, 30, 30), Color3.fromRGB(80, 20, 20))
+				else ApplyButtonGradient(fuseBtn, Color3.fromRGB(120, 40, 40), Color3.fromRGB(60, 20, 20), Color3.fromRGB(40, 10, 10)) end
+			else
+				resNameLbl.Text = "INCOMPATIBLE"; resNameLbl.TextColor3 = Color3.fromRGB(255, 100, 100)
+				if resRarTxt then resRarTxt.Text = "X" end
+				fusResBox:FindFirstChildOfClass("UIStroke").Color = Color3.fromRGB(60, 60, 70)
+				ApplyButtonGradient(fuseBtn, Color3.fromRGB(120, 40, 40), Color3.fromRGB(60, 20, 20), Color3.fromRGB(40, 10, 10))
+			end
+		else
+			resNameLbl.Text = "???"; resNameLbl.TextColor3 = Color3.fromRGB(150, 150, 150)
+			if resRarTxt then resRarTxt.Text = "?" end
+			fusResBox:FindFirstChildOfClass("UIStroke").Color = Color3.fromRGB(60, 60, 70)
+			ApplyButtonGradient(fuseBtn, Color3.fromRGB(120, 40, 40), Color3.fromRGB(60, 20, 20), Color3.fromRGB(40, 10, 10))
+		end
 	end
 
 
