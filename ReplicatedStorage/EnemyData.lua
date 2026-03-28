@@ -158,7 +158,28 @@ EnemyData.Parts = {
 		}
 	},
 
-	-- [... KEEP PART 5 THE SAME ...]
+	[5] = {
+		RandomFlavor = {"You sneak through the streets of Liberio!", "Marleyan guards spot you!"},
+		Mobs = { { IsHuman = true, Name = "Marleyan Guard", Health = 300, Strength = 35, Defense = 20, Speed = 30, Resolve = 30, TitanStats = emptyTitans, Skills = {"Heavy Slash", "Block"}, Drops = { Dews = 400, XP = 200, ItemChance = {["Anti-Personnel Pistols"]=1} } } },
+		Templates = {
+			["Marleyan Guard"] = { IsHuman = true, Name = "Marleyan Guard", Health = 300, Strength = 35, Defense = 20, Speed = 30, Resolve = 30, TitanStats = emptyTitans, Skills = {"Heavy Slash", "Block"}, Drops = { Dews = 400, XP = 200, ItemChance = {["Anti-Personnel Pistols"]=1} } },
+			["Marleyan Elite"] = { IsHuman = true, Name = "Marleyan Elite", Health = 450, Strength = 50, Defense = 30, Speed = 45, Resolve = 40, TitanStats = emptyTitans, Skills = {"Anti-Titan Round", "Evasive Maneuver"}, Drops = { Dews = 600, XP = 300, ItemChance = {["Anti-Personnel Pistols"]=2, ["Advanced ODM Gear"]=1} } },
+			["Part5Boss"] = { 
+				IsBoss = true, Name = "War Hammer Titan", Health = 2000, GateType = "Hardening", GateHP = 1500, Strength = 150, Defense = 80, Speed = 60, Resolve = 100, TitanStats = {Power="A", Speed="B", Hardening="S", Endurance="B", Precision="A", Potential="A"}, 
+				Skills = {"War Hammer Spike", "Hardened Punch"}, Drops = { Dews = 8000, XP = 4000, ItemChance = { ["Spinal Fluid Syringe"] = 5, ["Marleyan Combat Manual"] = 15 } },
+				Phases = {
+					{ Health = 1000, GateType = "None", GateHP = 0, Strength = 200, Defense = 50, Speed = 80, Skills = {"War Hammer Spike", "Crushed Boulders"}, Flavor = "<font color='#FFAA00'><b>The War Hammer sheds its armor for a final desperate assault!</b></font>" }
+				}
+			}
+		},
+		Missions = {
+			[1] = { Name = "Marleyan Assault", Waves = { 
+				{ Template = "Marleyan Guard", Flavor = "Infiltrate Liberio. Take out the guards quietly." }, 
+				{ Template = "Marleyan Elite", Flavor = "They've spotted you! Elite forces inbound!" }, 
+				{ Template = "Part5Boss", Flavor = "<font color='#FF5555'>WARNING: The War Hammer Titan has appeared!</font>" } 
+			} }
+		}
+	},
 
 	[6] = {
 		RandomFlavor = {"You are ambushed in the ruins of Shiganshina!"},
