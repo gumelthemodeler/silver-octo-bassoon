@@ -14,10 +14,11 @@ local NotificationManager = require(script.Parent.Parent:WaitForChild("UIModules
 local player = Players.LocalPlayer
 local MainFrame
 local SupplyPanel, PremiumPanel, CodePanel
-local TimeLabel, RRBtn, DewsRRBtn
+local TimeLabel, RRBtn, DewsRRBtn, VIPTimerLbl
 
 local currentShopData = nil
 local isFetching = false
+local isProcessingReroll = false
 local REROLL_ID = 3557925572 
 
 for _, dp in ipairs(ItemData.Products) do if dp.IsReroll then REROLL_ID = dp.ID; break end end
@@ -31,59 +32,26 @@ end
 
 local function ApplyButtonGradient(btn, topColor, botColor, strokeColor)
 	btn.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
-
 	local grad = btn:FindFirstChildOfClass("UIGradient") or Instance.new("UIGradient", btn)
 	grad.Color = ColorSequence.new{ColorSequenceKeypoint.new(0, topColor), ColorSequenceKeypoint.new(1, botColor)}
 	grad.Rotation = 90
-
 	local corner = btn:FindFirstChildOfClass("UICorner") or Instance.new("UICorner", btn)
 	corner.CornerRadius = UDim.new(0, 4)
-
 	if strokeColor then
 		local stroke = btn:FindFirstChildOfClass("UIStroke") or Instance.new("UIStroke", btn)
-		stroke.Color = strokeColor
-		stroke.Thickness = 1
-		stroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+		stroke.Color = strokeColor; stroke.Thickness = 1; stroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
 	end
-
 	if not btn:GetAttribute("GradientTextFixed") then
 		btn:SetAttribute("GradientTextFixed", true)
-
 		local textLbl = Instance.new("TextLabel", btn)
-		textLbl.Name = "BtnTextLabel"
-		textLbl.Size = UDim2.new(1, 0, 1, 0)
-		textLbl.BackgroundTransparency = 1
-		textLbl.Font = btn.Font
-		textLbl.TextSize = btn.TextSize
-		textLbl.TextScaled = btn.TextScaled
-		textLbl.RichText = btn.RichText
-		textLbl.TextWrapped = btn.TextWrapped
-		textLbl.TextXAlignment = btn.TextXAlignment
-		textLbl.TextYAlignment = btn.TextYAlignment
-		textLbl.ZIndex = btn.ZIndex + 1
-
-		local tConstraint = btn:FindFirstChildOfClass("UITextSizeConstraint")
-		if tConstraint then tConstraint.Parent = textLbl end
-
-		btn.ChildAdded:Connect(function(child)
-			if child:IsA("UITextSizeConstraint") then
-				task.delay(0, function() child.Parent = textLbl end)
-			end
-		end)
-
-		textLbl.Text = btn.Text
-		textLbl.TextColor3 = btn.TextColor3
-		btn.Text = ""
-
-		btn:GetPropertyChangedSignal("Text"):Connect(function()
-			if btn.Text ~= "" then
-				textLbl.Text = btn.Text
-				btn.Text = ""
-			end
-		end)
-		btn:GetPropertyChangedSignal("TextColor3"):Connect(function()
-			textLbl.TextColor3 = btn.TextColor3
-		end)
+		textLbl.Name = "BtnTextLabel"; textLbl.Size = UDim2.new(1, 0, 1, 0); textLbl.BackgroundTransparency = 1
+		textLbl.Font = btn.Font; textLbl.TextSize = btn.TextSize; textLbl.TextScaled = btn.TextScaled; textLbl.RichText = btn.RichText; textLbl.TextWrapped = btn.TextWrapped
+		textLbl.TextXAlignment = btn.TextXAlignment; textLbl.TextYAlignment = btn.TextYAlignment; textLbl.ZIndex = btn.ZIndex + 1
+		local tConstraint = btn:FindFirstChildOfClass("UITextSizeConstraint"); if tConstraint then tConstraint.Parent = textLbl end
+		btn.ChildAdded:Connect(function(child) if child:IsA("UITextSizeConstraint") then task.delay(0, function() child.Parent = textLbl end) end end)
+		textLbl.Text = btn.Text; textLbl.TextColor3 = btn.TextColor3; btn.Text = ""
+		btn:GetPropertyChangedSignal("Text"):Connect(function() if btn.Text ~= "" then textLbl.Text = btn.Text; btn.Text = "" end end)
+		btn:GetPropertyChangedSignal("TextColor3"):Connect(function() textLbl.TextColor3 = btn.TextColor3 end)
 	end
 end
 
@@ -110,8 +78,7 @@ function ShopTab.Init(parentFrame, tooltipMgr)
 	CodePanel.Size = UDim2.new(0.95, 0, 0, 120); CodePanel.BackgroundColor3 = Color3.fromRGB(20, 20, 25); CodePanel.LayoutOrder = 1
 	Instance.new("UICorner", CodePanel).CornerRadius = UDim.new(0, 8); Instance.new("UIStroke", CodePanel).Color = Color3.fromRGB(60, 60, 70)
 
-	local cLayout = Instance.new("UIListLayout", CodePanel)
-	cLayout.Padding = UDim.new(0, 8); cLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center; cLayout.FillDirection = Enum.FillDirection.Vertical
+	local cLayout = Instance.new("UIListLayout", CodePanel); cLayout.Padding = UDim.new(0, 8); cLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center; cLayout.FillDirection = Enum.FillDirection.Vertical
 	local cPad = Instance.new("UIPadding", CodePanel); cPad.PaddingTop = UDim.new(0, 10); cPad.PaddingBottom = UDim.new(0, 10)
 
 	local cTitle = Instance.new("TextLabel", CodePanel)
@@ -135,19 +102,15 @@ function ShopTab.Init(parentFrame, tooltipMgr)
 	end)
 
 	SupplyPanel = Instance.new("Frame", MainFrame)
-	SupplyPanel.Size = UDim2.new(0.95, 0, 0, 0); SupplyPanel.AutomaticSize = Enum.AutomaticSize.Y
-	SupplyPanel.BackgroundColor3 = Color3.fromRGB(20, 20, 25)
-	Instance.new("UICorner", SupplyPanel).CornerRadius = UDim.new(0, 8); Instance.new("UIStroke", SupplyPanel).Color = Color3.fromRGB(80, 80, 90)
-	SupplyPanel.LayoutOrder = 2
+	SupplyPanel.Size = UDim2.new(0.95, 0, 0, 0); SupplyPanel.AutomaticSize = Enum.AutomaticSize.Y; SupplyPanel.BackgroundColor3 = Color3.fromRGB(20, 20, 25)
+	Instance.new("UICorner", SupplyPanel).CornerRadius = UDim.new(0, 8); Instance.new("UIStroke", SupplyPanel).Color = Color3.fromRGB(80, 80, 90); SupplyPanel.LayoutOrder = 2
 
-	local sListLayout = Instance.new("UIListLayout", SupplyPanel)
-	sListLayout.Padding = UDim.new(0, 10); sListLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center; sListLayout.SortOrder = Enum.SortOrder.LayoutOrder
+	local sListLayout = Instance.new("UIListLayout", SupplyPanel); sListLayout.Padding = UDim.new(0, 10); sListLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center; sListLayout.SortOrder = Enum.SortOrder.LayoutOrder
 	local sPad = Instance.new("UIPadding", SupplyPanel); sPad.PaddingTop = UDim.new(0, 10); sPad.PaddingBottom = UDim.new(0, 15)
 
 	local Header = Instance.new("Frame", SupplyPanel)
 	Header.Size = UDim2.new(1, -20, 0, 0); Header.AutomaticSize = Enum.AutomaticSize.Y; Header.BackgroundTransparency = 1; Header.LayoutOrder = 1
-	local hLayout = Instance.new("UIListLayout", Header)
-	hLayout.Padding = UDim.new(0, 8); hLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center; hLayout.FillDirection = Enum.FillDirection.Vertical
+	local hLayout = Instance.new("UIListLayout", Header); hLayout.Padding = UDim.new(0, 5); hLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center; hLayout.FillDirection = Enum.FillDirection.Vertical
 
 	TimeLabel = Instance.new("TextLabel", Header)
 	TimeLabel.Size = UDim2.new(1, 0, 0, 25); TimeLabel.BackgroundTransparency = 1; TimeLabel.Font = Enum.Font.GothamBlack; TimeLabel.TextColor3 = Color3.fromRGB(255, 255, 255); TimeLabel.TextSize = 14; TimeLabel.TextXAlignment = Enum.TextXAlignment.Center
@@ -165,13 +128,50 @@ function ShopTab.Init(parentFrame, tooltipMgr)
 	RRBtn.Size = UDim2.new(0.48, 0, 1, 0); RRBtn.Font = Enum.Font.GothamBold; RRBtn.TextColor3 = Color3.fromRGB(255,255,255); RRBtn.TextSize = 10; RRBtn.Text = "RESTOCK (15 R$)"
 	ApplyButtonGradient(RRBtn, Color3.fromRGB(220, 160, 50), Color3.fromRGB(140, 90, 20), Color3.fromRGB(255, 200, 80))
 
+	-- [[ THE FIX: Extracted VIP Timer Label ]]
+	VIPTimerLbl = Instance.new("TextLabel", Header)
+	VIPTimerLbl.Size = UDim2.new(1, 0, 0, 15)
+	VIPTimerLbl.BackgroundTransparency = 1
+	VIPTimerLbl.Font = Enum.Font.GothamMedium
+	VIPTimerLbl.TextColor3 = Color3.fromRGB(200, 150, 255)
+	VIPTimerLbl.TextSize = 10
+	VIPTimerLbl.Text = ""
+	VIPTimerLbl.Visible = false
+
 	local function CheckVIPReroll()
 		local hasVIP = player:GetAttribute("HasVIP")
 		local lastRoll = player:GetAttribute("LastFreeReroll") or 0
-		if hasVIP and os.time() - lastRoll >= 86400 then
-			RRBtn.Text = "FREE RESTOCK (VIP)"; ApplyButtonGradient(RRBtn, Color3.fromRGB(200, 80, 200), Color3.fromRGB(120, 40, 120), Color3.fromRGB(160, 60, 160)); return true
+
+		if hasVIP then
+			if os.time() - lastRoll >= 86400 then
+				if not isProcessingReroll then
+					RRBtn.Text = "FREE RESTOCK (VIP)"
+					ApplyButtonGradient(RRBtn, Color3.fromRGB(200, 80, 200), Color3.fromRGB(120, 40, 120), Color3.fromRGB(160, 60, 160))
+				end
+				if VIPTimerLbl then VIPTimerLbl.Visible = false end
+				return true
+			else
+				if not isProcessingReroll then
+					RRBtn.Text = "RESTOCK (15 R$)"
+					ApplyButtonGradient(RRBtn, Color3.fromRGB(220, 160, 50), Color3.fromRGB(140, 90, 20), Color3.fromRGB(255, 200, 80))
+				end
+				if VIPTimerLbl then
+					local timeLeft = 86400 - (os.time() - lastRoll)
+					local h = math.floor(timeLeft / 3600)
+					local m = math.floor((timeLeft % 3600) / 60)
+					local s = timeLeft % 60
+					VIPTimerLbl.Text = string.format("Free VIP Restock in: %02d:%02d:%02d", h, m, s)
+					VIPTimerLbl.Visible = true
+				end
+				return false
+			end
 		else
-			RRBtn.Text = "RESTOCK (15 R$)"; ApplyButtonGradient(RRBtn, Color3.fromRGB(220, 160, 50), Color3.fromRGB(140, 90, 20), Color3.fromRGB(255, 200, 80)); return false
+			if not isProcessingReroll then
+				RRBtn.Text = "RESTOCK (15 R$)"
+				ApplyButtonGradient(RRBtn, Color3.fromRGB(220, 160, 50), Color3.fromRGB(140, 90, 20), Color3.fromRGB(255, 200, 80))
+			end
+			if VIPTimerLbl then VIPTimerLbl.Visible = false end
+			return false
 		end
 	end
 
@@ -185,9 +185,12 @@ function ShopTab.Init(parentFrame, tooltipMgr)
 		isFetching = true
 		currentShopData = Network.GetShopData:InvokeServer()
 		isFetching = false
+
+		if DewsRRBtn and not isProcessingReroll then DewsRRBtn.Text = "RESTOCK (100K Dews)" end
+		CheckVIPReroll()
+
 		if not currentShopData then return end
 
-		CheckVIPReroll()
 		for _, child in ipairs(ShopGrid:GetChildren()) do if child:IsA("Frame") then child:Destroy() end end
 
 		for _, item in ipairs(currentShopData.Items) do
@@ -235,7 +238,6 @@ function ShopTab.Init(parentFrame, tooltipMgr)
 
 					if player.leaderstats and player.leaderstats:FindFirstChild("Dews") and player.leaderstats.Dews.Value >= item.Cost then
 						item.SoldOut = true 
-						-- [[ THE FIX: Added "BuyItem" so the server handles it properly ]]
 						Network.ShopAction:FireServer("BuyItem", item.Name)
 						bBtn.Text = "SOLD OUT"; bBtn.TextColor3 = Color3.fromRGB(150, 150, 150)
 						ApplyButtonGradient(bBtn, Color3.fromRGB(60, 60, 65), Color3.fromRGB(30, 30, 35), Color3.fromRGB(80, 80, 90))
@@ -247,32 +249,66 @@ function ShopTab.Init(parentFrame, tooltipMgr)
 		end
 	end
 
+	-- [[ THE FIX: Bulletproof hard-reset timers to guarantee the button never freezes ]]
 	DewsRRBtn.MouseButton1Click:Connect(function()
+		if isProcessingReroll then return end
 		if player.leaderstats and player.leaderstats:FindFirstChild("Dews") and player.leaderstats.Dews.Value >= 100000 then
+			isProcessingReroll = true
+			DewsRRBtn.Text = "REROLLING..."
 			Network.VIPFreeReroll:FireServer(true)
-			DewsRRBtn.Text = "REROLLING..."; task.wait(1)
-			FetchAndRenderShop()
-			DewsRRBtn.Text = "RESTOCK (100K Dews)"
+			task.delay(3, function() 
+				isProcessingReroll = false
+				FetchAndRenderShop()
+				if DewsRRBtn then DewsRRBtn.Text = "RESTOCK (100K Dews)" end
+			end)
 		else
 			if NotificationManager then NotificationManager.Show("You need 100,000 Dews to force a restock!", "Error") end
 		end
 	end)
 
 	RRBtn.MouseButton1Click:Connect(function()
+		if isProcessingReroll then return end
 		if CheckVIPReroll() then
+			isProcessingReroll = true
+			RRBtn.Text = "REROLLING..."
 			Network.VIPFreeReroll:FireServer(false)
-			RRBtn.Text = "REROLLING..."; task.wait(1)
-			FetchAndRenderShop()
+			task.delay(3, function() 
+				isProcessingReroll = false
+				FetchAndRenderShop()
+				CheckVIPReroll()
+			end)
 		else
+			isProcessingReroll = true
+			RRBtn.Text = "WAITING..."
 			MarketplaceService:PromptProductPurchase(player, REROLL_ID)
+			task.delay(5, function() 
+				isProcessingReroll = false
+				CheckVIPReroll() 
+			end)
 		end
 	end)
 
 	MarketplaceService.PromptProductPurchaseFinished:Connect(function(userId, productId, isPurchased)
-		if isPurchased and productId == REROLL_ID then
-			RRBtn.Text = "REROLLING..."
-			task.wait(1.5)
+		if productId == REROLL_ID then
+			if isPurchased then
+				RRBtn.Text = "REROLLING..."
+				task.delay(1.5, function()
+					isProcessingReroll = false
+					FetchAndRenderShop()
+					CheckVIPReroll()
+				end)
+			else
+				isProcessingReroll = false
+				CheckVIPReroll()
+			end
+		end
+	end)
+
+	player:GetAttributeChangedSignal("PersonalShopSeed"):Connect(function()
+		if MainFrame and MainFrame.Visible then
 			FetchAndRenderShop()
+			if DewsRRBtn and not isProcessingReroll then DewsRRBtn.Text = "RESTOCK (100K Dews)" end
+			CheckVIPReroll() 
 		end
 	end)
 
@@ -290,7 +326,6 @@ function ShopTab.Init(parentFrame, tooltipMgr)
 	local PremList = Instance.new("ScrollingFrame", PremiumPanel)
 	PremList.Size = UDim2.new(1, -10, 1, -40); PremList.BackgroundTransparency = 1; PremList.LayoutOrder = 2; PremList.ScrollBarThickness = 4; PremList.BorderSizePixel = 0
 	local plLayout = Instance.new("UIListLayout", PremList); plLayout.Padding = UDim.new(0, 8)
-
 	plLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function() PremList.CanvasSize = UDim2.new(0, 0, 0, plLayout.AbsoluteContentSize.Y + 10) end)
 
 	for _, gp in ipairs(ItemData.Gamepasses) do
@@ -348,6 +383,8 @@ function ShopTab.Init(parentFrame, tooltipMgr)
 				elseif MainFrame.Visible then
 					TimeLabel.Text = "RESTOCKS IN: " .. FormatTime(currentShopData.TimeLeft) 
 				end
+				-- Background check for VIP cooldown
+				if MainFrame.Visible and player:GetAttribute("HasVIP") then CheckVIPReroll() end
 			else
 				FetchAndRenderShop()
 			end
