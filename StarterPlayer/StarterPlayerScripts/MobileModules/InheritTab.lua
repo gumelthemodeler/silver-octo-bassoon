@@ -5,6 +5,7 @@ local InheritTab = {}
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Network = ReplicatedStorage:WaitForChild("Network")
+local TweenService = game:GetService("TweenService")
 local TitanData = require(ReplicatedStorage:WaitForChild("TitanData"))
 local EffectsManager = require(script.Parent.Parent:WaitForChild("UIModules"):WaitForChild("EffectsManager"))
 local CinematicManager = require(script.Parent.Parent:WaitForChild("UIModules"):WaitForChild("CinematicManager"))
@@ -23,10 +24,22 @@ local RarityColors = {
 local RarityOrder = { Transcendent = 0, Mythical = 1, Legendary = 2, Epic = 3, Rare = 4, Uncommon = 5, Common = 6 }
 
 local ClanVisualBuffs = {
-	["None"] = "No inherent abilities.", ["Braus"] = "+10% Speed", ["Springer"] = "+15% Evasion",
-	["Galliard"] = "+15% Speed, +5% Power", ["Braun"] = "+20% Defense", ["Arlert"] = "+15% Resolve",
-	["Tybur"] = "+20% Titan Power", ["Yeager"] = "+25% Titan Damage", ["Reiss"] = "+50% Base Health",
-	["Ackerman"] = "+25% Weapon Damage, Immune to Memory Wipes", ["Awakened Ackerman"] = "+25% Weapon Damage, Extreme Agility"
+	["None"] = "No inherent abilities.", 
+	["Braus"] = "+10% Speed", 
+	["Springer"] = "+15% Evasion",
+	["Galliard"] = "+15% Speed, +5% Power\n<font color='#FFD700'>[Jaw Titan Synergy]: +25% Spd & Crit</font>", 
+	["Braun"] = "+20% Defense\n<font color='#FFD700'>[Armored Titan Synergy]: +50% Armor</font>", 
+	["Arlert"] = "+15% Resolve\n<font color='#FFD700'>[Colossal Titan Synergy]: +50% Max HP</font>",
+	["Tybur"] = "+20% Titan Power\n<font color='#FFD700'>[War Hammer Synergy]: +30% Dmg</font>", 
+	["Yeager"] = "+25% Titan Damage\n<font color='#FFD700'>[Attack Titan Synergy]: +30% Dmg</font>", 
+	["Reiss"] = "+50% Base Health",
+	["Ackerman"] = "+25% Weapon Damage, Immune to Memory Wipes", 
+
+	["Awakened Galliard"] = "+30% Speed, +15% Power\n<font color='#FFD700'>[Jaw Titan Synergy]: +25% Spd & Crit</font>",
+	["Awakened Braun"] = "+40% Defense\n<font color='#FFD700'>[Armored Titan Synergy]: +50% Armor</font>",
+	["Awakened Tybur"] = "+40% Titan Power\n<font color='#FFD700'>[War Hammer Synergy]: +30% Dmg</font>",
+	["Awakened Yeager"] = "+50% Titan Damage\n<font color='#FFD700'>[Attack Titan Synergy]: +30% Dmg</font>",
+	["Awakened Ackerman"] = "+50% Weapon Damage, Extreme Agility"
 }
 
 local function ApplyGradient(label, color1, color2)
@@ -51,7 +64,6 @@ function InheritTab.Init(parentFrame, tooltipMgr)
 	MainFrame.ScrollBarThickness = 0
 	MainFrame.AutomaticCanvasSize = Enum.AutomaticSize.Y
 
-	-- [[ THE FIX: Automatically stop rolling if the user leaves the tab ]]
 	MainFrame:GetPropertyChangedSignal("Visible"):Connect(function()
 		if not MainFrame.Visible then
 			isAutoRolling.Titan = false
@@ -152,11 +164,27 @@ function InheritTab.Init(parentFrame, tooltipMgr)
 		else
 			local sortedClans = {}
 			for cName, weight in pairs(TitanData.ClanWeights) do table.insert(sortedClans, {Name = cName, Weight = weight}) end
-			table.sort(sortedClans, function(a, b) return a.Weight < b.Weight end)
+
+			local awakenedClans = {"Awakened Galliard", "Awakened Braun", "Awakened Tybur", "Awakened Yeager", "Awakened Ackerman"}
+			for _, cName in ipairs(awakenedClans) do
+				table.insert(sortedClans, {Name = cName, Weight = 0})
+			end
+
+			table.sort(sortedClans, function(a, b) 
+				if a.Weight == 0 and b.Weight ~= 0 then return true end
+				if b.Weight == 0 and a.Weight ~= 0 then return false end
+				return a.Weight < b.Weight 
+			end)
 
 			for _, drop in ipairs(sortedClans) do
 				local rarityTag = "Common"
-				if drop.Weight <= 1.5 then rarityTag = "Mythical" elseif drop.Weight <= 4.0 then rarityTag = "Legendary" elseif drop.Weight <= 8.0 then rarityTag = "Epic" elseif drop.Weight <= 15.0 then rarityTag = "Rare" end
+				if drop.Weight == 0 then rarityTag = "Transcendent"
+				elseif drop.Weight <= 1.5 then rarityTag = "Mythical" 
+				elseif drop.Weight <= 4.0 then rarityTag = "Legendary" 
+				elseif drop.Weight <= 8.0 then rarityTag = "Epic" 
+				elseif drop.Weight <= 15.0 then rarityTag = "Rare" 
+				end
+
 				local cColor = RarityColors[rarityTag] or "#FFFFFF"
 				local rarityRGB = Color3.fromHex(cColor:gsub("#", ""))
 				local buffText = ClanVisualBuffs[drop.Name] or "Unknown"
@@ -178,12 +206,14 @@ function InheritTab.Init(parentFrame, tooltipMgr)
 				local titleLbl = Instance.new("TextLabel", card)
 				titleLbl.Size = UDim2.new(1, -20, 0, 20); titleLbl.Position = UDim2.new(0, 10, 0, 10); titleLbl.BackgroundTransparency = 1
 				titleLbl.Font = Enum.Font.GothamBold; titleLbl.TextColor3 = Color3.fromRGB(230, 230, 230); titleLbl.TextSize = 13; titleLbl.TextXAlignment = Enum.TextXAlignment.Left
-				titleLbl.RichText = true; titleLbl.Text = "<b><font color='" .. cColor .. "'>[" .. rarityTag .. "] " .. drop.Name .. "</font></b><font color='#888888'> (" .. string.format("%.1f", drop.Weight) .. "%)</font>"
+
+				local pctStr = drop.Weight > 0 and (" (" .. string.format("%.1f", drop.Weight) .. "%)") or " (Awakening Exclusive)"
+				titleLbl.RichText = true; titleLbl.Text = "<b><font color='" .. cColor .. "'>[" .. rarityTag .. "] " .. drop.Name .. "</font></b><font color='#888888'>" .. pctStr .. "</font>"
 
 				local descLbl = Instance.new("TextLabel", card)
 				descLbl.Size = UDim2.new(1, -20, 0, 20); descLbl.Position = UDim2.new(0, 10, 0, 32); descLbl.BackgroundTransparency = 1
 				descLbl.Font = Enum.Font.GothamMedium; descLbl.TextColor3 = Color3.fromRGB(150, 255, 150); descLbl.TextSize = 11; descLbl.TextXAlignment = Enum.TextXAlignment.Left
-				descLbl.Text = buffText
+				descLbl.RichText = true; descLbl.Text = buffText
 			end
 		end
 
@@ -194,7 +224,7 @@ function InheritTab.Init(parentFrame, tooltipMgr)
 
 		local ResultLbl = Instance.new("TextLabel", BottomArea)
 		ResultLbl.Size = UDim2.new(1, 0, 0, 30); ResultLbl.Position = UDim2.new(0, 0, 0, 0); ResultLbl.BackgroundTransparency = 1
-		ResultLbl.Font = Enum.Font.GothamBlack; ResultLbl.TextColor3 = Color3.fromRGB(255, 255, 255); ResultLbl.TextSize = 16
+		ResultLbl.Font = Enum.Font.GothamBlack; ResultLbl.TextColor3 = Color3.fromRGB(255, 255, 255); ResultLbl.TextSize = 18
 		ResultLbl.RichText = true; ResultLbl.Text = "Current: None"
 
 		local StorageArea = Instance.new("Frame", BottomArea)
@@ -212,8 +242,8 @@ function InheritTab.Init(parentFrame, tooltipMgr)
 
 			sBtn.MouseButton1Click:Connect(function()
 				if i > 3 and not player:GetAttribute("Has" .. gType .. "Vault") then
-					if tooltipMgr then tooltipMgr.Show("<font color='#FF5555'>Locked. Requires Vault Expansion Gamepass!</font>") end
-					task.delay(1.5, function() if tooltipMgr then tooltipMgr.Hide() end end)
+					if tooltipMgr and type(tooltipMgr.Show) == "function" then tooltipMgr.Show("<font color='#FF5555'>Locked. Requires Vault Expansion Gamepass!</font>") end
+					task.delay(1.5, function() if tooltipMgr and type(tooltipMgr.Hide) == "function" then tooltipMgr.Hide() end end)
 					return
 				end
 				Network.ManageStorage:FireServer(gType, i)
@@ -257,7 +287,7 @@ function InheritTab.Init(parentFrame, tooltipMgr)
 				Network.GachaRoll:FireServer(gType, false)
 			else
 				ResultLbl.Text = "<font color='#FF5555'>Not enough items!</font>"
-				EffectsManager.PlaySFX("Error", 1)
+				if EffectsManager and type(EffectsManager.PlaySFX) == "function" then EffectsManager.PlaySFX("Error", 1) end
 				task.delay(1.5, function() if not isRolling[gType] then ResultLbl.Text = "Current: " .. (player:GetAttribute(gType) or "None") end end)
 			end
 		end)
@@ -270,12 +300,11 @@ function InheritTab.Init(parentFrame, tooltipMgr)
 				Network.GachaRoll:FireServer(gType, true)
 			else
 				ResultLbl.Text = "<font color='#FF5555'>Not enough items!</font>"
-				EffectsManager.PlaySFX("Error", 1)
+				if EffectsManager and type(EffectsManager.PlaySFX) == "function" then EffectsManager.PlaySFX("Error", 1) end
 				task.delay(1.5, function() if not isRolling[gType] then ResultLbl.Text = "Current: " .. (player:GetAttribute(gType) or "None") end end)
 			end
 		end)
 
-		-- [[ THE FIX: Controlled Client-Side Auto-Roll Loop ]]
 		AutoRollBtn.MouseButton1Click:Connect(function()
 			if isRolling[gType] or isAutoRolling[gType] then return end
 			local count = player:GetAttribute(attrReq) or 0
@@ -286,7 +315,7 @@ function InheritTab.Init(parentFrame, tooltipMgr)
 				Network.GachaRoll:FireServer(gType, false)
 			else
 				ResultLbl.Text = "<font color='#FF5555'>Not enough items!</font>"
-				EffectsManager.PlaySFX("Error", 1)
+				if EffectsManager and type(EffectsManager.PlaySFX) == "function" then EffectsManager.PlaySFX("Error", 1) end
 				task.delay(1.5, function() if not isRolling[gType] then ResultLbl.Text = "Current: " .. (player:GetAttribute(gType) or "None") end end)
 			end
 		end)
@@ -317,8 +346,12 @@ function InheritTab.Init(parentFrame, tooltipMgr)
 							local tData = TitanData.Titans[storedName]
 							if tData then rarity = tData.Rarity end
 						else
-							local weight = TitanData.ClanWeights[storedName] or 40
-							if weight <= 1.5 then rarity = "Mythical" elseif weight <= 4.0 then rarity = "Legendary" elseif weight <= 8.0 then rarity = "Epic" elseif weight <= 15.0 then rarity = "Rare" end
+							if string.find(storedName, "Awakened") then
+								rarity = "Transcendent"
+							else
+								local weight = TitanData.ClanWeights[storedName] or 40
+								if weight <= 1.5 then rarity = "Mythical" elseif weight <= 4.0 then rarity = "Legendary" elseif weight <= 8.0 then rarity = "Epic" elseif weight <= 15.0 then rarity = "Rare" end
+							end
 						end
 						local cColor = Color3.fromHex((RarityColors[rarity] or "#FFFFFF"):gsub("#",""))
 						storeObj.Stroke.Color = cColor; storeObj.Accent.BackgroundColor3 = cColor; btn.TextColor3 = Color3.fromRGB(230, 230, 230)
@@ -349,26 +382,24 @@ function InheritTab.Init(parentFrame, tooltipMgr)
 		if gType == "Titan" then for tName, _ in pairs(TitanData.Titans) do table.insert(names, tName) end
 		else for cName, _ in pairs(TitanData.ClanWeights) do table.insert(names, cName) end end
 
-		-- Cinematic Spin
 		for i = 1, 20 do 
-			EffectsManager.PlaySFX("Spin", 1 + (i/25)) 
+			if EffectsManager and type(EffectsManager.PlaySFX) == "function" then EffectsManager.PlaySFX("Spin", 1 + (i/25)) end
 			targetLbl.Text = names[math.random(1, #names)]
 			task.wait(0.05) 
 		end
 
 		local cColor = RarityColors[resultRarity] or "#FFFFFF"
 		targetLbl.Text = "<b><font color='" .. cColor .. "'>" .. resultName:upper() .. "!</font></b>"
-		EffectsManager.PlaySFX("Reveal", 1)
+		if EffectsManager and type(EffectsManager.PlaySFX) == "function" then EffectsManager.PlaySFX("Reveal", 1) end
 
 		if resultRarity == "Mythical" or resultRarity == "Transcendent" then
 			local cinemColor = (resultRarity == "Mythical") and "#FF3333" or "#FF55FF"
 			local titleText = (gType == "Titan") and "A PRIMORDIAL POWER AWAKENS" or "AN ANCIENT BLOODLINE"
-			CinematicManager.Show(titleText, resultName, cinemColor)
+			if CinematicManager and type(CinematicManager.Show) == "function" then CinematicManager.Show(titleText, resultName, cinemColor) end
 		end
 
 		task.wait(1.5)
 
-		-- [[ THE FIX: Check if we are auto-rolling to trigger the next roll ]]
 		if isAutoRolling[gType] and MainFrame.Visible then
 			if resultRarity == "Legendary" or resultRarity == "Mythical" or resultRarity == "Transcendent" then
 				isAutoRolling[gType] = false
