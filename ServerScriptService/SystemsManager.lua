@@ -283,3 +283,18 @@ Network:WaitForChild("UpgradeStat").OnServerEvent:Connect(function(player, statN
 		player:SetAttribute(statName, currentStat + amount)
 	end
 end)
+
+Network:WaitForChild("PrestigeEvent").OnServerEvent:Connect(function(player)
+	local currentPart = player:GetAttribute("CurrentPart") or 1
+	if currentPart > 8 then
+		if player.leaderstats and player.leaderstats:FindFirstChild("Prestige") then
+			player.leaderstats.Prestige.Value += 1
+		end
+		player:SetAttribute("CurrentPart", 1)
+		player:SetAttribute("CurrentWave", 1)
+		player:SetAttribute("PathsFloor", 1)
+		NotificationEvent:FireClient(player, "You have Prestiged! Campaign reset. Rewards & Difficulty Multiplied!", "Success")
+	else
+		NotificationEvent:FireClient(player, "You must clear the Campaign (Part 8) before you can Prestige!", "Error")
+	end
+end)
