@@ -10,11 +10,10 @@ local Network = ReplicatedStorage:WaitForChild("Network")
 local ItemData = require(ReplicatedStorage:WaitForChild("ItemData"))
 
 local NotificationManager = require(script.Parent.Parent:WaitForChild("UIModules"):WaitForChild("NotificationManager"))
-local EffectsManager = require(script.Parent.Parent:WaitForChild("UIModules"):WaitForChild("EffectsManager"))
 
 local player = Players.LocalPlayer
 local MainFrame
-local ColumnsContainer, PathsContainer
+local ColumnsContainer
 local SupplyPanel, PremiumPanel, CodePanel
 local TimeLabel, RRBtn, DewsRRBtn, VIPTimerLbl
 
@@ -57,19 +56,6 @@ local function ApplyButtonGradient(btn, topColor, botColor, strokeColor)
 	end
 end
 
-local function TweenGradient(grad, targetTop, targetBot, duration)
-	local startTop = grad.Color.Keypoints[1].Value
-	local startBot = grad.Color.Keypoints[#grad.Color.Keypoints].Value
-	local val = Instance.new("NumberValue"); val.Value = 0
-	local tween = TweenService:Create(val, TweenInfo.new(duration), {Value = 1})
-	val.Changed:Connect(function(v)
-		grad.Color = ColorSequence.new{
-			ColorSequenceKeypoint.new(0, startTop:Lerp(targetTop, v)), ColorSequenceKeypoint.new(1, startBot:Lerp(targetBot, v))
-		}
-	end)
-	tween:Play(); tween.Completed:Connect(function() val:Destroy() end)
-end
-
 local function FormatTime(seconds)
 	local m = math.floor(seconds / 60); local s = seconds % 60
 	return string.format("%02d:%02d", m, s)
@@ -88,134 +74,9 @@ function ShopTab.Init(parentFrame, tooltipMgr)
 	ApplyGradient(Title, Color3.fromRGB(150, 200, 255), Color3.fromRGB(50, 150, 255))
 	Title.LayoutOrder = 0
 
-	local TopNav = Instance.new("ScrollingFrame", MainFrame)
-	TopNav.Size = UDim2.new(0.95, 0, 0, 45); TopNav.BackgroundColor3 = Color3.fromRGB(15, 15, 18); TopNav.LayoutOrder = 1
-	TopNav.ScrollBarThickness = 0; TopNav.ScrollingDirection = Enum.ScrollingDirection.X; TopNav.AutomaticCanvasSize = Enum.AutomaticSize.X
-	Instance.new("UICorner", TopNav).CornerRadius = UDim.new(0, 8); Instance.new("UIStroke", TopNav).Color = Color3.fromRGB(120, 100, 60)
-
-	local navLayout = Instance.new("UIListLayout", TopNav); navLayout.FillDirection = Enum.FillDirection.Horizontal; navLayout.HorizontalAlignment = Enum.HorizontalAlignment.Left; navLayout.VerticalAlignment = Enum.VerticalAlignment.Center; navLayout.Padding = UDim.new(0, 10)
-	local navPad = Instance.new("UIPadding", TopNav); navPad.PaddingLeft = UDim.new(0, 10); navPad.PaddingRight = UDim.new(0, 10)
-
-	local StandardBtn = Instance.new("TextButton", TopNav)
-	StandardBtn.Size = UDim2.new(0, 150, 0, 30); StandardBtn.Text = "STANDARD SUPPLY"; StandardBtn.Font = Enum.Font.GothamBold; StandardBtn.TextSize = 11
-	ApplyButtonGradient(StandardBtn, Color3.fromRGB(200, 150, 40), Color3.fromRGB(120, 80, 15), Color3.fromRGB(60, 60, 65))
-	StandardBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
-
-	local PathsBtn = Instance.new("TextButton", TopNav)
-	PathsBtn.Size = UDim2.new(0, 120, 0, 30); PathsBtn.Text = "THE PATHS"; PathsBtn.Font = Enum.Font.GothamBold; PathsBtn.TextSize = 11
-	ApplyButtonGradient(PathsBtn, Color3.fromRGB(50, 50, 55), Color3.fromRGB(25, 25, 30), Color3.fromRGB(60, 60, 65))
-	PathsBtn.TextColor3 = Color3.fromRGB(180, 180, 180)
-
-	local ContentArea = Instance.new("Frame", MainFrame)
-	ContentArea.Size = UDim2.new(1, 0, 0, 0); ContentArea.AutomaticSize = Enum.AutomaticSize.Y; ContentArea.BackgroundTransparency = 1; ContentArea.LayoutOrder = 2
-
-	ColumnsContainer = Instance.new("Frame", ContentArea)
-	ColumnsContainer.Size = UDim2.new(1, 0, 0, 0); ColumnsContainer.AutomaticSize = Enum.AutomaticSize.Y; ColumnsContainer.BackgroundTransparency = 1
-
+	ColumnsContainer = Instance.new("Frame", MainFrame)
+	ColumnsContainer.Size = UDim2.new(1, 0, 0, 0); ColumnsContainer.AutomaticSize = Enum.AutomaticSize.Y; ColumnsContainer.BackgroundTransparency = 1; ColumnsContainer.LayoutOrder = 1
 	local ccLayout = Instance.new("UIListLayout", ColumnsContainer); ccLayout.FillDirection = Enum.FillDirection.Vertical; ccLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center; ccLayout.Padding = UDim.new(0, 15)
-
-	PathsContainer = Instance.new("Frame", ContentArea)
-	PathsContainer.Size = UDim2.new(0.95, 0, 0, 0); PathsContainer.AutomaticSize = Enum.AutomaticSize.Y; PathsContainer.Position = UDim2.new(0.025, 0, 0, 0); PathsContainer.BackgroundTransparency = 1; PathsContainer.Visible = false
-	local pcLayout = Instance.new("UIListLayout", PathsContainer); pcLayout.SortOrder = Enum.SortOrder.LayoutOrder; pcLayout.Padding = UDim.new(0, 15)
-
-	-- [[ PATHS SHOP UI ]]
-	local PHeader = Instance.new("Frame", PathsContainer)
-	PHeader.Size = UDim2.new(1, 0, 0, 45); PHeader.BackgroundColor3 = Color3.fromRGB(20, 20, 25); PHeader.LayoutOrder = 1
-	Instance.new("UICorner", PHeader).CornerRadius = UDim.new(0, 8); Instance.new("UIStroke", PHeader).Color = Color3.fromRGB(85, 255, 255)
-
-	local pTitle = Instance.new("TextLabel", PHeader)
-	pTitle.Size = UDim2.new(0.5, 0, 1, 0); pTitle.Position = UDim2.new(0, 10, 0, 0); pTitle.BackgroundTransparency = 1; pTitle.Font = Enum.Font.GothamBlack; pTitle.TextColor3 = Color3.fromRGB(255, 255, 255); pTitle.TextSize = 12; pTitle.TextXAlignment = Enum.TextXAlignment.Left; pTitle.Text = "MEMORY NODES"
-
-	local pDustLbl = Instance.new("TextLabel", PHeader)
-	pDustLbl.Size = UDim2.new(0.5, 0, 1, 0); pDustLbl.Position = UDim2.new(0.5, -10, 0, 0); pDustLbl.BackgroundTransparency = 1; pDustLbl.Font = Enum.Font.GothamBlack; pDustLbl.TextColor3 = Color3.fromRGB(85, 255, 255); pDustLbl.TextSize = 12; pDustLbl.TextXAlignment = Enum.TextXAlignment.Right; pDustLbl.Text = "PATH DUST: 0"
-
-	local NodeGrid = Instance.new("Frame", PathsContainer)
-	NodeGrid.Size = UDim2.new(1, 0, 0, 0); NodeGrid.AutomaticSize = Enum.AutomaticSize.Y; NodeGrid.BackgroundTransparency = 1; NodeGrid.LayoutOrder = 2
-	local ngLayout = Instance.new("UIGridLayout", NodeGrid); ngLayout.CellSize = UDim2.new(1, 0, 0, 120); ngLayout.CellPadding = UDim2.new(0, 0, 0, 10); ngLayout.SortOrder = Enum.SortOrder.LayoutOrder
-
-	local LeaveBtn = Instance.new("TextButton", PathsContainer)
-	LeaveBtn.Size = UDim2.new(1, 0, 0, 45); LeaveBtn.Font = Enum.Font.GothamBlack; LeaveBtn.TextColor3 = Color3.fromRGB(255, 255, 255); LeaveBtn.TextSize = 13; LeaveBtn.Text = "SCATTER REMAINING DUST & LEAVE"; LeaveBtn.LayoutOrder = 3
-	ApplyButtonGradient(LeaveBtn, Color3.fromRGB(150, 50, 50), Color3.fromRGB(80, 20, 20), Color3.fromRGB(100, 30, 30))
-
-	local function FetchAndRenderPaths()
-		local data = Network.GetShopData:InvokeServer("PathsShop")
-		if not data then return end
-		pDustLbl.Text = "PATH DUST: " .. tostring(data.Dust)
-
-		for _, c in ipairs(NodeGrid:GetChildren()) do if c:IsA("Frame") then c:Destroy() end end
-
-		for _, node in ipairs(data.Nodes) do
-			local card = Instance.new("Frame", NodeGrid)
-			card.BackgroundColor3 = Color3.fromRGB(22, 22, 28); Instance.new("UICorner", card).CornerRadius = UDim.new(0, 6)
-			local stroke = Instance.new("UIStroke", card); stroke.Color = Color3.fromRGB(85, 255, 255); stroke.Thickness = 1; stroke.Transparency = 0.5; stroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
-
-			local nTitle = Instance.new("TextLabel", card)
-			nTitle.Size = UDim2.new(1, -20, 0, 20); nTitle.Position = UDim2.new(0, 10, 0, 5); nTitle.BackgroundTransparency = 1; nTitle.Font = Enum.Font.GothamBlack; nTitle.TextColor3 = Color3.fromRGB(255, 215, 100); nTitle.TextSize = 14; nTitle.TextXAlignment = Enum.TextXAlignment.Left; nTitle.Text = node.Name
-
-			local nDesc = Instance.new("TextLabel", card)
-			nDesc.Size = UDim2.new(1, -20, 0, 40); nDesc.Position = UDim2.new(0, 10, 0, 25); nDesc.BackgroundTransparency = 1; nDesc.Font = Enum.Font.GothamMedium; nDesc.TextColor3 = Color3.fromRGB(200, 200, 200); nDesc.TextSize = 11; nDesc.TextWrapped = true; nDesc.TextXAlignment = Enum.TextXAlignment.Left; nDesc.TextYAlignment = Enum.TextYAlignment.Top; nDesc.Text = node.Desc
-
-			local nLvl = Instance.new("TextLabel", card)
-			nLvl.Size = UDim2.new(0.5, 0, 0, 20); nLvl.Position = UDim2.new(0, 10, 1, -35); nLvl.BackgroundTransparency = 1; nLvl.Font = Enum.Font.GothamBold; nLvl.TextColor3 = Color3.fromRGB(100, 255, 100); nLvl.TextSize = 12; nLvl.TextXAlignment = Enum.TextXAlignment.Left; nLvl.Text = "LEVEL: " .. node.CurrentLevel .. " / " .. node.MaxLevel
-
-			local btn = Instance.new("TextButton", card)
-			btn.Size = UDim2.new(0.45, 0, 0, 30); btn.Position = UDim2.new(1, -10, 1, -38); btn.AnchorPoint = Vector2.new(1, 0); btn.Font = Enum.Font.GothamBold; btn.TextColor3 = Color3.fromRGB(255, 255, 255); btn.TextSize = 11
-			Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 4)
-
-			if type(node.Cost) == "number" then
-				btn.Text = "AWAKEN (" .. node.Cost .. ")"
-				ApplyButtonGradient(btn, Color3.fromRGB(40, 120, 120), Color3.fromRGB(20, 60, 60), Color3.fromRGB(30, 80, 80))
-				btn.MouseButton1Click:Connect(function()
-					if data.Dust >= node.Cost then
-						Network.ShopAction:FireServer("BuyPathNode", node.Name)
-						task.delay(0.2, FetchAndRenderPaths)
-					else
-						if NotificationManager then NotificationManager.Show("Not enough Path Dust!", "Error") end
-					end
-				end)
-			else
-				btn.Text = "MAX LEVEL"
-				ApplyButtonGradient(btn, Color3.fromRGB(60, 60, 65), Color3.fromRGB(30, 30, 35), Color3.fromRGB(80, 80, 90))
-				btn.TextColor3 = Color3.fromRGB(150, 150, 150)
-			end
-		end
-	end
-
-	local function SwitchSubTab(tabName)
-		if tabName == "Standard" then
-			ColumnsContainer.Visible = true; PathsContainer.Visible = false
-			local sGrad = StandardBtn:FindFirstChildOfClass("UIGradient"); if sGrad then TweenGradient(sGrad, Color3.fromRGB(200, 150, 40), Color3.fromRGB(120, 80, 15), 0.2) end
-			TweenService:Create(StandardBtn, TweenInfo.new(0.2), {TextColor3 = Color3.fromRGB(255, 255, 255)}):Play()
-			local pGrad = PathsBtn:FindFirstChildOfClass("UIGradient"); if pGrad then TweenGradient(pGrad, Color3.fromRGB(50, 50, 55), Color3.fromRGB(25, 25, 30), 0.2) end
-			TweenService:Create(PathsBtn, TweenInfo.new(0.2), {TextColor3 = Color3.fromRGB(180, 180, 180)}):Play()
-		else
-			ColumnsContainer.Visible = false; PathsContainer.Visible = true
-			local pGrad = PathsBtn:FindFirstChildOfClass("UIGradient"); if pGrad then TweenGradient(pGrad, Color3.fromRGB(200, 150, 40), Color3.fromRGB(120, 80, 15), 0.2) end
-			TweenService:Create(PathsBtn, TweenInfo.new(0.2), {TextColor3 = Color3.fromRGB(255, 255, 255)}):Play()
-			local sGrad = StandardBtn:FindFirstChildOfClass("UIGradient"); if sGrad then TweenGradient(sGrad, Color3.fromRGB(50, 50, 55), Color3.fromRGB(25, 25, 30), 0.2) end
-			TweenService:Create(StandardBtn, TweenInfo.new(0.2), {TextColor3 = Color3.fromRGB(180, 180, 180)}):Play()
-			FetchAndRenderPaths()
-		end
-	end
-
-	StandardBtn.MouseButton1Click:Connect(function() SwitchSubTab("Standard") end)
-	PathsBtn.MouseButton1Click:Connect(function() SwitchSubTab("Paths") end)
-
-	-- [[ THE FIX: Smooth return to Profile UI state after scattering Path Dust ]]
-	LeaveBtn.MouseButton1Click:Connect(function() 
-		if EffectsManager and type(EffectsManager.PlaySFX) == "function" then EffectsManager.PlaySFX("Click") end
-		Network.ShopAction:FireServer("ClosePathsShop")
-		SwitchSubTab("Standard")
-
-		if _G.AOT_OpenCategory and _G.AOT_SwitchTab then
-			_G.AOT_OpenCategory("PLAYER")
-			_G.AOT_SwitchTab("Profile")
-		else
-			MainFrame.Visible = false
-		end
-	end)
-
-	_G.AOT_OpenPathsShop = function() SwitchSubTab("Paths") end
 
 	local LeftCol = Instance.new("Frame", ColumnsContainer)
 	LeftCol.Size = UDim2.new(0.95, 0, 0, 0); LeftCol.AutomaticSize = Enum.AutomaticSize.Y; LeftCol.BackgroundTransparency = 1
@@ -232,7 +93,7 @@ function ShopTab.Init(parentFrame, tooltipMgr)
 	PTitle.Size = UDim2.new(1, 0, 0, 30); PTitle.BackgroundTransparency = 1; PTitle.Font = Enum.Font.GothamBlack; PTitle.TextColor3 = Color3.fromRGB(255, 215, 100); PTitle.TextSize = 16; PTitle.Text = "PREMIUM STORE"; PTitle.LayoutOrder = 1
 
 	local PremList = Instance.new("ScrollingFrame", PremiumPanel)
-	PremList.Size = UDim2.new(1, -10, 1, -45); PremList.BackgroundTransparency = 1; PremList.LayoutOrder = 2; PremList.ScrollBarThickness = 4; PremList.BorderSizePixel = 0
+	PremList.Size = UDim2.new(1, -10, 1, -45); PremList.BackgroundTransparency = 1; PremList.LayoutOrder = 2; PremList.ScrollBarThickness = 0; PremList.BorderSizePixel = 0
 	local plLayout = Instance.new("UIListLayout", PremList); plLayout.Padding = UDim.new(0, 10)
 	plLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function() PremList.CanvasSize = UDim2.new(0, 0, 0, plLayout.AbsoluteContentSize.Y + 10) end)
 
