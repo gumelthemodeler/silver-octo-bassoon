@@ -55,11 +55,12 @@ local function GetTemplate(partData, templateName)
 	return partData.Mobs[1] 
 end
 
+-- [[ REBALANCE: Enemy HP & Damage scales much harder per part and per prestige ]]
 local function GetHPScale(targetPart, prestige)
-	return 1.0 + (targetPart * 0.2) + (prestige * 0.4) 
+	return 1.0 + (targetPart * 0.5) + (prestige * 1.5) 
 end
 local function GetDmgScale(targetPart, prestige)
-	return 1.0 + (targetPart * 0.1) + (prestige * 0.2) 
+	return 1.0 + (targetPart * 0.3) + (prestige * 1.0) 
 end
 
 local function GetActualStyle(plr)
@@ -151,7 +152,9 @@ local function StartBattle(player, encounterType, requestedPartId)
 
 	local hpMult = GetHPScale(targetPart, prestige)
 	local dmgMult = GetDmgScale(targetPart, prestige)
-	local dropMult = 1.0 + (targetPart * 1.5) + (prestige * 2.5)
+
+	-- [[ REBALANCE: Drop multiplier flattened significantly so late game doesn't break the economy ]]
+	local dropMult = 1.0 + (targetPart * 0.3) + (prestige * 0.5)
 
 	if isEndless then 
 		hpMult *= 1.4; dmgMult *= 1.4; dropMult *= 1.5 
@@ -177,7 +180,6 @@ local function StartBattle(player, encounterType, requestedPartId)
 	local awakenedString = player:GetAttribute(safeWpnName .. "_Awakened")
 	local awakenedStats = ParseAwakenedStats(awakenedString)
 
-	-- [[ THE FIX: DYNAMIC AWAKENED HP SYNERGIES ]]
 	local clanName = player:GetAttribute("Clan") or "None"
 	local baseClan = string.gsub(clanName, "Awakened ", "")
 	local isAwakened = string.find(clanName, "Awakened") ~= nil
@@ -185,7 +187,7 @@ local function StartBattle(player, encounterType, requestedPartId)
 
 	local pMaxHP = ((player:GetAttribute("Health") or 10) + (wpnBonus.Health or 0) + (accBonus.Health or 0)) * 10
 	if baseClan == "Reiss" then pMaxHP = math.floor(pMaxHP * (isAwakened and 2.0 or 1.5)) end
-	if baseClan == "Arlert" and string.find(tName, "Colossal Titan") then pMaxHP = math.floor(pMaxHP * 1.5) end -- God of Destruction Synergy
+	if baseClan == "Arlert" and string.find(tName, "Colossal Titan") then pMaxHP = math.floor(pMaxHP * 1.5) end 
 	pMaxHP = pMaxHP + awakenedStats.HpBonus
 
 	local pMaxGas = ((player:GetAttribute("Gas") or 10) + (wpnBonus.Gas or 0) + (accBonus.Gas or 0)) * 10
@@ -402,7 +404,7 @@ local function ProcessEnemyDeath(player, battle)
 		local pathScale = math.pow(1.25, floor)
 		local hpMult = GetHPScale(targetPart, prestige) * pathScale
 		local dmgMult = GetDmgScale(targetPart, prestige) * pathScale
-		local dropMult = 1.0 + (targetPart * 1.5) + (prestige * 2.5)
+		local dropMult = 1.0 + (targetPart * 0.3) + (prestige * 0.5)
 
 		local eHP = math.floor(nextEnemyTemplate.Health * hpMult)
 		local eGateType = nextEnemyTemplate.GateType
@@ -457,7 +459,7 @@ local function ProcessEnemyDeath(player, battle)
 
 		local hpMult = GetHPScale(targetPart, prestige) * 1.4
 		local dmgMult = GetDmgScale(targetPart, prestige) * 1.4
-		local dropMult = (1.0 + (targetPart * 1.5) + (prestige * 2.5)) * 1.5
+		local dropMult = (1.0 + (targetPart * 0.3) + (prestige * 0.5)) * 1.5
 
 		local eHP = math.floor(nextEnemyTemplate.Health * hpMult)
 		local eGateType = nextEnemyTemplate.GateType
@@ -517,7 +519,7 @@ local function ProcessEnemyDeath(player, battle)
 		local waveData = battle.Context.MissionData.Waves[battle.Context.CurrentWave]
 		local nextEnemyTemplate = GetTemplate(partData, waveData.Template)
 
-		local dropMult = 1.0 + (battle.Context.TargetPart * 1.5) + (prestige * 2.5)
+		local dropMult = 1.0 + (battle.Context.TargetPart * 0.3) + (prestige * 0.5)
 		local nextBaseDropXP = nextEnemyTemplate.Drops and nextEnemyTemplate.Drops.XP or 15
 		local nextBaseDropDews = nextEnemyTemplate.Drops and nextEnemyTemplate.Drops.Dews or 10
 		local nextFinalDropXP = math.floor(nextBaseDropXP * dropMult)
@@ -569,7 +571,6 @@ CombatAction.OnServerEvent:Connect(function(player, actionType, actionData)
 	end
 
 	if actionType == "MinigameResult" then
-		-- Legacy Handler just in case
 		return
 	end
 
@@ -593,7 +594,6 @@ CombatAction.OnServerEvent:Connect(function(player, actionType, actionData)
 		end
 	end
 
-	-- Prevent using wrong range attacks natively
 	local sRange = skill.Range or "Close"
 	if sRange ~= "Any" and sRange ~= battle.Context.Range then
 		CombatUpdate:FireClient(player, "TurnStrike", {Battle = battle, LogMsg = "<font color='#FF5555'>You cannot use " .. skillName .. " at this range!</font>", DidHit = false, ShakeType = "None"})
