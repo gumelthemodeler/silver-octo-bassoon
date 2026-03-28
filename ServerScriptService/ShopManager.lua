@@ -23,8 +23,12 @@ local PathNodes = {
 }
 
 local itemPool = {}
-for name, data in pairs(ItemData.Equipment) do table.insert(itemPool, {Name = name, Data = data}) end
-for name, data in pairs(ItemData.Consumables) do table.insert(itemPool, {Name = name, Data = data}) end
+for name, data in pairs(ItemData.Equipment) do 
+	if not data.IsGift then table.insert(itemPool, {Name = name, Data = data}) end
+end
+for name, data in pairs(ItemData.Consumables) do 
+	if not data.IsGift then table.insert(itemPool, {Name = name, Data = data}) end
+end
 
 local function GenerateShopItems(seed)
 	local rng = Random.new(seed)
@@ -103,7 +107,6 @@ GetShopData.OnServerInvoke = function(player, requestType)
 end
 
 BuyAction.OnServerEvent:Connect(function(player, actionType, itemName)
-	-- [[ THE FIX: Safely route standard items if the client sends them as 'actionType' instead of 'itemName' ]]
 	local targetPurchase = itemName
 	if not itemName and actionType ~= "BuyPathNode" and actionType ~= "ClosePathsShop" then
 		targetPurchase = actionType
@@ -171,7 +174,6 @@ BuyAction.OnServerEvent:Connect(function(player, actionType, itemName)
 	end
 end)
 
--- [[ THE FIX: Added VIPFreeReroll Event Listener ]]
 local VIPFreeReroll = Network:FindFirstChild("VIPFreeReroll") or Instance.new("RemoteEvent", Network)
 VIPFreeReroll.Name = "VIPFreeReroll"
 
@@ -179,14 +181,12 @@ VIPFreeReroll.OnServerEvent:Connect(function(player, isDews)
 	local canReroll = false
 
 	if isDews then
-		-- Handle 100k Dews Reroll
 		local dews = player.leaderstats and player.leaderstats:FindFirstChild("Dews")
 		if dews and dews.Value >= 950000 then
 			dews.Value -= 950000
 			canReroll = true
 		end
 	else
-		-- Handle Daily VIP Reroll
 		local hasVIP = player:GetAttribute("HasVIP")
 		local lastRoll = player:GetAttribute("LastFreeReroll") or 0
 		if hasVIP and (os.time() - lastRoll) >= 86400 then
@@ -195,7 +195,6 @@ VIPFreeReroll.OnServerEvent:Connect(function(player, isDews)
 		end
 	end
 
-	-- Apply the new shop seed if requirements were met
 	if canReroll then
 		local newSeed = math.random(1, 9999999)
 		player:SetAttribute("PersonalShopSeed", newSeed)
