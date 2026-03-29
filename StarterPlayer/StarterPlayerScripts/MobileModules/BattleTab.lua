@@ -161,7 +161,6 @@ function BattleTab.Init(parentFrame)
 		cBtns[dInfo.Id] = { Btn = btn, Stroke = stroke, Accent = accentBar }
 	end
 
-	-- [[ THE FIX: Endless Tab is now a proper ScrollingFrame! ]]
 	SubTabs["Endless"] = Instance.new("ScrollingFrame", ContentArea)
 	SubTabs["Endless"].Size = UDim2.new(1, 0, 1, 0); SubTabs["Endless"].BackgroundTransparency = 1; SubTabs["Endless"].Visible = false; SubTabs["Endless"].ScrollBarThickness = 0
 	SubTabs["Endless"].AutomaticCanvasSize = Enum.AutomaticSize.Y
@@ -214,40 +213,6 @@ function BattleTab.Init(parentFrame)
 	pBtn.Font = Enum.Font.GothamBlack; pBtn.TextColor3 = Color3.fromRGB(150, 200, 255); pBtn.TextSize = 15; pBtn.Text = "ENTER THE PATHS"
 	ApplyButtonGradient(pBtn, Color3.fromRGB(25, 25, 35), Color3.fromRGB(15, 15, 20), Color3.fromRGB(100, 150, 255))
 	pBtn.MouseButton1Click:Connect(function() if pBtn.Active then Network:WaitForChild("CombatAction"):FireServer("EngagePaths") end end)
-
-	local pShopPanel = Instance.new("Frame", SubTabs["Paths"])
-	pShopPanel.Size = UDim2.new(0.95, 0, 0, 240); pShopPanel.BackgroundColor3 = Color3.fromRGB(18, 18, 22)
-	Instance.new("UICorner", pShopPanel).CornerRadius = UDim.new(0, 8); Instance.new("UIStroke", pShopPanel).Color = Color3.fromRGB(100, 255, 255); pShopPanel.UIStroke.Thickness = 1.5
-
-	local sTitleLbl = Instance.new("TextLabel", pShopPanel)
-	sTitleLbl.Size = UDim2.new(1, 0, 0, 50); sTitleLbl.BackgroundTransparency = 1; sTitleLbl.Font = Enum.Font.GothamBlack; sTitleLbl.TextColor3 = Color3.fromRGB(100, 255, 255); sTitleLbl.TextSize = 18; sTitleLbl.Text = "PATHS VENDOR"
-
-	local sLayout = Instance.new("UIListLayout", pShopPanel); sLayout.Padding = UDim.new(0, 15); sLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
-	local sPad = Instance.new("UIPadding", pShopPanel); sPad.PaddingTop = UDim.new(0, 50)
-
-	local function CreateShopItem(parent, itemName, cost, isSand)
-		local row = Instance.new("Frame", parent)
-		row.Size = UDim2.new(0.9, 0, 0, 45); row.BackgroundColor3 = Color3.fromRGB(25, 25, 30)
-		Instance.new("UICorner", row).CornerRadius = UDim.new(0, 4); Instance.new("UIStroke", row).Color = Color3.fromRGB(40, 80, 80)
-
-		local nameLbl = Instance.new("TextLabel", row)
-		nameLbl.Size = UDim2.new(0.6, 0, 1, 0); nameLbl.Position = UDim2.new(0.05, 0, 0, 0); nameLbl.BackgroundTransparency = 1
-		nameLbl.Font = Enum.Font.GothamBold; nameLbl.TextColor3 = Color3.fromRGB(220, 220, 220); nameLbl.TextSize = 13; nameLbl.TextXAlignment = Enum.TextXAlignment.Left; nameLbl.Text = itemName
-
-		local buyBtn = Instance.new("TextButton", row)
-		buyBtn.Size = UDim2.new(0, 90, 0, 30); buyBtn.AnchorPoint = Vector2.new(1, 0.5); buyBtn.Position = UDim2.new(0.95, 0, 0.5, 0)
-		buyBtn.Font = Enum.Font.GothamBold; buyBtn.TextColor3 = Color3.fromRGB(100, 200, 200); buyBtn.TextSize = 11; buyBtn.Text = "BUY (" .. cost .. ")"
-		ApplyButtonGradient(buyBtn, Color3.fromRGB(20, 30, 30), Color3.fromRGB(10, 20, 20), Color3.fromRGB(60, 150, 150))
-
-		buyBtn.MouseButton1Click:Connect(function()
-			if isSand then Network:WaitForChild("PathsShopBuy"):FireServer("Sand")
-			elseif itemName:find("Extract") then Network:WaitForChild("PathsShopBuy"):FireServer("Extract")
-			else Network:WaitForChild("PathsShopBuy"):FireServer("Serum") end
-		end)
-	end
-	CreateShopItem(pShopPanel, "Ancestral Serum", 100, false)
-	CreateShopItem(pShopPanel, "Titan Extract", 25, false)
-	CreateShopItem(pShopPanel, "Coordinate's Sand", 500, true)
 
 	pathsLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function() SubTabs["Paths"].CanvasSize = UDim2.new(0, 0, 0, pathsLayout.AbsoluteContentSize.Y + 30) end)
 
