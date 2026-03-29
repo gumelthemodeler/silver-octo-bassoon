@@ -36,7 +36,14 @@ local ActiveCodes = {
 			["Standard Titan Serum"] = 5,
 			["Titan Research Notes"] = 1,
 		}
-	} 
+	},
+	["PATHSHOP"] = { 
+		Dews = 1500,
+		Items = {
+			["Standard Titan Serum"] = 5,
+			["Titan Research Notes"] = 1,
+		}
+	}
 }
 
 RemotesFolder:WaitForChild("RedeemCode").OnServerEvent:Connect(function(player, codeStr)
