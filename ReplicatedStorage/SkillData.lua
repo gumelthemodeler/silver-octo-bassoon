@@ -34,7 +34,68 @@ SkillData.Skills = {
 	["Momentum Strike"] = { Requirement = "Ultrahard Steel Blades", Range = "Close", Type = "Style", Mult = 1.8, GasCost = 15, Cooldown = 2, Order = 10, ComboReq = "Dual Slash", ComboMult = 1.4, SFX = "HeavySlash", VFX = "SlashMark", Description = "Use the momentum of your previous slash for a heavy blow." },
 	["Vortex Slash"] = { Requirement = "Ultrahard Steel Blades", Range = "Close", Type = "Style", Mult = 0.7, Hits = 5, Effect = "Bleed", Duration = 2, GasCost = 35, Cooldown = 5, Order = 11, ComboReq = "Momentum Strike", ComboMult = 1.6, SFX = "SpinSlash", VFX = "ExplosionMark", Description = "A devastating whirlwind of blades that shreds the target." },
 	["Blade Toss"] = { Requirement = "Ultrahard Steel Blades", Range = "Any", Type = "Style", Mult = 1.8, Effect = "Bleed", Duration = 2, GasCost = 15, Cooldown = 3, Order = 12, SFX = "Dash", VFX = "SlashMark", Description = "Throw your blades like projectiles into the target's eyes." },
-
+	
+	-- [[ MARLEYAN RIFLE CHAIN ]]
+	["Marleyan Precision"] = { 
+		Requirement = "Marleyan Rifle", Range = "Long", Type = "Style", 
+		Mult = 1.2, EnergyCost = 0, GasCost = 0, Cooldown = 0, Order = 9, 
+		SFX = "Sniper", VFX = "SlashMark", 
+		Description = "A disciplined bolt-action shot focusing on accuracy." 
+	},
+	["Tactical Reload"] = { 
+		Requirement = "Marleyan Rifle", Range = "Long", Type = "Style", 
+		Mult = 0, Effect = "Buff_Precision", Duration = 2, Cooldown = 3, Order = 10, 
+		ComboReq = "Marleyan Precision", ComboMult = 0, 
+		SFX = "Gun", VFX = "BlockMark", 
+		Description = "Quickly cycle the bolt, increasing Precision for your next 2 turns." 
+	},
+	["Bayonet Charge"] = { 
+		Requirement = "Marleyan Rifle", Range = "Close", Type = "Style", 
+		Mult = 3.5, Effect = "Bleed", Duration = 3, GasCost = 20, Cooldown = 6, Order = 11, 
+		ComboReq = "Tactical Reload", ComboMult = 1.7, 
+		SFX = "HeavySlash", VFX = "SlashMark", 
+		Description = "Fix bayonets and rush the enemy for a devastating pierce." 
+	},
+	
+	-- [[ ANTI-PERSONNEL ENHANCEMENTS ]]
+	["Suppressive Fire"] = { 
+		Requirement = "Anti-Personnel", Range = "Any", Type = "Style", 
+		Mult = 0.3, Hits = 6, Effect = "Debuff_Speed", Duration = 2, GasCost = 25, Cooldown = 5, Order = 13, 
+		SFX = "Gun", VFX = "ExplosionMark", 
+		Description = "Unleash a hail of bullets to slow the enemy's movements." 
+	},
+	["Point Blank Blast"] = { 
+		Requirement = "Anti-Personnel", Range = "Close", Type = "Style", 
+		Mult = 4.0, Effect = "Stun", Duration = 1, GasCost = 35, Cooldown = 7, Order = 14, 
+		ComboReq = "Suppressive Fire", ComboMult = 1.5, 
+		SFX = "BigExplosion", VFX = "ExplosionMark", 
+		Description = "Shove your barrels into the enemy and fire a massive concussive blast." 
+	},
+	
+	-- [[ UTILITY SYNERGIES ]]
+	["Blinding Follow-up"] = { 
+		Requirement = "None", Range = "Close", Type = "Style", 
+		Mult = 2.2, GasCost = 15, Cooldown = 4, Order = 15, 
+		ComboReq = "Flare Gun", ComboMult = 1.8, 
+		SFX = "LightSlash", VFX = "SlashMark", 
+		Description = "Strike an enemy while they are blinded by a flare for massive critical damage." 
+	},
+	
+	-- [[ HEAVY ARTILLERY CHAIN ]]
+	["Siege Shell"] = { 
+		Requirement = "Heavy Artillery", Range = "Long", Type = "Style", 
+		Mult = 3.0, Effect = "Stun", Duration = 1, Cooldown = 5, Order = 9, 
+		SFX = "BigExplosion", VFX = "ExplosionMark", 
+		Description = "Fire a massive high-explosive shell designed for fortification destruction." 
+	},
+	["Shrapnel Burst"] = { 
+		Requirement = "Heavy Artillery", Range = "Any", Type = "Style", 
+		Mult = 1.0, Hits = 5, Effect = "Bleed", Duration = 2, Cooldown = 6, Order = 10, 
+		ComboReq = "Siege Shell", ComboMult = 1.4, 
+		SFX = "Explosion", VFX = "ExplosionMark", 
+		Description = "The previous shell detonates into a cloud of lethal shards." 
+	},
+	
 	-- [[ THUNDER SPEARS CHAIN ]]
 	["Armor Piercer"] = { Requirement = "Thunder Spears", Range = "Any", Type = "Style", Mult = 1.8, Effect = "Debuff_Defense", Duration = 4, GasCost = 10, Cooldown = 5, Order = 9, SFX = "Gun", VFX = "ExplosionMark", Description = "A shaped charge that shreds the enemy's Defense for 4 turns." },
 	["Spear Volley"] = { Requirement = "Thunder Spears", Range = "Any", Type = "Style", Mult = 2.5, Effect = "Burn", Duration = 2, GasCost = 20, Cooldown = 4, Order = 10, ComboReq = "Armor Piercer", ComboMult = 1.5, SFX = "Explosion", VFX = "ExplosionMark", Description = "Fire a highly explosive payload that burns the enemy." },
