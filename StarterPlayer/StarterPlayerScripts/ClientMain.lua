@@ -109,9 +109,10 @@ else
 	ContentFrame.Size = UDim2.new(1, -160, 1, -70); ContentFrame.Position = UDim2.new(0, 145, 0, 60)
 end
 
+-- [[ FIXED: Added PVP to Operations Menu ]]
 local NavStructure = {
 	["PLAYER"] = { {Id="Profile", Name="PROFILE"}, {Id="Stats", Name="STATS"}, {Id="Inherit", Name="INHERIT"} },
-	["OPERATIONS"] = { {Id="Battle", Name="COMBAT"}, {Id="Bounties", Name="BOUNTIES"}, {Id="Dispatch", Name="EXPEDITIONS"} },
+	["OPERATIONS"] = { {Id="Battle", Name="COMBAT"}, {Id="Bounties", Name="BOUNTIES"}, {Id="Dispatch", Name="EXPEDITIONS"}, {Id="PVP", Name="PVP"} },
 	["SUPPLY"] = { {Id="Shop", Name="SHOP"}, {Id="Forge", Name="FORGE"}, {Id="Trade", Name="TRADE"} }
 }
 
@@ -137,6 +138,12 @@ local function SwitchTab(tabName)
 	end
 	for _, child in ipairs(ContentFrame:GetChildren()) do if child:IsA("Frame") or child:IsA("ScrollingFrame") then child.Visible = false end end
 	if AOT_Interface:FindFirstChild("TradeOverlay") then AOT_Interface.TradeOverlay.Visible = false end
+
+	-- [[ FIXED: Safely hide the custom PvP UI when switching tabs ]]
+	if player.PlayerGui:FindFirstChild("PvPGui") then 
+		player.PlayerGui.PvPGui.MainFrame.Visible = false 
+	end
+
 	if TabModules[tabName] and TabModules[tabName].Show then TabModules[tabName].Show() end
 end
 
@@ -266,7 +273,6 @@ player.AttributeChanged:Connect(function(attr) if attr == "XP" or attr == "Titan
 task.spawn(function() local leaderstats = player:WaitForChild("leaderstats", 10) if leaderstats then for _, child in ipairs(leaderstats:GetChildren()) do if child:IsA("IntValue") then child.Changed:Connect(UpdateStats) end end end UpdateStats() end)
 
 task.spawn(function()
-	-- [[ THE FIX: Correctly fetches from the dynamic folder based on device! ]]
 	local folderName = isMobile and "MobileModules" or "UIModules"
 	local uiModulesFolder = script.Parent:WaitForChild(folderName, 5) or script.Parent:WaitForChild("UIModules", 5)
 
@@ -289,9 +295,20 @@ task.spawn(function()
 		TabModules["Trade"] = require(uiModulesFolder:WaitForChild("TradeMenu")); TabModules["Trade"].Init(ContentFrame, TooltipManager)
 		TabModules["Regiments"] = require(uiModulesFolder:WaitForChild("RegimentTab")); TabModules["Regiments"].Init(ContentFrame, TooltipManager)
 		TabModules["Dispatch"] = require(uiModulesFolder:WaitForChild("DispatchTab")); TabModules["Dispatch"].Init(ContentFrame, TooltipManager)
-
-		-- [[ THE FIX: Now correctly requires CombatTab from uiModulesFolder (which handles Mobile vs PC) ]]
 		TabModules["Combat"] = require(uiModulesFolder:WaitForChild("CombatTab")); TabModules["Combat"].Init(ContentFrame, TooltipManager)
+
+		-- [[ FIXED: Custom PVP Initialization ]]
+		local PVPTabModule = require(uiModulesFolder:WaitForChild("PVPTab"))
+		PVPTabModule.InitializeUI() 
+
+		-- Wrapping PVP in a dummy table so SwitchTab doesn't error out
+		TabModules["PVP"] = {
+			Show = function()
+				if player.PlayerGui:FindFirstChild("PvPGui") then
+					player.PlayerGui.PvPGui.MainFrame.Visible = true
+				end
+			end
+		}
 
 		pcall(function()
 			if (player.UserId == 4068160397 or player.Name == "girthbender1209") then
