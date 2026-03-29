@@ -22,21 +22,34 @@ local PathNodes = {
 	["Path of the Breaker"] = { Stat = "IGNORE", Cost = 15, Increment = 5, MaxLevel = 5, Desc = "+5% Armor Penetration" }
 }
 
--- [[ THE FIX: Added Rare Ancient Relics to the Paths Shop ]]
+-- Removed Serums from the Paths Shop
 local RarePathsItems = {
 	{ Name = "Coordinate's Sand", Cost = 100, Desc = "Godlike power. The rarest relic in the Paths." },
 	{ Name = "Ymir's Clay Fragment", Cost = 200, Desc = "Awakens the Attack Titan into the Founding Attack Titan." },
-	{ Name = "Ancestral Awakening Serum", Cost = 350, Desc = "Awakens the true power of your current lineage." },
-	{ Name = "Spinal Fluid Syringe", Cost = 75, Desc = "Guarantees a Legendary or Mythical Titan roll." },
 	{ Name = "Titan Hardening Extract", Cost = 25, Desc = "Used in the Forge to Awaken max-tier weapons." }
 }
 
 local itemPool = {}
+
 for name, data in pairs(ItemData.Equipment) do 
-	if not data.IsGift then table.insert(itemPool, {Name = name, Data = data}) end
+	if not data.IsGift then 
+		table.insert(itemPool, {Name = name, Data = data}) 
+	end
 end
+
 for name, data in pairs(ItemData.Consumables) do 
-	if not data.IsGift then table.insert(itemPool, {Name = name, Data = data}) end
+	-- STRICT FILTER: completely ban these keywords from the rotating shop
+	local lowerName = string.lower(name)
+	local isBannedFromShop = string.find(lowerName, "serum") 
+		or string.find(lowerName, "vial") 
+		or string.find(lowerName, "syringe")
+		or string.find(lowerName, "itemized") 
+		or name == "Ymir's Clay Fragment"
+		or name == "Titan Hardening Extract"
+
+	if not data.IsGift and not isBannedFromShop then 
+		table.insert(itemPool, {Name = name, Data = data}) 
+	end
 end
 
 local function GenerateShopItems(seed)
@@ -152,7 +165,6 @@ BuyAction.OnServerEvent:Connect(function(player, actionType, itemName)
 		end
 		return
 
-			-- [[ THE FIX: Handles the purchase of the high tier Path Relics ]]
 	elseif actionType == "BuyPathsItem" then
 		local itemDef = nil
 		for _, it in ipairs(RarePathsItems) do if it.Name == targetPurchase then itemDef = it; break end end
@@ -213,8 +225,8 @@ VIPFreeReroll.OnServerEvent:Connect(function(player, isDews)
 
 	if isDews then
 		local dews = player.leaderstats and player.leaderstats:FindFirstChild("Dews")
-		if dews and dews.Value >= 950000 then
-			dews.Value -= 950000
+		if dews and dews.Value >= 300000 then
+			dews.Value -= 300000
 			canReroll = true
 		end
 	else
