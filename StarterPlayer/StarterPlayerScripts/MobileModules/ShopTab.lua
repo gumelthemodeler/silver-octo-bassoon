@@ -67,7 +67,7 @@ function ShopTab.Init(parentFrame, tooltipMgr)
 	MainFrame.ScrollBarThickness = 0; MainFrame.AutomaticCanvasSize = Enum.AutomaticSize.Y
 
 	local mainLayout = Instance.new("UIListLayout", MainFrame)
-	mainLayout.Padding = UDim.new(0, 15); mainLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center; mainLayout.FillDirection = Enum.FillDirection.Vertical; mainLayout.SortOrder = Enum.SortOrder.LayoutOrder
+	mainLayout.Padding = UDim.new(0, 10); mainLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center; mainLayout.FillDirection = Enum.FillDirection.Vertical; mainLayout.SortOrder = Enum.SortOrder.LayoutOrder
 
 	local Title = Instance.new("TextLabel", MainFrame)
 	Title.Size = UDim2.new(0.95, 0, 0, 40); Title.BackgroundTransparency = 1; Title.Font = Enum.Font.GothamBlack; Title.TextColor3 = Color3.fromRGB(255, 255, 255); Title.TextSize = 22; Title.Text = "MARKETPLACE & SUPPLY"; Title.TextXAlignment = Enum.TextXAlignment.Center
@@ -76,21 +76,21 @@ function ShopTab.Init(parentFrame, tooltipMgr)
 
 	ColumnsContainer = Instance.new("Frame", MainFrame)
 	ColumnsContainer.Size = UDim2.new(1, 0, 0, 0); ColumnsContainer.AutomaticSize = Enum.AutomaticSize.Y; ColumnsContainer.BackgroundTransparency = 1; ColumnsContainer.LayoutOrder = 1
-	local ccLayout = Instance.new("UIListLayout", ColumnsContainer); ccLayout.FillDirection = Enum.FillDirection.Vertical; ccLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center; ccLayout.Padding = UDim.new(0, 15)
+	local ccLayout = Instance.new("UIListLayout", ColumnsContainer); ccLayout.FillDirection = Enum.FillDirection.Vertical; ccLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center; ccLayout.Padding = UDim.new(0, 10)
 
 	local LeftCol = Instance.new("Frame", ColumnsContainer)
 	LeftCol.Size = UDim2.new(0.95, 0, 0, 0); LeftCol.AutomaticSize = Enum.AutomaticSize.Y; LeftCol.BackgroundTransparency = 1
-	local lcLayout = Instance.new("UIListLayout", LeftCol); lcLayout.Padding = UDim.new(0, 15); lcLayout.SortOrder = Enum.SortOrder.LayoutOrder
+	local lcLayout = Instance.new("UIListLayout", LeftCol); lcLayout.Padding = UDim.new(0, 10); lcLayout.SortOrder = Enum.SortOrder.LayoutOrder
 
 	PremiumPanel = Instance.new("Frame", LeftCol)
-	PremiumPanel.Size = UDim2.new(1, 0, 0, 450); PremiumPanel.BackgroundColor3 = Color3.fromRGB(20, 20, 25); PremiumPanel.LayoutOrder = 1
+	PremiumPanel.Size = UDim2.new(1, 0, 0, 280); PremiumPanel.BackgroundColor3 = Color3.fromRGB(20, 20, 25); PremiumPanel.LayoutOrder = 1
 	Instance.new("UICorner", PremiumPanel).CornerRadius = UDim.new(0, 8); Instance.new("UIStroke", PremiumPanel).Color = Color3.fromRGB(80, 80, 90)
 
 	local pListLayout = Instance.new("UIListLayout", PremiumPanel); pListLayout.Padding = UDim.new(0, 10); pListLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center; pListLayout.SortOrder = Enum.SortOrder.LayoutOrder
-	local pPad = Instance.new("UIPadding", PremiumPanel); pPad.PaddingTop = UDim.new(0, 10); pPad.PaddingBottom = UDim.new(0, 15)
+	local pPad = Instance.new("UIPadding", PremiumPanel); pPad.PaddingTop = UDim.new(0, 10); pPad.PaddingBottom = UDim.new(0, 10)
 
 	local PTitle = Instance.new("TextLabel", PremiumPanel)
-	PTitle.Size = UDim2.new(1, 0, 0, 30); PTitle.BackgroundTransparency = 1; PTitle.Font = Enum.Font.GothamBlack; PTitle.TextColor3 = Color3.fromRGB(255, 215, 100); PTitle.TextSize = 16; PTitle.Text = "PREMIUM STORE"; PTitle.LayoutOrder = 1
+	PTitle.Size = UDim2.new(1, 0, 0, 25); PTitle.BackgroundTransparency = 1; PTitle.Font = Enum.Font.GothamBlack; PTitle.TextColor3 = Color3.fromRGB(255, 215, 100); PTitle.TextSize = 16; PTitle.Text = "PREMIUM STORE"; PTitle.LayoutOrder = 1
 
 	local PremList = Instance.new("ScrollingFrame", PremiumPanel)
 	PremList.Size = UDim2.new(1, -10, 1, -45); PremList.BackgroundTransparency = 1; PremList.LayoutOrder = 2; PremList.ScrollBarThickness = 0; PremList.BorderSizePixel = 0
@@ -143,21 +143,21 @@ function ShopTab.Init(parentFrame, tooltipMgr)
 	end
 
 	CodePanel = Instance.new("Frame", LeftCol)
-	CodePanel.Size = UDim2.new(1, 0, 0, 140); CodePanel.BackgroundColor3 = Color3.fromRGB(20, 20, 25); CodePanel.LayoutOrder = 2
+	CodePanel.Size = UDim2.new(1, 0, 0, 120); CodePanel.BackgroundColor3 = Color3.fromRGB(20, 20, 25); CodePanel.LayoutOrder = 2
 	Instance.new("UICorner", CodePanel).CornerRadius = UDim.new(0, 8); Instance.new("UIStroke", CodePanel).Color = Color3.fromRGB(60, 60, 70)
 
 	local cLayout = Instance.new("UIListLayout", CodePanel); cLayout.Padding = UDim.new(0, 8); cLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center; cLayout.FillDirection = Enum.FillDirection.Vertical
-	local cPad = Instance.new("UIPadding", CodePanel); cPad.PaddingTop = UDim.new(0, 15); cPad.PaddingBottom = UDim.new(0, 15)
+	local cPad = Instance.new("UIPadding", CodePanel); cPad.PaddingTop = UDim.new(0, 10); cPad.PaddingBottom = UDim.new(0, 10)
 
 	local cTitle = Instance.new("TextLabel", CodePanel)
-	cTitle.Size = UDim2.new(0.9, 0, 0, 25); cTitle.BackgroundTransparency = 1; cTitle.Font = Enum.Font.GothamBlack; cTitle.TextColor3 = Color3.fromRGB(200, 200, 200); cTitle.TextSize = 14; cTitle.TextXAlignment = Enum.TextXAlignment.Center; cTitle.Text = "ENTER PROMO CODE:"
+	cTitle.Size = UDim2.new(0.9, 0, 0, 20); cTitle.BackgroundTransparency = 1; cTitle.Font = Enum.Font.GothamBlack; cTitle.TextColor3 = Color3.fromRGB(200, 200, 200); cTitle.TextSize = 14; cTitle.TextXAlignment = Enum.TextXAlignment.Center; cTitle.Text = "ENTER PROMO CODE:"
 
 	local cInput = Instance.new("TextBox", CodePanel)
-	cInput.Size = UDim2.new(0.9, 0, 0, 40); cInput.BackgroundColor3 = Color3.fromRGB(15, 15, 18); cInput.Font = Enum.Font.GothamBold; cInput.TextColor3 = Color3.fromRGB(255, 255, 255); cInput.TextSize = 13; cInput.PlaceholderText = "Type code here..."
+	cInput.Size = UDim2.new(0.9, 0, 0, 35); cInput.BackgroundColor3 = Color3.fromRGB(15, 15, 18); cInput.Font = Enum.Font.GothamBold; cInput.TextColor3 = Color3.fromRGB(255, 255, 255); cInput.TextSize = 13; cInput.PlaceholderText = "Type code here..."
 	Instance.new("UICorner", cInput).CornerRadius = UDim.new(0, 6); Instance.new("UIStroke", cInput).Color = Color3.fromRGB(80, 80, 90)
 
 	local cBtn = Instance.new("TextButton", CodePanel)
-	cBtn.Size = UDim2.new(0.9, 0, 0, 40); cBtn.Font = Enum.Font.GothamBlack; cBtn.TextColor3 = Color3.fromRGB(255, 255, 255); cBtn.TextSize = 14; cBtn.Text = "REDEEM"
+	cBtn.Size = UDim2.new(0.9, 0, 0, 35); cBtn.Font = Enum.Font.GothamBlack; cBtn.TextColor3 = Color3.fromRGB(255, 255, 255); cBtn.TextSize = 14; cBtn.Text = "REDEEM"
 	ApplyButtonGradient(cBtn, Color3.fromRGB(80, 140, 220), Color3.fromRGB(40, 80, 140), Color3.fromRGB(60, 120, 200))
 
 	cBtn.MouseButton1Click:Connect(function()
@@ -192,7 +192,7 @@ function ShopTab.Init(parentFrame, tooltipMgr)
 	local rrLayout = Instance.new("UIListLayout", RRArea); rrLayout.FillDirection = Enum.FillDirection.Horizontal; rrLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center; rrLayout.Padding = UDim.new(0.04, 0)
 
 	DewsRRBtn = Instance.new("TextButton", RRArea)
-	DewsRRBtn.Size = UDim2.new(0.48, 0, 1, 0); DewsRRBtn.Font = Enum.Font.GothamBold; DewsRRBtn.TextColor3 = Color3.fromRGB(255,255,255); DewsRRBtn.TextSize = 12; DewsRRBtn.Text = "RESTOCK (100K Dews)"
+	DewsRRBtn.Size = UDim2.new(0.48, 0, 1, 0); DewsRRBtn.Font = Enum.Font.GothamBold; DewsRRBtn.TextColor3 = Color3.fromRGB(255,255,255); DewsRRBtn.TextSize = 12; DewsRRBtn.Text = "RESTOCK (300K Dews)"
 	ApplyButtonGradient(DewsRRBtn, Color3.fromRGB(80, 140, 200), Color3.fromRGB(40, 80, 120), Color3.fromRGB(60, 100, 160))
 
 	RRBtn = Instance.new("TextButton", RRArea)
@@ -256,7 +256,7 @@ function ShopTab.Init(parentFrame, tooltipMgr)
 		currentShopData = Network.GetShopData:InvokeServer()
 		isFetching = false
 
-		if DewsRRBtn and not isProcessingReroll then DewsRRBtn.Text = "RESTOCK (100K Dews)" end
+		if DewsRRBtn and not isProcessingReroll then DewsRRBtn.Text = "RESTOCK (300K Dews)" end
 		CheckVIPReroll()
 
 		if not currentShopData then return end
@@ -321,17 +321,17 @@ function ShopTab.Init(parentFrame, tooltipMgr)
 
 	DewsRRBtn.MouseButton1Click:Connect(function()
 		if isProcessingReroll then return end
-		if player.leaderstats and player.leaderstats:FindFirstChild("Dews") and player.leaderstats.Dews.Value >= 950000 then
+		if player.leaderstats and player.leaderstats:FindFirstChild("Dews") and player.leaderstats.Dews.Value >= 300000 then
 			isProcessingReroll = true
 			DewsRRBtn.Text = "REROLLING..."
 			Network.VIPFreeReroll:FireServer(true)
 			task.delay(3, function() 
 				isProcessingReroll = false
 				FetchAndRenderShop()
-				if DewsRRBtn then DewsRRBtn.Text = "RESTOCK (950K Dews)" end
+				if DewsRRBtn then DewsRRBtn.Text = "RESTOCK (300K Dews)" end
 			end)
 		else
-			if NotificationManager then NotificationManager.Show("You need 950,000 Dews to force a restock!", "Error") end
+			if NotificationManager then NotificationManager.Show("You need 300,000 Dews to force a restock!", "Error") end
 		end
 	end)
 
@@ -376,7 +376,7 @@ function ShopTab.Init(parentFrame, tooltipMgr)
 	player:GetAttributeChangedSignal("PersonalShopSeed"):Connect(function()
 		if MainFrame and MainFrame.Visible then
 			FetchAndRenderShop()
-			if DewsRRBtn and not isProcessingReroll then DewsRRBtn.Text = "RESTOCK (100K Dews)" end
+			if DewsRRBtn and not isProcessingReroll then DewsRRBtn.Text = "RESTOCK (300K Dews)" end
 			CheckVIPReroll() 
 		end
 	end)
