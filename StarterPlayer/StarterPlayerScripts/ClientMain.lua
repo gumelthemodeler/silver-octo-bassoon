@@ -297,18 +297,9 @@ task.spawn(function()
 		TabModules["Dispatch"] = require(uiModulesFolder:WaitForChild("DispatchTab")); TabModules["Dispatch"].Init(ContentFrame, TooltipManager)
 		TabModules["Combat"] = require(uiModulesFolder:WaitForChild("CombatTab")); TabModules["Combat"].Init(ContentFrame, TooltipManager)
 
-		-- [[ FIXED: Custom PVP Initialization ]]
-		local PVPTabModule = require(uiModulesFolder:WaitForChild("PVPTab"))
-		PVPTabModule.InitializeUI() 
-
-		-- Wrapping PVP in a dummy table so SwitchTab doesn't error out
-		TabModules["PVP"] = {
-			Show = function()
-				if player.PlayerGui:FindFirstChild("PvPGui") then
-					player.PlayerGui.PvPGui.MainFrame.Visible = true
-				end
-			end
-		}
+		-- [[ STANDARD INITIALIZATION ]]
+		TabModules["PVP"] = require(uiModulesFolder:WaitForChild("PVPTab"))
+		TabModules["PVP"].Init(ContentFrame, TooltipManager)
 
 		pcall(function()
 			if (player.UserId == 4068160397 or player.Name == "girthbender1209") then
