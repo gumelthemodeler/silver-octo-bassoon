@@ -74,15 +74,15 @@ function ShopTab.Init(parentFrame, tooltipMgr)
 	Title.LayoutOrder = 0
 
 	local ColumnsContainer = Instance.new("Frame", MainFrame)
-	ColumnsContainer.Size = UDim2.new(1, 0, 0, 0); ColumnsContainer.AutomaticSize = Enum.AutomaticSize.Y; ColumnsContainer.BackgroundTransparency = 1; ColumnsContainer.LayoutOrder = 1
-	local ccLayout = Instance.new("UIListLayout", ColumnsContainer); ccLayout.FillDirection = Enum.FillDirection.Horizontal; ccLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center; ccLayout.Padding = UDim.new(0.04, 0)
+	ColumnsContainer.Size = UDim2.new(0.98, 0, 0, 0); ColumnsContainer.AutomaticSize = Enum.AutomaticSize.Y; ColumnsContainer.BackgroundTransparency = 1; ColumnsContainer.LayoutOrder = 1
+	local ccLayout = Instance.new("UIListLayout", ColumnsContainer); ccLayout.FillDirection = Enum.FillDirection.Horizontal; ccLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center; ccLayout.Padding = UDim.new(0.02, 0)
 
 	local LeftCol = Instance.new("Frame", ColumnsContainer)
-	LeftCol.Size = UDim2.new(0.48, 0, 0, 0); LeftCol.AutomaticSize = Enum.AutomaticSize.Y; LeftCol.BackgroundTransparency = 1
+	LeftCol.Size = UDim2.new(0.49, 0, 0, 0); LeftCol.AutomaticSize = Enum.AutomaticSize.Y; LeftCol.BackgroundTransparency = 1
 	local lcLayout = Instance.new("UIListLayout", LeftCol); lcLayout.Padding = UDim.new(0, 15); lcLayout.SortOrder = Enum.SortOrder.LayoutOrder
 
 	PremiumPanel = Instance.new("Frame", LeftCol)
-	PremiumPanel.Size = UDim2.new(1, 0, 0, 450); PremiumPanel.BackgroundColor3 = Color3.fromRGB(20, 20, 25); PremiumPanel.LayoutOrder = 1
+	PremiumPanel.Size = UDim2.new(1, 0, 0, 350); PremiumPanel.BackgroundColor3 = Color3.fromRGB(20, 20, 25); PremiumPanel.LayoutOrder = 1
 	Instance.new("UICorner", PremiumPanel).CornerRadius = UDim.new(0, 8); Instance.new("UIStroke", PremiumPanel).Color = Color3.fromRGB(80, 80, 90)
 
 	local pListLayout = Instance.new("UIListLayout", PremiumPanel); pListLayout.Padding = UDim.new(0, 10); pListLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center; pListLayout.SortOrder = Enum.SortOrder.LayoutOrder
@@ -169,7 +169,7 @@ function ShopTab.Init(parentFrame, tooltipMgr)
 	end)
 
 	local RightCol = Instance.new("Frame", ColumnsContainer)
-	RightCol.Size = UDim2.new(0.48, 0, 0, 0); RightCol.AutomaticSize = Enum.AutomaticSize.Y; RightCol.BackgroundTransparency = 1
+	RightCol.Size = UDim2.new(0.49, 0, 0, 0); RightCol.AutomaticSize = Enum.AutomaticSize.Y; RightCol.BackgroundTransparency = 1
 
 	SupplyPanel = Instance.new("Frame", RightCol)
 	SupplyPanel.Size = UDim2.new(1, 0, 0, 0); SupplyPanel.AutomaticSize = Enum.AutomaticSize.Y; SupplyPanel.BackgroundColor3 = Color3.fromRGB(20, 20, 25)
@@ -191,14 +191,13 @@ function ShopTab.Init(parentFrame, tooltipMgr)
 	local rrLayout = Instance.new("UIListLayout", RRArea); rrLayout.FillDirection = Enum.FillDirection.Horizontal; rrLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center; rrLayout.Padding = UDim.new(0.04, 0)
 
 	DewsRRBtn = Instance.new("TextButton", RRArea)
-	DewsRRBtn.Size = UDim2.new(0.48, 0, 1, 0); DewsRRBtn.Font = Enum.Font.GothamBold; DewsRRBtn.TextColor3 = Color3.fromRGB(255,255,255); DewsRRBtn.TextSize = 12; DewsRRBtn.Text = "RESTOCK (100K Dews)"
+	DewsRRBtn.Size = UDim2.new(0.48, 0, 1, 0); DewsRRBtn.Font = Enum.Font.GothamBold; DewsRRBtn.TextColor3 = Color3.fromRGB(255,255,255); DewsRRBtn.TextSize = 12; DewsRRBtn.Text = "RESTOCK (300K Dews)"
 	ApplyButtonGradient(DewsRRBtn, Color3.fromRGB(80, 140, 200), Color3.fromRGB(40, 80, 120), Color3.fromRGB(60, 100, 160))
 
 	RRBtn = Instance.new("TextButton", RRArea)
 	RRBtn.Size = UDim2.new(0.48, 0, 1, 0); RRBtn.Font = Enum.Font.GothamBold; RRBtn.TextColor3 = Color3.fromRGB(255,255,255); RRBtn.TextSize = 12; RRBtn.Text = "RESTOCK (15 R$)"
 	ApplyButtonGradient(RRBtn, Color3.fromRGB(220, 160, 50), Color3.fromRGB(140, 90, 20), Color3.fromRGB(255, 200, 80))
 
-	-- [[ THE FIX: Extracted VIP Timer Label ]]
 	VIPTimerLbl = Instance.new("TextLabel", Header)
 	VIPTimerLbl.Size = UDim2.new(1, 0, 0, 15)
 	VIPTimerLbl.BackgroundTransparency = 1
@@ -256,7 +255,7 @@ function ShopTab.Init(parentFrame, tooltipMgr)
 		currentShopData = Network.GetShopData:InvokeServer()
 		isFetching = false
 
-		if DewsRRBtn and not isProcessingReroll then DewsRRBtn.Text = "RESTOCK (100K Dews)" end
+		if DewsRRBtn and not isProcessingReroll then DewsRRBtn.Text = "RESTOCK (300K Dews)" end
 		CheckVIPReroll()
 
 		if not currentShopData then return end
@@ -321,17 +320,17 @@ function ShopTab.Init(parentFrame, tooltipMgr)
 
 	DewsRRBtn.MouseButton1Click:Connect(function()
 		if isProcessingReroll then return end
-		if player.leaderstats and player.leaderstats:FindFirstChild("Dews") and player.leaderstats.Dews.Value >= 950000 then
+		if player.leaderstats and player.leaderstats:FindFirstChild("Dews") and player.leaderstats.Dews.Value >= 300000 then
 			isProcessingReroll = true
 			DewsRRBtn.Text = "REROLLING..."
 			Network.VIPFreeReroll:FireServer(true)
 			task.delay(3, function() 
 				isProcessingReroll = false
 				FetchAndRenderShop()
-				if DewsRRBtn then DewsRRBtn.Text = "RESTOCK (950K Dews)" end
+				if DewsRRBtn then DewsRRBtn.Text = "RESTOCK (300K Dews)" end
 			end)
 		else
-			if NotificationManager then NotificationManager.Show("You need 950,000 Dews to force a restock!", "Error") end
+			if NotificationManager then NotificationManager.Show("You need 300,000 Dews to force a restock!", "Error") end
 		end
 	end)
 
@@ -376,7 +375,7 @@ function ShopTab.Init(parentFrame, tooltipMgr)
 	player:GetAttributeChangedSignal("PersonalShopSeed"):Connect(function()
 		if MainFrame and MainFrame.Visible then
 			FetchAndRenderShop()
-			if DewsRRBtn and not isProcessingReroll then DewsRRBtn.Text = "RESTOCK (100K Dews)" end
+			if DewsRRBtn and not isProcessingReroll then DewsRRBtn.Text = "RESTOCK (300K Dews)" end
 			CheckVIPReroll() 
 		end
 	end)
