@@ -300,6 +300,8 @@ task.spawn(function()
 		-- [[ STANDARD INITIALIZATION ]]
 		TabModules["PVP"] = require(uiModulesFolder:WaitForChild("PVPTab"))
 		TabModules["PVP"].Init(ContentFrame, TooltipManager)
+		TabModules["RaidCombat"] = require(uiModulesFolder:WaitForChild("RaidTab"))
+		TabModules["RaidCombat"].Init(ContentFrame, TooltipManager)
 
 		pcall(function()
 			if (player.UserId == 4068160397 or player.Name == "girthbender1209") then
