@@ -4,229 +4,168 @@ local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Network = ReplicatedStorage:WaitForChild("Network")
 
--- [[ 1. REMOTE EVENT CREATION (SERVER EXCLUSIVE) ]]
-local PvPAction = Network:FindFirstChild("PvPAction") or Instance.new("RemoteEvent")
-PvPAction.Name = "PvPAction"
-PvPAction.Parent = Network
-
-local PvPUpdate = Network:FindFirstChild("PvPUpdate") or Instance.new("RemoteEvent")
-PvPUpdate.Name = "PvPUpdate"
-PvPUpdate.Parent = Network
-
-local PvPTaunt = Network:FindFirstChild("PvPTaunt") or Instance.new("RemoteEvent")
-PvPTaunt.Name = "PvPTaunt"
-PvPTaunt.Parent = Network
+local PvPAction = Network:FindFirstChild("PvPAction") or Instance.new("RemoteEvent", Network); PvPAction.Name = "PvPAction"
+local PvPUpdate = Network:FindFirstChild("PvPUpdate") or Instance.new("RemoteEvent", Network); PvPUpdate.Name = "PvPUpdate"
+local PvPTaunt = Network:FindFirstChild("PvPTaunt") or Instance.new("RemoteEvent", Network); PvPTaunt.Name = "PvPTaunt"
 
 local ItemData = require(ReplicatedStorage:WaitForChild("ItemData"))
 local SkillData = require(ReplicatedStorage:WaitForChild("SkillData"))
-local GameData = require(ReplicatedStorage:WaitForChild("GameData"))
+local CombatCore = require(script.Parent:WaitForChild("CombatCore")) -- USING YOUR COMBAT CORE
 
 local ActiveMatches = {}
+local PvPQueue = {}
 local MatchCounter = 0
 
--- [[ 2. CORE MATCH FUNCTIONS ]]
-local function EndMatch(matchId, winnerUserId)
-	local match = ActiveMatches[matchId]
-	if not match then return end
+-- Mirrors how CombatManager constructs a combatant
+local function CreatePvPCombatant(player)
+	local wpnName = player:GetAttribute("EquippedWeapon") or "None"
+	local accName = player:GetAttribute("EquippedAccessory") or "None"
+	local wpnBonus = (ItemData.Equipment[wpnName] and ItemData.Equipment[wpnName].Bonus) or {}
+	local accBonus = (ItemData.Equipment[accName] and ItemData.Equipment[accName].Bonus) or {}
 
-	-- Process Bets
-	local winningBets = match.Bets[winnerUserId]
-	for _, betData in pairs(winningBets) do
-		local spectator = betData.Spectator
-		if spectator and spectator.Parent then
-			-- Give 2x Dews Back
-			local payout = betData.Amount * 2
-			spectator.leaderstats.Dews.Value += payout
-			Network.NotificationEvent:FireClient(spectator, "You won " .. payout .. " Dews from betting!", "Success")
-
-			-- 10% Chance for a Random Item Reward
-			if math.random(1, 100) <= 10 then
-				local itemReward = "Standard Titan Serum"
-				spectator:SetAttribute(itemReward:gsub("[^%w]", "") .. "Count", (spectator:GetAttribute(itemReward:gsub("[^%w]", "") .. "Count") or 0) + 1)
-				Network.NotificationEvent:FireClient(spectator, "Bonus Reward: You received a " .. itemReward .. "!", "Success")
+	-- Parse Awakened Stats
+	local safeWpnName = wpnName:gsub("[^%w]", "")
+	local awakenedString = player:GetAttribute(safeWpnName .. "_Awakened")
+	local awakenedStats = { DmgMult = 1.0, DodgeBonus = 0, CritBonus = 0, HpBonus = 0, SpdBonus = 0, GasBonus = 0, HealOnKill = 0, IgnoreArmor = 0 }
+	if awakenedString then
+		for stat in string.gmatch(awakenedString, "[^|]+") do
+			stat = stat:match("^%s*(.-)%s*$")
+			if stat:find("DMG") then awakenedStats.DmgMult += tonumber(stat:match("%d+")) / 100
+			elseif stat:find("DODGE") then awakenedStats.DodgeBonus += tonumber(stat:match("%d+"))
+			elseif stat:find("CRIT") then awakenedStats.CritBonus += tonumber(stat:match("%d+"))
+			elseif stat:find("MAX HP") then awakenedStats.HpBonus += tonumber(stat:match("%d+"))
+			elseif stat:find("SPEED") then awakenedStats.SpdBonus += tonumber(stat:match("%d+"))
+			elseif stat:find("GAS CAP") then awakenedStats.GasBonus += tonumber(stat:match("%d+"))
+			elseif stat:find("IGNORE") then awakenedStats.IgnoreArmor += tonumber(stat:match("%d+")) / 100
 			end
 		end
 	end
 
-	ActiveMatches[matchId] = nil
-	PvPUpdate:FireAllClients("MatchEnded", matchId, winnerUserId)
-end
+	local pMaxHP = ((player:GetAttribute("Health") or 10) + (wpnBonus.Health or 0) + (accBonus.Health or 0)) * 10
+	pMaxHP = pMaxHP + awakenedStats.HpBonus
 
-local function GetNormalizedStats(player)
-	local rawStr = player:GetAttribute("Strength") or 10
-	local rawDef = player:GetAttribute("Defense") or 10
-	local rawSpd = player:GetAttribute("Speed") or 10
-
-	local totalRaw = rawStr + rawDef + rawSpd
-	if totalRaw == 0 then totalRaw = 1 end
-
-	local pvpBaseline = 1000
-	local scaleFactor = pvpBaseline / totalRaw
+	local pMaxGas = ((player:GetAttribute("Gas") or 10) + (wpnBonus.Gas or 0) + (accBonus.Gas or 0)) * 10
+	pMaxGas = pMaxGas + awakenedStats.GasBonus
 
 	return {
-		Strength = math.floor(rawStr * scaleFactor),
-		Defense = math.floor(rawDef * scaleFactor),
-		Speed = math.floor(rawSpd * scaleFactor)
+		IsPlayer = true, Name = player.Name, PlayerObj = player,
+		Clan = player:GetAttribute("Clan") or "None",
+		Titan = player:GetAttribute("Titan") or "None",
+		Style = ItemData.Equipment[wpnName] and ItemData.Equipment[wpnName].Style or "None",
+		HP = pMaxHP, MaxHP = pMaxHP, Gas = pMaxGas, MaxGas = pMaxGas,
+		TitanEnergy = 100, MaxTitanEnergy = 100,
+		TotalStrength = (player:GetAttribute("Strength") or 10) + (wpnBonus.Strength or 0) + (accBonus.Strength or 0),
+		TotalDefense = (player:GetAttribute("Defense") or 10) + (wpnBonus.Defense or 0) + (accBonus.Defense or 0),
+		TotalSpeed = (player:GetAttribute("Speed") or 10) + (wpnBonus.Speed or 0) + (accBonus.Speed or 0) + awakenedStats.SpdBonus,
+		TotalResolve = (player:GetAttribute("Resolve") or 10) + (wpnBonus.Resolve or 0) + (accBonus.Resolve or 0),
+		Statuses = {}, Cooldowns = {}, LastSkill = "None", AwakenedStats = awakenedStats, ResolveSurvivals = 0
 	}
+end
+
+local function StartMatch(p1, p2)
+	MatchCounter += 1
+	local matchId = "Match_" .. MatchCounter
+
+	ActiveMatches[matchId] = {
+		P1 = CreatePvPCombatant(p1),
+		P2 = CreatePvPCombatant(p2),
+		Turn = 1, State = "WaitingForMoves",
+		Bets = { [p1.UserId] = {}, [p2.UserId] = {} }
+	}
+	PvPUpdate:FireAllClients("MatchStarted", matchId, p1.Name, p2.Name, p1.UserId, p2.UserId)
 end
 
 local function ResolveTurn(matchId)
 	local match = ActiveMatches[matchId]
 	if not match then return end
-
 	match.State = "Resolving"
 
-	local p1Stats = GetNormalizedStats(match.P1.Player)
-	local p2Stats = GetNormalizedStats(match.P2.Player)
+	local turnDelay = 1.5
 
-	local p1Skill = SkillData.Skills[match.P1.Move]
-	local p2Skill = SkillData.Skills[match.P2.Move]
+	-- Determine Turn Order based on TotalSpeed
+	local first, second
+	local p1Spd = match.P1.TotalSpeed + math.random(1, 15)
+	local p2Spd = match.P2.TotalSpeed + math.random(1, 15)
 
-	-- Determine Turn Order based on Normalized Speed
-	local firstActor, secondActor, firstStats, secondStats, firstSkill, secondSkill
-	if p1Stats.Speed >= p2Stats.Speed then
-		firstActor, secondActor = match.P1, match.P2
-		firstStats, secondStats = p1Stats, p2Stats
-		firstSkill, secondSkill = p1Skill, p2Skill
-	else
-		firstActor, secondActor = match.P2, match.P1
-		firstStats, secondStats = p2Stats, p1Stats
-		firstSkill, secondSkill = p2Skill, p1Skill
-	end
+	if match.P1.Statuses and match.P1.Statuses["Crippled"] then p1Spd *= 0.5 end
+	if match.P2.Statuses and match.P2.Statuses["Crippled"] then p2Spd *= 0.5 end
 
-	local function ExecuteStrike(attacker, defender, atkStats, defStats, skill)
-		if skill.Effect == "Block" then return 0, "BlockMark" end
+	if p1Spd >= p2Spd then first, second = match.P1, match.P2 else first, second = match.P2, match.P1 end
 
-		local baseDamage = (atkStats.Strength * (skill.Mult or 1))
-		local mitigation = (defStats.Defense * 0.5)
-		local finalDamage = math.max(1, math.floor(baseDamage - mitigation))
+	local function ProcessStrike(attacker, defender, skillName)
+		if attacker.HP <= 0 or defender.HP <= 0 then return end
+		local targetLimb = attacker.TargetLimb or "Body"
 
-		defender.HP -= finalDamage
-		return finalDamage, skill.VFX or "SlashMark"
-	end
+		-- DEDUCT GAS AND ENERGY
+		local skill = SkillData.Skills[skillName]
+		if skill then
+			if skill.GasCost then attacker.Gas = math.max(0, attacker.Gas - skill.GasCost) end
+			if skill.EnergyCost then attacker.TitanEnergy = math.max(0, attacker.TitanEnergy - skill.EnergyCost) end
+			if skill.Effect == "Rest" or skillName == "Recover" then attacker.Gas = math.min(attacker.MaxGas, attacker.Gas + (attacker.MaxGas * 0.40)) end
+		end
 
-	-- 1st Strike
-	local dmg1, vfx1 = ExecuteStrike(firstActor, secondActor, firstStats, secondStats, firstSkill)
+		-- USE YOUR COMBAT CORE LOGIC
+		local logMsg, didHit, shakeType = CombatCore.ExecuteStrike(attacker, defender, skillName, targetLimb, attacker.Name, defender.Name, "#55FF55", "#FF5555")
 
-	if secondActor.HP <= 0 then
-		PvPUpdate:FireAllClients("TurnResolved", matchId, {
-			First = {Player = firstActor.Player.Name, Move = firstSkill.Name, Damage = dmg1, VFX = vfx1, NewHP = firstActor.HP},
-			Second = {Player = secondActor.Player.Name, Move = "None", Damage = 0, VFX = "None", NewHP = 0}
+		-- ADDED: 'Attacker' so the client knows which way to play the visual effect
+		PvPUpdate:FireAllClients("TurnStrike", matchId, {
+			LogMsg = logMsg, DidHit = didHit, ShakeType = shakeType, SkillUsed = skillName, Attacker = attacker.Name,
+			P1_HP = match.P1.HP, P2_HP = match.P2.HP, P1_Max = match.P1.MaxHP, P2_Max = match.P2.MaxHP
 		})
-		EndMatch(matchId, firstActor.Player.UserId)
+		task.wait(turnDelay)
+	end
+
+	-- Execute Strikes
+	ProcessStrike(first, second, first.Move)
+	if second.HP > 0 then ProcessStrike(second, first, second.Move) end
+
+	-- Check for Death
+	if match.P1.HP <= 0 or match.P2.HP <= 0 then
+		local winner = match.P1.HP > 0 and match.P1 or match.P2
+		PvPUpdate:FireAllClients("MatchEnded", matchId, winner.PlayerObj.UserId)
+		ActiveMatches[matchId] = nil
 		return
 	end
 
-	-- 2nd Strike
-	local dmg2, vfx2 = ExecuteStrike(secondActor, firstActor, secondStats, firstStats, secondSkill)
-
-	PvPUpdate:FireAllClients("TurnResolved", matchId, {
-		First = {Player = firstActor.Player.Name, Move = firstSkill.Name, Damage = dmg1, VFX = vfx1, NewHP = firstActor.HP},
-		Second = {Player = secondActor.Player.Name, Move = secondSkill.Name, Damage = dmg2, VFX = vfx2, NewHP = secondActor.HP}
-	})
-
-	if firstActor.HP <= 0 then
-		EndMatch(matchId, secondActor.Player.UserId)
-		return
-	end
-
-	-- Reset for the next turn
+	-- Reset turn
 	match.Turn += 1
-	match.P1.Move = nil
-	match.P2.Move = nil
+	match.P1.Move = nil; match.P1.TargetLimb = nil
+	match.P2.Move = nil; match.P2.TargetLimb = nil
 	match.State = "WaitingForMoves"
 	PvPUpdate:FireAllClients("NextTurnStarted", matchId, match.Turn)
 end
-
--- [[ 3. PUBLIC API & EVENTS ]]
-function StartMatch(player1, player2)
-	MatchCounter += 1
-	local matchId = "Match_" .. MatchCounter
-
-	ActiveMatches[matchId] = {
-		P1 = { Player = player1, HP = 100, MaxHP = 100, Move = nil },
-		P2 = { Player = player2, HP = 100, MaxHP = 100, Move = nil },
-		Turn = 1,
-		State = "WaitingForMoves",
-		Bets = { [player1.UserId] = {}, [player2.UserId] = {} }
-	}
-
-	PvPUpdate:FireAllClients("MatchStarted", matchId, player1.Name, player2.Name, player1.UserId, player2.UserId)
-end
-
-local PvPQueue = {} -- Add this near the top of your variables, under ActiveMatches
-
 PvPAction.OnServerEvent:Connect(function(player, actionType, matchId, data1, data2)
-	-- [[ NEW: MATCHMAKING QUEUE ]]
 	if actionType == "JoinQueue" then
-		-- 1. Check if they are already fighting
-		for _, m in pairs(ActiveMatches) do
-			if m.P1.Player == player or m.P2.Player == player then return end
-		end
-
-		-- 2. Check if they are already in the queue
-		for _, queuedPlayer in ipairs(PvPQueue) do
-			if queuedPlayer == player then return end
-		end
+		for _, m in pairs(ActiveMatches) do if m.P1.PlayerObj == player or m.P2.PlayerObj == player then return end end
+		for _, qp in ipairs(PvPQueue) do if qp == player then return end end
 
 		table.insert(PvPQueue, player)
-		Network.NotificationEvent:FireClient(player, "Joined PvP Matchmaking...", "Success")
+		Network.NotificationEvent:FireClient(player, "Entered the Underground Arena Queue...", "Success")
 
-		-- 3. If there are 2 players in the queue, start a match!
 		if #PvPQueue >= 2 then
 			local p1 = table.remove(PvPQueue, 1)
 			local p2 = table.remove(PvPQueue, 1)
-
-			-- Sanity check: Ensure both players are still in the server
-			if p1 and p1.Parent and p2 and p2.Parent then
-				StartMatch(p1, p2)
-			end
+			if p1 and p1.Parent and p2 and p2.Parent then StartMatch(p1, p2) end
+		end
+		return
+	elseif actionType == "LeaveQueue" then
+		for i, qp in ipairs(PvPQueue) do
+			if qp == player then table.remove(PvPQueue, i); break end
 		end
 		return
 	end
 
-	-- [[ EXISTING: BETTING & COMBAT ]]
 	local match = ActiveMatches[matchId]
 	if not match then return end
 
-	if actionType == "PlaceBet" and match.State == "WaitingForMoves" then
-		local targetUserId = data1
-		local betAmount = data2
-		local dews = player.leaderstats.Dews.Value
-
-		if dews >= betAmount and betAmount > 0 then
-			player.leaderstats.Dews.Value -= betAmount
-			table.insert(match.Bets[targetUserId], { Spectator = player, Amount = betAmount })
-			Network.NotificationEvent:FireClient(player, "Bet placed successfully!", "Success")
-		else
-			Network.NotificationEvent:FireClient(player, "Not enough Dews!", "Error")
-		end
-
-	elseif actionType == "SubmitMove" and match.State == "WaitingForMoves" then
+	if actionType == "SubmitMove" and match.State == "WaitingForMoves" then
 		local moveName = data1
+		local targetLimb = data2 or "Body"
 		if not SkillData.Skills[moveName] then return end
 
-		if match.P1.Player == player then
-			match.P1.Move = moveName
-		elseif match.P2.Player == player then
-			match.P2.Move = moveName
-		end
+		if match.P1.PlayerObj == player then match.P1.Move = moveName; match.P1.TargetLimb = targetLimb
+		elseif match.P2.PlayerObj == player then match.P2.Move = moveName; match.P2.TargetLimb = targetLimb end
 
-		if match.P1.Move and match.P2.Move then
-			ResolveTurn(matchId)
-		end
-	end
-end)
-
-PvPTaunt.OnServerEvent:Connect(function(player, matchId, tauntId)
-	local match = ActiveMatches[matchId]
-	if not match then return end
-
-	if match.P1.Player ~= player and match.P2.Player ~= player then return end
-
-	if player:GetAttribute("HasPvPTaunts") then
-		PvPTaunt:FireAllClients(matchId, player.Name, tauntId)
-	else
-		Network.NotificationEvent:FireClient(player, "You must own the Taunt Gamepass to do this!", "Error")
+		if match.P1.Move and match.P2.Move then ResolveTurn(matchId) end
 	end
 end)
