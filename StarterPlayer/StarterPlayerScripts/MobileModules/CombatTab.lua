@@ -239,7 +239,6 @@ function CombatTab.Init(parentFrame, tooltipMgr)
 	psDust.Size = UDim2.new(0.5, 0, 1, 0); psDust.Position = UDim2.new(0.5, -10, 0, 0); psDust.BackgroundTransparency = 1; psDust.Font = Enum.Font.GothamBlack; psDust.TextColor3 = Color3.fromRGB(255, 255, 255); psDust.TextSize = 14; psDust.TextXAlignment = Enum.TextXAlignment.Right; psDust.Text = "PATH DUST: 0"
 	psDust.ZIndex = 2
 
-	-- [[ THE FIX: Added Explicit Close Button to Paths Shop on Mobile ]]
 	local psLeaveBtn = Instance.new("TextButton", PSModal)
 	psLeaveBtn.Size = UDim2.new(1, -20, 0, 45); psLeaveBtn.Position = UDim2.new(0, 10, 1, -55)
 	psLeaveBtn.Font = Enum.Font.GothamBlack; psLeaveBtn.TextColor3 = Color3.fromRGB(255, 255, 255); psLeaveBtn.TextSize = 14; psLeaveBtn.Text = "SCATTER DUST & LEAVE"; psLeaveBtn.ZIndex = 3
@@ -349,19 +348,19 @@ function CombatTab.Init(parentFrame, tooltipMgr)
 	local grad = Instance.new("UIGradient", WaveLabel); grad.Color = ColorSequence.new{ColorSequenceKeypoint.new(0, Color3.fromRGB(255, 215, 100)), ColorSequenceKeypoint.new(1, Color3.fromRGB(255, 150, 50))}
 
 	local CombatantsFrame = Instance.new("Frame", MainFrame)
-	CombatantsFrame.Size = UDim2.new(0.98, 0, 0, 70); CombatantsFrame.BackgroundTransparency = 1
+	CombatantsFrame.Size = UDim2.new(0.98, 0, 0, 95); CombatantsFrame.BackgroundTransparency = 1
 	CombatantsFrame.LayoutOrder = 2
 
 	local PlayerPanel = Instance.new("Frame", CombatantsFrame)
 	PlayerPanel.Size = UDim2.new(0.46, 0, 1, 0); PlayerPanel.Position = UDim2.new(0, 0, 0, 0); PlayerPanel.BackgroundTransparency = 1
 
 	pAvatarBox = Instance.new("Frame", PlayerPanel)
-	pAvatarBox.Size = UDim2.new(0, 50, 0, 50); pAvatarBox.Position = UDim2.new(0, 0, 0.5, 0); pAvatarBox.AnchorPoint = Vector2.new(0, 0.5); pAvatarBox.BackgroundColor3 = Color3.fromRGB(10, 10, 15)
+	pAvatarBox.Size = UDim2.new(0, 65, 0, 65); pAvatarBox.Position = UDim2.new(0, 0, 0.5, 0); pAvatarBox.AnchorPoint = Vector2.new(0, 0.5); pAvatarBox.BackgroundColor3 = Color3.fromRGB(10, 10, 15)
 	Instance.new("UIStroke", pAvatarBox).Color = Color3.fromRGB(80, 120, 200); Instance.new("UIStroke", pAvatarBox).Thickness = 2; Instance.new("UIStroke", pAvatarBox).LineJoinMode = Enum.LineJoinMode.Miter
 	local pAvatarImg = Instance.new("ImageLabel", pAvatarBox); pAvatarImg.Size = UDim2.new(1, 0, 1, 0); pAvatarImg.BackgroundTransparency = 1; pAvatarImg.Image = "rbxthumb://type=AvatarHeadShot&id=" .. player.UserId .. "&w=150&h=150"
 
 	local pStatsArea = Instance.new("Frame", PlayerPanel)
-	pStatsArea.Size = UDim2.new(1, -60, 1, 0); pStatsArea.Position = UDim2.new(0, 60, 0, 0); pStatsArea.BackgroundTransparency = 1
+	pStatsArea.Size = UDim2.new(1, -70, 1, 0); pStatsArea.Position = UDim2.new(0, 70, 0, 0); pStatsArea.BackgroundTransparency = 1
 	local pLayout = Instance.new("UIListLayout", pStatsArea); pLayout.SortOrder = Enum.SortOrder.LayoutOrder; pLayout.Padding = UDim.new(0, 2); pLayout.VerticalAlignment = Enum.VerticalAlignment.Center
 
 	PlayerNameText = Instance.new("TextLabel", pStatsArea)
@@ -383,12 +382,12 @@ function CombatTab.Init(parentFrame, tooltipMgr)
 	EnemyPanel.Size = UDim2.new(0.46, 0, 1, 0); EnemyPanel.Position = UDim2.new(0.54, 0, 0, 0); EnemyPanel.BackgroundTransparency = 1
 
 	eAvatarBox = Instance.new("Frame", EnemyPanel)
-	eAvatarBox.Size = UDim2.new(0, 50, 0, 50); eAvatarBox.Position = UDim2.new(1, 0, 0.5, 0); eAvatarBox.AnchorPoint = Vector2.new(1, 0.5); eAvatarBox.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+	eAvatarBox.Size = UDim2.new(0, 65, 0, 65); eAvatarBox.Position = UDim2.new(1, 0, 0.5, 0); eAvatarBox.AnchorPoint = Vector2.new(1, 0.5); eAvatarBox.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
 	Instance.new("UIStroke", eAvatarBox).Color = Color3.fromRGB(255, 100, 100); Instance.new("UIStroke", eAvatarBox).Thickness = 2; Instance.new("UIStroke", eAvatarBox).LineJoinMode = Enum.LineJoinMode.Miter
 	local eAvatarIcon = Instance.new("TextLabel", eAvatarBox); eAvatarIcon.Size = UDim2.new(1, 0, 1, 0); eAvatarIcon.BackgroundTransparency = 1; eAvatarIcon.Font = Enum.Font.GothamBlack; eAvatarIcon.TextColor3 = Color3.fromRGB(200, 50, 50); eAvatarIcon.TextScaled = true; eAvatarIcon.Text = "?"
 
 	local eStatsArea = Instance.new("Frame", EnemyPanel)
-	eStatsArea.Size = UDim2.new(1, -60, 1, 0); eStatsArea.Position = UDim2.new(0, 0, 0, 0); eStatsArea.BackgroundTransparency = 1
+	eStatsArea.Size = UDim2.new(1, -70, 1, 0); eStatsArea.Position = UDim2.new(0, 0, 0, 0); eStatsArea.BackgroundTransparency = 1
 	local eStatsLayout = Instance.new("UIListLayout", eStatsArea); eStatsLayout.SortOrder = Enum.SortOrder.LayoutOrder; eStatsLayout.Padding = UDim.new(0, 2); eStatsLayout.VerticalAlignment = Enum.VerticalAlignment.Center; eStatsLayout.HorizontalAlignment = Enum.HorizontalAlignment.Right
 
 	EnemyNameText = Instance.new("TextLabel", eStatsArea)
@@ -403,14 +402,14 @@ function CombatTab.Init(parentFrame, tooltipMgr)
 	local eStatusLayout = Instance.new("UIListLayout", EnemyStatusBox); eStatusLayout.FillDirection = Enum.FillDirection.Horizontal; eStatusLayout.HorizontalAlignment = Enum.HorizontalAlignment.Right; eStatusLayout.Padding = UDim.new(0, 2)
 
 	local FeedBox = Instance.new("Frame", MainFrame)
-	FeedBox.Size = UDim2.new(0.98, 0, 0, 60); FeedBox.BackgroundColor3 = Color3.fromRGB(22, 22, 26); FeedBox.ClipsDescendants = true; FeedBox.LayoutOrder = 3
+	FeedBox.Size = UDim2.new(0.98, 0, 0, 50); FeedBox.BackgroundColor3 = Color3.fromRGB(22, 22, 26); FeedBox.ClipsDescendants = true; FeedBox.LayoutOrder = 3
 	Instance.new("UICorner", FeedBox).CornerRadius = UDim.new(0, 6); local fbStroke = Instance.new("UIStroke", FeedBox); fbStroke.Color = Color3.fromRGB(60, 60, 70); fbStroke.Thickness = 1; fbStroke.LineJoinMode = Enum.LineJoinMode.Miter
 
 	LogText = Instance.new("TextLabel", FeedBox)
 	LogText.Size = UDim2.new(1, -10, 1, -10); LogText.Position = UDim2.new(0, 5, 0, 5); LogText.BackgroundTransparency = 1; LogText.Font = Enum.Font.GothamMedium; LogText.TextColor3 = Color3.fromRGB(230, 230, 230); LogText.TextSize = 10; LogText.TextXAlignment = Enum.TextXAlignment.Left; LogText.TextYAlignment = Enum.TextYAlignment.Bottom; LogText.TextWrapped = true; LogText.RichText = true; LogText.Text = ""
 
 	local BottomArea = Instance.new("Frame", MainFrame)
-	BottomArea.Size = UDim2.new(0.98, 0, 1, -175) 
+	BottomArea.Size = UDim2.new(0.98, 0, 1, -190) 
 	BottomArea.BackgroundTransparency = 1
 	BottomArea.LayoutOrder = 4
 
@@ -418,9 +417,8 @@ function CombatTab.Init(parentFrame, tooltipMgr)
 	ActionGrid.Size = UDim2.new(1, 0, 1, 0); ActionGrid.BackgroundTransparency = 1; ActionGrid.ScrollBarThickness = 0; ActionGrid.BorderSizePixel = 0
 	local gridLayout = Instance.new("UIGridLayout", ActionGrid)
 
-	-- [[ THE FIX: Re-structured the ActionGrid to be scrollable and incredibly chunky/legible on Mobile! ]]
-	gridLayout.CellSize = UDim2.new(0.48, 0, 0, 55)
-	gridLayout.CellPadding = UDim2.new(0.03, 0, 0, 10)
+	gridLayout.CellSize = UDim2.new(0.48, 0, 0, 38)
+	gridLayout.CellPadding = UDim2.new(0.03, 0, 0, 6)
 	gridLayout.SortOrder = Enum.SortOrder.LayoutOrder; gridLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
 
 	gridLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
@@ -435,7 +433,7 @@ function CombatTab.Init(parentFrame, tooltipMgr)
 	InfoPanel.Size = UDim2.new(0.45, 0, 1, 0); InfoPanel.BackgroundTransparency = 1
 
 	local tHoverTitle = Instance.new("TextLabel", InfoPanel)
-	tHoverTitle.Size = UDim2.new(1, -10, 0, 20); tHoverTitle.Position = UDim2.new(0, 10, 0, 5); tHoverTitle.BackgroundTransparency = 1; tHoverTitle.Font = Enum.Font.GothamBlack; tHoverTitle.TextColor3 = Color3.fromRGB(255, 215, 100); tHoverTitle.TextSize = 14; tHoverTitle.TextXAlignment = Enum.TextXAlignment.Left; tHoverTitle.Text = "SELECT TARGET"
+	tHoverTitle.Size = UDim2.new(1, -10, 0, 20); tHoverTitle.Position = UDim2.new(0, 10, 0, 5); tHoverTitle.BackgroundTransparency = 1; tHoverTitle.Font = Enum.Font.GothamBlack; tHoverTitle.TextColor3 = Color3.fromRGB(255, 215, 100); tHoverTitle.TextSize = 13; tHoverTitle.TextXAlignment = Enum.TextXAlignment.Left; tHoverTitle.Text = "SELECT TARGET"
 	ApplyGradient(tHoverTitle, Color3.fromRGB(255, 215, 100), Color3.fromRGB(255, 150, 50))
 
 	local tHoverDesc = Instance.new("TextLabel", InfoPanel)
@@ -561,7 +559,7 @@ function CombatTab.Init(parentFrame, tooltipMgr)
 
 				local btn = Instance.new("TextButton", ActionGrid)
 				btn.RichText = true 
-				btn.Font = Enum.Font.GothamBold; btn.TextSize = 13; btn.LayoutOrder = order or 10
+				btn.Font = Enum.Font.GothamBold; btn.TextSize = 11; btn.LayoutOrder = order or 10
 
 				local baseColor = color or Color3.fromRGB(60, 60, 70)
 				if isReady then
@@ -582,7 +580,7 @@ function CombatTab.Init(parentFrame, tooltipMgr)
 					end 
 				end
 
-				btn.Text = sName:upper() .. "\n<font size='10' color='" .. (isReady and "#AAAAAA" or "#FF5555") .. "'>[" .. cdStr .. "]</font>"
+				btn.Text = sName:upper() .. "\n<font size='9' color='" .. (isReady and "#AAAAAA" or "#FF5555") .. "'>[" .. cdStr .. "]</font>"
 
 				btn.MouseButton1Click:Connect(function()
 					if isBattleActive and not inputLocked and isReady then
